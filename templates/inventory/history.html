@@ -1,0 +1,74 @@
+﻿{% extends "base.html" %}
+{% block title %}入出庫履歴{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">入出庫履歴</h1>
+  <a href="/inventory" class="btn btn-ghost">← 在庫一覧</a>
+</div>
+
+<div class="filter-bar">
+  <form method="get" class="filter-form">
+    <select name="product_id" class="select">
+      <option value="">すべての商品</option>
+      {% for p in products %}
+      <option value="{{ p.id }}" {% if product_id == p.id|string %}selected{% endif %}>{{ p.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="movement_type" class="select">
+      <option value="">入庫・出庫すべて</option>
+      <option value="in" {% if movement_type == "in" %}selected{% endif %}>入庫のみ</option>
+      <option value="out" {% if movement_type == "out" %}selected{% endif %}>出庫のみ</option>
+    </select>
+    <div style="display:flex;align-items:center;gap:6px">
+      <input name="date_from" type="date" class="input" value="{{ date_from }}">
+      <span style="color:var(--text-muted);font-size:12px">〜</span>
+      <input name="date_to" type="date" class="input" value="{{ date_to }}">
+    </div>
+    <button type="submit" class="btn btn-ghost">検索</button>
+    <a href="/inventory/history" class="btn btn-ghost">リセット</a>
+  </form>
+</div>
+
+<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">
+  {{ histories | length }} 件
+</div>
+
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>日時</th>
+        <th>商品名</th>
+        <th>区分</th>
+        <th>数量</th>
+        <th>シリアル番号</th>
+        <th>ロット番号</th>
+        <th>有効期限</th>
+        <th>理由</th>
+        <th>担当者</th>
+        <th>メモ</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for h in histories %}
+      <tr>
+        <td class="mono text-sm">{{ h.moved_at.strftime("%Y/%m/%d %H:%M") }}</td>
+        <td><a href="/products/{{ h.product_id }}" class="link">{{ h.product.name }}</a></td>
+        <td><span class="badge {{ 'badge-in' if h.movement_type == 'in' else 'badge-out' }}">{{ "入庫" if h.movement_type == "in" else "出庫" }}</span></td>
+        <td class="{{ 'text-success' if h.movement_type == 'in' else 'text-danger' }} fw-bold">
+          {{ "+" if h.movement_type == "in" else "-" }}{{ h.quantity }}
+        </td>
+        <td class="mono text-sm">{{ h.serial_number or "―" }}</td>
+        <td class="mono text-sm">{{ h.lot_number or "―" }}</td>
+        <td class="mono text-sm">{{ h.expiry_date or "―" }}</td>
+        <td>{{ h.reason or "―" }}</td>
+        <td>{{ h.staff_name or "―" }}</td>
+        <td>{{ h.note or "―" }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="10" class="empty">該当する履歴がありません</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

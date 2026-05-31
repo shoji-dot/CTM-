@@ -1,0 +1,57 @@
+﻿{% extends "base.html" %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">{{ product.name }}</h1>
+  <div class="header-actions">
+    <a href="/products/{{ product.id }}/edit" class="btn btn-ghost">編集</a>
+    <a href="/products" class="btn btn-ghost">← 一覧</a>
+  </div>
+</div>
+{% set stock = product.inventory.current_stock if product.inventory else 0 %}
+{% set is_alert = stock <= product.stock_alert_threshold %}
+<div class="detail-grid">
+  <div class="detail-card">
+    <h2 class="card-title">商品情報</h2>
+    <dl class="dl">
+      <dt>SKU</dt><dd class="mono">{{ product.sku or "―" }}</dd>
+      <dt>メーカー</dt><dd>{{ product.maker or "―" }}</dd>
+      <dt>カテゴリ</dt><dd><span class="badge badge-{{ product.category }}">{{ "医療機器" if product.category == "medical" else "生ハム" }}</span></dd>
+      <dt>単価</dt><dd>¥{{ "{:,.0f}".format(product.unit_price) }}</dd>
+      <dt>単位</dt><dd>{{ product.unit or "―" }}</dd>
+      <dt>管理番号</dt><dd>{{ {"none":"なし","serial":"シリアル番号","lot":"ロット番号"}[product.tracking_type] }}</dd>
+      <dt>アラート閾値</dt><dd>{{ product.stock_alert_threshold }}</dd>
+      <dt>備考</dt><dd>{{ product.notes or "―" }}</dd>
+    </dl>
+    <div class="stock-display {{ 'stock-alert' if is_alert else '' }}">
+      <div class="stock-label">現在の在庫</div>
+      <div class="stock-value">{{ stock }} <span class="stock-unit">{{ product.unit or "" }}</span></div>
+      {% if is_alert %}<div class="stock-warning">⚠ 在庫アラート発生中</div>{% endif %}
+    </div>
+  </div>
+  <div class="detail-card">
+    <h2 class="card-title">入出庫履歴</h2>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr><th>日時</th><th>区分</th><th>数量</th><th>シリアル/ロット</th><th>有効期限</th><th>理由</th></tr>
+        </thead>
+        <tbody>
+          {% for h in histories %}
+          <tr>
+            <td class="mono text-sm">{{ h.moved_at.strftime("%m/%d %H:%M") }}</td>
+            <td><span class="badge {{ 'badge-in' if h.movement_type == 'in' else 'badge-out' }}">{{ "入庫" if h.movement_type == "in" else "出庫" }}</span></td>
+            <td class="{{ 'text-success' if h.movement_type == 'in' else 'text-danger' }}">{{ "+" if h.movement_type == "in" else "-" }}{{ h.quantity }}</td>
+            <td class="mono text-sm">{{ h.serial_number or h.lot_number or "―" }}</td>
+            <td class="mono text-sm">{{ h.expiry_date or "―" }}</td>
+            <td>{{ h.reason or "―" }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="empty">履歴なし</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

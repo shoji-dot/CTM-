@@ -1,0 +1,131 @@
+{# templates/customer_memos/list.html #}
+{% extends "base.html" %}
+{% block title %}顧客メモ{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>顧客メモ</h1>
+  <button class="btn btn-primary" onclick="openMemoModal()">＋ 新規メモ</button>
+</div>
+
+<form method="get" class="filter-bar">
+  <input type="text" name="q" value="{{ q }}" placeholder="病院名・医師名・メモで検索..." class="search-input">
+  <button type="submit" class="btn btn-secondary">検索</button>
+</form>
+
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>病院名</th>
+      <th>医師名</th>
+      <th>メモ（抜粋）</th>
+      <th>担当</th>
+      <th>更新日</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for m in memos %}
+    <tr>
+      <td><strong>{{ m.hospital }}</strong></td>
+      <td>{{ m.doctor_name or '-' }}</td>
+      <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+        {{ m.memo or '-' }}
+      </td>
+      <td>{{ m.staff_name or '-' }}</td>
+      <td>{{ m.updated_at[:10] }}</td>
+      <td>
+        <button class="btn-link" onclick="editMemo({{ m.id }}, '{{ m.hospital|e }}', '{{ m.doctor_name|e }}', `{{ m.memo|e }}`)">編集</button>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted)">メモが見つかりません</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{# ── モーダル（新規・編集共用）#}
+<div id="memo-modal" class="modal hidden">
+  <div class="modal-content" style="max-width:440px">
+    <div class="modal-header">
+      <h2 id="memo-modal-title">顧客メモ</h2>
+      <button class="close-btn" onclick="closeMemoModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="memo-id" value="">
+      <label>病院名 <span style="color:red">*</span>
+        <input type="text" id="memo-hospital" required>
+      </label>
+      <label>医師名
+        <input type="text" id="memo-doctor">
+      </label>
+      <label>メモ
+        <textarea id="memo-text" rows="5" style="resize:vertical"></textarea>
+      </label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeMemoModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveMemo()">保存</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.page-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem; }
+.filter-bar  { display:flex;gap:.5rem;margin-bottom:1rem; }
+.search-input{ flex:1;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg2); }
+.data-table  { width:100%;border-collapse:collapse;font-size:.9rem; }
+.data-table th,.data-table td { padding:.6rem .75rem;border-bottom:1px solid var(--border);text-align:left; }
+.data-table th{ font-size:.8rem;color:var(--text-muted);font-weight:500; }
+.data-table tr:hover td { background:var(--bg2); }
+.btn-link    { background:none;border:none;cursor:pointer;color:#3b82f6;font-size:.85rem;padding:0; }
+.modal       { position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000; }
+.modal.hidden{ display:none; }
+.modal-content{ background:var(--bg);border-radius:12px;width:90%;max-width:520px;display:flex;flex-direction:column; }
+.modal-header{ display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid var(--border); }
+.modal-header h2{ font-size:1rem;margin:0; }
+.modal-body  { padding:1.25rem;display:flex;flex-direction:column;gap:.75rem; }
+.modal-body label{ display:flex;flex-direction:column;gap:.3rem;font-size:.85rem; }
+.modal-body input,.modal-body textarea { padding:.45rem .65rem;border:1px solid var(--border);border-radius:6px;background:var(--bg2);font-size:.9rem; }
+.modal-footer{ display:flex;justify-content:flex-end;gap:.5rem;padding:1rem 1.25rem;border-top:1px solid var(--border); }
+.close-btn   { background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--text-muted); }
+</style>
+
+<script>
+function openMemoModal() {
+  document.getElementById('memo-id').value = '';
+  document.getElementById('memo-hospital').value = '';
+  document.getElementById('memo-doctor').value = '';
+  document.getElementById('memo-text').value = '';
+  document.getElementById('memo-modal-title').textContent = '新規顧客メモ';
+  document.getElementById('memo-modal').classList.remove('hidden');
+}
+function editMemo(id, hospital, doctor, memo) {
+  document.getElementById('memo-id').value = id;
+  document.getElementById('memo-hospital').value = hospital;
+  document.getElementById('memo-doctor').value = doctor;
+  document.getElementById('memo-text').value = memo;
+  document.getElementById('memo-modal-title').textContent = '顧客メモを編集';
+  document.getElementById('memo-modal').classList.remove('hidden');
+}
+function closeMemoModal() { document.getElementById('memo-modal').classList.add('hidden'); }
+
+async function saveMemo() {
+  const id       = document.getElementById('memo-id').value;
+  const hospital = document.getElementById('memo-hospital').value.trim();
+  if (!hospital) { alert('病院名は必須です'); return; }
+
+  const fd = new URLSearchParams();
+  fd.append('hospital',    hospital);
+  fd.append('doctor_name', document.getElementById('memo-doctor').value);
+  fd.append('memo',        document.getElementById('memo-text').value);
+
+  const url    = id ? `/customer-memos/${id}` : '/customer-memos/';
+  const method = id ? 'PUT' : 'POST';
+
+  await fetch(url, { method, body: fd, headers: {'Content-Type':'application/x-www-form-urlencoded'} });
+  closeMemoModal();
+  location.reload();
+}
+</script>
+{% endblock %}

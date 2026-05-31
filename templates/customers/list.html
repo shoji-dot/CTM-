@@ -1,0 +1,48 @@
+﻿{% extends "base.html" %}
+{% block title %}顧客管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">顧客管理</h1>
+  <div class="header-actions">
+    <a href="/customers/import" class="btn btn-ghost">⬆ CSV一括登録</a>
+    <a href="/customers/new" class="btn btn-primary">＋ 新規登録</a>
+  </div>
+</div>
+<div class="filter-bar">
+  <form method="get" class="filter-form">
+    <input name="search" value="{{ search }}" placeholder="顧客名で検索..." class="input">
+    <select name="category" class="select">
+      <option value="">すべて</option>
+      <option value="hospital" {% if category == "hospital" %}selected{% endif %}>医療機関</option>
+      <option value="supplier" {% if category == "supplier" %}selected{% endif %}>取引先</option>
+    </select>
+    <button type="submit" class="btn btn-ghost">検索</button>
+    <a href="/customers" class="btn btn-ghost">リセット</a>
+  </form>
+</div>
+<div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>ID</th><th>顧客名</th><th>カテゴリ</th><th>電話番号</th><th>メール</th><th>取引条件</th><th></th></tr></thead>
+    <tbody>
+      {% for c in customers %}
+      <tr>
+        <td class="mono text-muted">{{ c.id }}</td>
+        <td><a href="/customers/{{ c.id }}" class="link">{{ c.name }}</a></td>
+        <td><span class="badge badge-{{ c.category }}">{{ "医療機関" if c.category in ("hospital","medical") else "取引先" }}</span></td>
+        <td>{{ c.phone or "―" }}</td>
+        <td>{{ c.email or "―" }}</td>
+        <td>{{ c.trading_terms or "―" }}</td>
+        <td class="actions">
+          <a href="/customers/{{ c.id }}/edit" class="btn btn-sm btn-ghost">編集</a>
+          <form method="post" action="/customers/{{ c.id }}/delete" style="display:inline" onsubmit="return confirm('削除しますか？')">
+            <button class="btn btn-sm btn-danger">削除</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="empty">顧客が登録されていません</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

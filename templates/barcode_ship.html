@@ -1,0 +1,690 @@
+{% extends "base.html" %}
+{% block title %}バーコードスキャン出荷登録 - SalesCore{% endblock %}
+
+{% block head_extra %}
+<script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+<style>
+  :root {
+    --scan-orange: #f57c00;
+    --scan-blue: #1a73e8;
+    --scan-red: #e53935;
+    --scan-green: #00c896;
+    --scan-bg: #f0f4f8;
+    --card-bg: #ffffff;
+    --border: #dde3ea;
+    --text-main: #1a2333;
+    --text-sub: #5f6b7a;
+  }
+  body { background: var(--scan-bg); }
+
+  .bc-page-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 20px 24px 0;
+  }
+  .bc-page-header h1 { font-size: 1.4rem; font-weight: 700; color: var(--text-main); margin: 0; }
+  .bc-badge-ship {
+    background: #fff3e0; color: #e65100;
+    font-size: 0.72rem; font-weight: 700;
+    padding: 3px 10px; border-radius: 999px;
+  }
+
+  .bc-layout {
+    display: grid; grid-template-columns: 420px 1fr;
+    gap: 20px; padding: 16px 24px 32px; max-width: 1200px;
+  }
+  @media (max-width: 900px) { .bc-layout { grid-template-columns: 1fr; } }
+
+  .scan-panel {
+    background: var(--card-bg); border-radius: 16px;
+    border: 1px solid var(--border); overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  .scan-panel-header {
+    padding: 16px 20px 12px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .scan-panel-header h2 { font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin: 0; }
+
+  .scan-mode-tabs {
+    display: flex; gap: 6px; padding: 12px 16px;
+    background: #f8fafc; border-bottom: 1px solid var(--border);
+  }
+  .mode-tab {
+    flex: 1; padding: 8px 12px; border-radius: 8px;
+    border: 1.5px solid var(--border); background: white;
+    font-size: 0.82rem; font-weight: 600; color: var(--text-sub);
+    cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .mode-tab.active { background: var(--scan-orange); border-color: var(--scan-orange); color: white; }
+  .mode-tab:hover:not(.active) { border-color: var(--scan-orange); color: var(--scan-orange); }
+
+  .camera-section { padding: 16px; }
+  #camera-view-wrapper {
+    position: relative; background: #111; border-radius: 12px;
+    overflow: hidden; aspect-ratio: 4/3;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #camera-video { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .camera-overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; color: #ccc;
+  }
+  .camera-overlay p { font-size: 0.85rem; margin: 0; }
+  .scan-reticle {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 220px; height: 120px;
+    border: 2px solid rgba(245,124,0,0.8);
+    border-radius: 8px; display: none; pointer-events: none;
+  }
+  .scan-line {
+    position: absolute; left: 8px; right: 8px; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--scan-orange), transparent);
+    animation: scanLine 1.6s ease-in-out infinite; display: none;
+  }
+  @keyframes scanLine {
+    0%   { top: 10px; opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { top: calc(100% - 10px); opacity: 0; }
+  }
+  #btn-start-camera {
+    margin-top: 12px; width: 100%; padding: 10px;
+    background: var(--scan-orange); color: white; border: none;
+    border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  #btn-stop-camera {
+    margin-top: 12px; width: 100%; padding: 10px;
+    background: transparent; color: var(--scan-red);
+    border: 1.5px solid var(--scan-red); border-radius: 8px;
+    font-size: 0.9rem; font-weight: 600; cursor: pointer;
+    display: none; align-items: center; justify-content: center; gap: 8px;
+  }
+
+  .usb-section { padding: 16px; display: none; }
+  .usb-input-wrapper { position: relative; }
+  #usb-input {
+    width: 100%; padding: 12px 12px 12px 44px;
+    border: 2px solid var(--border); border-radius: 10px;
+    font-size: 1rem; font-family: 'Courier New', monospace;
+    color: var(--text-main); transition: border-color 0.15s; box-sizing: border-box;
+  }
+  #usb-input:focus { outline: none; border-color: var(--scan-orange); box-shadow: 0 0 0 3px rgba(245,124,0,0.12); }
+  .usb-hint {
+    margin-top: 10px; padding: 10px 14px;
+    background: #fff8f0; border-radius: 8px; border-left: 3px solid var(--scan-orange);
+    font-size: 0.8rem; color: var(--text-sub); line-height: 1.6;
+  }
+
+  .scan-result-box {
+    margin: 0 16px 16px; border-radius: 10px;
+    overflow: hidden; border: 1.5px solid var(--border); display: none;
+  }
+  .scan-result-box.success { border-color: var(--scan-green); }
+  .scan-result-box.error   { border-color: var(--scan-red); }
+  .scan-result-box.warning { border-color: var(--scan-orange); }
+  .scan-result-header { padding: 8px 14px; font-size: 0.78rem; font-weight: 700; }
+  .scan-result-box.success .scan-result-header { background: #e8faf4; color: #00a876; }
+  .scan-result-box.error   .scan-result-header { background: #fdecea; color: var(--scan-red); }
+  .scan-result-box.warning .scan-result-header { background: #fff3e0; color: var(--scan-orange); }
+  .scan-result-body { padding: 12px 14px; background: white; }
+  .result-raw { font-family: monospace; font-size: 0.85rem; color: var(--text-sub); margin-bottom: 8px; }
+  .result-product-name { font-size: 1rem; font-weight: 700; color: var(--text-main); }
+  .result-sku { font-size: 0.8rem; color: var(--text-sub); margin-top: 2px; }
+  .stock-warning { color: var(--scan-orange); font-weight: 700; font-size: 0.82rem; margin-top: 6px; }
+
+  .form-panel {
+    background: var(--card-bg); border-radius: 16px;
+    border: 1px solid var(--border); overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  .form-panel-header {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .form-panel-header h2 { font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin: 0; }
+  .step-indicator { display: flex; gap: 6px; align-items: center; font-size: 0.78rem; color: var(--text-sub); }
+  .step-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: background 0.2s; }
+  .step-dot.active { background: var(--scan-orange); }
+  .step-dot.done   { background: var(--scan-green); }
+
+  .form-body { padding: 20px; }
+
+  .ship-type-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 4px; }
+  .ship-type-btn {
+    padding: 10px 6px; border: 1.5px solid var(--border); border-radius: 10px;
+    background: white; font-size: 0.8rem; font-weight: 600; color: var(--text-sub);
+    cursor: pointer; text-align: center; transition: all 0.15s; line-height: 1.4;
+  }
+  .ship-type-btn.active { border-color: var(--scan-orange); background: #fff8f0; color: var(--scan-orange); }
+  .ship-type-btn:hover:not(.active) { border-color: #ffcc80; color: var(--scan-orange); }
+
+  .product-card {
+    background: #f8fafc; border: 1.5px solid var(--border);
+    border-radius: 12px; padding: 16px; margin-bottom: 4px;
+    display: flex; gap: 14px; align-items: flex-start;
+  }
+  .product-card-icon {
+    width: 44px; height: 44px; background: #e8edf5; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 1.4rem;
+  }
+  .product-card.loaded .product-card-icon { background: #fff3e0; }
+  .product-card.warning .product-card-icon { background: #fdecea; }
+  .product-card-name { font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 4px; }
+  .product-card-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .meta-chip { font-size: 0.75rem; padding: 2px 8px; border-radius: 6px; background: #e8edf5; color: var(--text-sub); font-weight: 600; }
+  .meta-chip.highlight { background: #fff3e0; color: var(--scan-orange); }
+  .meta-chip.alert { background: #fdecea; color: var(--scan-red); }
+
+  .form-section-title {
+    font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-sub); margin: 20px 0 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .form-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-grid.cols-1 { grid-template-columns: 1fr; }
+  .form-field { display: flex; flex-direction: column; gap: 6px; }
+  .form-field label { font-size: 0.8rem; font-weight: 600; color: var(--text-sub); }
+  .form-field label .req { color: var(--scan-red); }
+
+  .field-with-scan { display: flex; gap: 6px; align-items: stretch; }
+  .field-with-scan input { flex: 1; }
+  .btn-scan-field {
+    padding: 0 10px; background: #fff8f0; border: 1.5px solid #ffcc80;
+    border-radius: 8px; color: var(--scan-orange); cursor: pointer;
+    font-size: 0.8rem; font-weight: 600; transition: all 0.15s;
+    display: flex; align-items: center; gap: 4px; white-space: nowrap;
+  }
+  .btn-scan-field:hover { background: var(--scan-orange); color: white; border-color: var(--scan-orange); }
+
+  input[type="text"], input[type="number"], input[type="date"], select {
+    padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+    font-size: 0.9rem; color: var(--text-main); background: white;
+    transition: border-color 0.15s; width: 100%; box-sizing: border-box;
+  }
+  input:focus, select:focus {
+    outline: none; border-color: var(--scan-orange); box-shadow: 0 0 0 3px rgba(245,124,0,0.1);
+  }
+
+  .form-actions { margin-top: 24px; display: flex; gap: 10px; }
+  .btn-primary {
+    flex: 1; padding: 13px; background: var(--scan-orange); color: white;
+    border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background 0.15s;
+  }
+  .btn-primary:hover { background: #e65100; }
+  .btn-primary:disabled { background: #ffcc80; cursor: not-allowed; }
+  .btn-secondary {
+    padding: 13px 20px; background: transparent; color: var(--text-sub);
+    border: 1.5px solid var(--border); border-radius: 10px;
+    font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
+  }
+  .btn-secondary:hover { border-color: var(--text-sub); color: var(--text-main); }
+
+  .history-panel {
+    margin-top: 20px; background: var(--card-bg); border-radius: 16px;
+    border: 1px solid var(--border); overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06); grid-column: 1 / -1;
+  }
+  .history-panel-header {
+    padding: 14px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .history-panel-header h2 { font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin: 0; }
+  .history-count { font-size: 0.78rem; background: #e8edf5; color: var(--text-sub); padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+  .history-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .history-table th {
+    padding: 10px 16px; text-align: left; font-size: 0.75rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-sub); background: #f8fafc; border-bottom: 1px solid var(--border);
+  }
+  .history-table td { padding: 11px 16px; border-bottom: 1px solid #f0f4f8; color: var(--text-main); }
+  .history-table tr:last-child td { border-bottom: none; }
+  .history-table tr:hover td { background: #f8fafc; }
+  .status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+  .status-badge.ok    { background: #e8faf4; color: #00a876; }
+  .status-badge.error { background: #fdecea; color: var(--scan-red); }
+  .empty-history { text-align: center; padding: 32px 16px; color: var(--text-sub); font-size: 0.85rem; }
+
+  #toast-container { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 8px; z-index: 9999; }
+  .toast { padding: 12px 18px; border-radius: 10px; font-size: 0.88rem; font-weight: 600; color: white; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.18); animation: slideUp 0.25s ease; max-width: 340px; }
+  .toast.success { background: var(--scan-green); }
+  .toast.error   { background: var(--scan-red); }
+  .toast.info    { background: var(--scan-orange); }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bc-page-header">
+  <h1>🚚 バーコードスキャン出荷登録</h1>
+  <span class="bc-badge-ship">出荷</span>
+</div>
+
+<div class="bc-layout">
+  <!-- スキャンパネル -->
+  <div>
+    <div class="scan-panel">
+      <div class="scan-panel-header"><h2>バーコード読み取り</h2></div>
+      <div class="scan-mode-tabs">
+        <button class="mode-tab active" id="tab-camera" onclick="switchMode('camera')">📷 カメラスキャン</button>
+        <button class="mode-tab" id="tab-usb" onclick="switchMode('usb')">🖥 USBスキャナー</button>
+      </div>
+
+      <!-- カメラモード -->
+      <div class="camera-section" id="camera-section">
+        <div id="camera-view-wrapper">
+          <video id="camera-video" autoplay playsinline></video>
+          <div class="camera-overlay" id="camera-overlay">
+            <p>📷 カメラを起動してください</p>
+          </div>
+          <div class="scan-reticle" id="scan-reticle">
+            <div class="scan-line" id="scan-line"></div>
+          </div>
+        </div>
+        <button id="btn-start-camera" onclick="startCamera()">📷 カメラを起動</button>
+        <button id="btn-stop-camera" onclick="stopCamera()">⏹ カメラを停止</button>
+      </div>
+
+      <!-- USBスキャナーモード -->
+      <div class="usb-section" id="usb-section">
+        <div class="usb-input-wrapper">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:12px;top:50%;transform:translateY(-50%)"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="9" y="3" width="2" height="18" rx="1"/><rect x="13" y="3" width="3" height="18" rx="1"/><rect x="18" y="3" width="3" height="18" rx="1"/></svg>
+          <input type="text" id="usb-input" placeholder="バーコードをスキャン（Enter送信）" autocomplete="off">
+        </div>
+        <div class="usb-hint">
+          💡 USBスキャナーはEnterが自動送信されます。手動入力後はEnterを押してください。
+        </div>
+      </div>
+
+      <!-- スキャン結果 -->
+      <div class="scan-result-box" id="scan-result-box">
+        <div class="scan-result-header" id="scan-result-header"></div>
+        <div class="scan-result-body">
+          <div class="result-raw" id="result-raw"></div>
+          <div class="result-product-name" id="result-product-name"></div>
+          <div class="result-sku" id="result-sku"></div>
+          <div class="stock-warning" id="stock-warning" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 出荷フォーム -->
+  <div>
+    <div class="form-panel">
+      <div class="form-panel-header">
+        <h2>出荷情報入力</h2>
+        <div class="step-indicator">
+          <span class="step-dot active" id="step1"></span>
+          <span class="step-dot" id="step2"></span>
+          <span class="step-dot" id="step3"></span>
+          <span style="margin-left:4px">スキャン → 入力 → 登録</span>
+        </div>
+      </div>
+      <div class="form-body">
+
+        <!-- 出荷種別 -->
+        <div class="form-section-title">出荷種別</div>
+        <div class="ship-type-grid">
+          <button class="ship-type-btn active" onclick="setShipType('sale', this)">🛒<br>販売</button>
+          <button class="ship-type-btn" onclick="setShipType('demo', this)">🔬<br>デモ貸出</button>
+          <button class="ship-type-btn" onclick="setShipType('sample', this)">📦<br>サンプル</button>
+          <button class="ship-type-btn" onclick="setShipType('repair', this)">🔧<br>修理代替品</button>
+        </div>
+        <input type="hidden" id="ship-type" value="sale">
+
+        <!-- 商品 -->
+        <div class="form-section-title">商品</div>
+        <div class="product-card" id="product-card">
+          <div class="product-card-icon">📦</div>
+          <div style="flex:1;min-width:0">
+            <div class="product-card-name" id="pc-name" style="color:var(--text-sub)">バーコードをスキャンすると商品が自動入力されます</div>
+            <div class="product-card-meta" id="pc-meta"></div>
+          </div>
+        </div>
+        <input type="hidden" id="product-id">
+
+        <!-- 管理番号 -->
+        <div class="form-section-title">管理番号</div>
+        <div class="form-grid cols-1">
+          <div class="form-field" id="field-serial" style="display:none">
+            <label>シリアル番号 <span class="req">*</span></label>
+            <div class="field-with-scan">
+              <input type="text" id="serial-no" placeholder="スキャンまたは手入力">
+              <button type="button" class="btn-scan-field" onclick="setNextScanTarget('serial')">📷 スキャン</button>
+            </div>
+          </div>
+          <div class="form-field" id="field-lot" style="display:none">
+            <label>ロット番号 <span class="req">*</span></label>
+            <div class="field-with-scan">
+              <input type="text" id="lot-no" placeholder="スキャンまたは手入力">
+              <button type="button" class="btn-scan-field" onclick="setNextScanTarget('lot')">📷 スキャン</button>
+            </div>
+          </div>
+          <div id="field-none-msg" style="color:var(--text-sub);font-size:0.85rem;display:none">この商品は管理番号不要です</div>
+        </div>
+
+        <!-- 出荷詳細 -->
+        <div class="form-section-title">出荷詳細</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label>出荷先顧客 <span class="req">*</span></label>
+            <select id="customer-id">
+              <option value="">-- 顧客を選択 --</option>
+              {% for c in customers %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-field">
+            <label>エンドユーザー</label>
+            <input type="text" id="end-user" placeholder="エンドユーザー名">
+          </div>
+          <div class="form-field">
+            <label>数量 <span class="req">*</span></label>
+            <input type="number" id="quantity" min="1" value="1">
+          </div>
+          <div class="form-field">
+            <label>有効期限</label>
+            <input type="date" id="expiry-date">
+          </div>
+          <div class="form-field">
+            <label>出荷日 <span class="req">*</span></label>
+            <input type="date" id="ship-date" value="{{ today }}">
+          </div>
+          <div class="form-field" id="field-return-date" style="display:none">
+            <label>返却予定日</label>
+            <input type="date" id="return-date">
+          </div>
+        </div>
+
+        <div class="form-section-title">備考</div>
+        <div class="form-grid cols-1">
+          <div class="form-field">
+            <input type="text" id="memo" placeholder="備考・特記事項">
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" onclick="resetForm()">リセット</button>
+          <button type="button" class="btn-primary" id="btn-register" onclick="submitShip()" disabled>
+            🚚 出荷登録する
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 履歴 -->
+  <div class="history-panel">
+    <div class="history-panel-header">
+      <h2>🚚 本日の出荷登録</h2>
+      <span class="history-count" id="history-count">0件</span>
+    </div>
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>時刻</th><th>種別</th><th>商品名</th><th>シリアル / ロット</th>
+          <th>数量</th><th>出荷先</th><th>状態</th>
+        </tr>
+      </thead>
+      <tbody id="history-tbody">
+        <tr><td colspan="7" class="empty-history">まだ登録がありません</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let codeReader = null, cameraActive = false, scanTarget = 'product', currentProduct = null;
+const sessionHistory = [];
+const SHIP_TYPE_LABELS = { sale: '販売', demo: 'デモ貸出', sample: 'サンプル', repair: '修理代替品' };
+
+function switchMode(mode) {
+  const isCamera = mode === 'camera';
+  document.getElementById('tab-camera').classList.toggle('active', isCamera);
+  document.getElementById('tab-usb').classList.toggle('active', !isCamera);
+  document.getElementById('camera-section').style.display = isCamera ? 'block' : 'none';
+  document.getElementById('usb-section').style.display = isCamera ? 'none' : 'block';
+  if (!isCamera) {
+    if (cameraActive) stopCamera();
+    setTimeout(() => document.getElementById('usb-input').focus(), 100);
+  }
+}
+
+function setShipType(type, btn) {
+  document.getElementById('ship-type').value = type;
+  document.querySelectorAll('.ship-type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('field-return-date').style.display =
+    (type === 'demo' || type === 'repair') ? 'block' : 'none';
+}
+
+function setNextScanTarget(target) {
+  scanTarget = target;
+  showToast(`次のスキャンは「${target === 'serial' ? 'シリアル番号' : 'ロット番号'}」に入力されます`, 'info');
+}
+
+async function startCamera() {
+  try {
+    const hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+      ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39,
+      ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8,
+      ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.DATA_MATRIX,
+    ]);
+    codeReader = new ZXing.BrowserMultiFormatReader(hints);
+    const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+    const deviceId = devices.length > 1 ? devices[1].deviceId : devices[0]?.deviceId;
+    document.getElementById('camera-video').style.display = 'block';
+    document.getElementById('camera-overlay').style.display = 'none';
+    document.getElementById('scan-reticle').style.display = 'block';
+    document.getElementById('scan-line').style.display = 'block';
+    document.getElementById('btn-start-camera').style.display = 'none';
+    document.getElementById('btn-stop-camera').style.display = 'flex';
+    cameraActive = true;
+    await codeReader.decodeFromVideoDevice(deviceId, 'camera-video', (result) => {
+      if (result) handleBarcode(result.getText());
+    });
+  } catch(e) { showToast('カメラ起動失敗: ' + e.message, 'error'); }
+}
+
+function stopCamera() {
+  if (codeReader) { codeReader.reset(); codeReader = null; }
+  document.getElementById('camera-video').style.display = 'none';
+  document.getElementById('camera-overlay').style.display = 'flex';
+  document.getElementById('scan-reticle').style.display = 'none';
+  document.getElementById('scan-line').style.display = 'none';
+  document.getElementById('btn-start-camera').style.display = 'flex';
+  document.getElementById('btn-stop-camera').style.display = 'none';
+  cameraActive = false;
+}
+
+document.getElementById('usb-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    const v = this.value.trim();
+    if (v) { handleBarcode(v); this.value = ''; }
+  }
+});
+
+async function handleBarcode(code) {
+  if (handleBarcode._last === code && Date.now() - (handleBarcode._time || 0) < 1500) return;
+  handleBarcode._last = code;
+  handleBarcode._time = Date.now();
+
+  if (scanTarget === 'serial') {
+    document.getElementById('serial-no').value = code;
+    showScanResult('success', code, 'シリアル番号に入力しました', '');
+    scanTarget = 'product'; return;
+  }
+  if (scanTarget === 'lot') {
+    document.getElementById('lot-no').value = code;
+    showScanResult('success', code, 'ロット番号に入力しました', '');
+    scanTarget = 'product'; return;
+  }
+
+  showScanResult('success', code, '商品を検索中...', '');
+  try {
+    const res = await fetch(`/barcode/api/search?code=${encodeURIComponent(code)}`);
+    const data = await res.json();
+    if (data.found) {
+      setProduct(data.product);
+      const low = data.product.stock <= data.product.alert_threshold;
+      showScanResult(low ? 'warning' : 'success', code, data.product.name,
+        `SKU: ${data.product.sku || '—'}  /  現在庫: ${data.product.stock}${data.product.unit}`);
+      const warn = document.getElementById('stock-warning');
+      warn.style.display = low ? 'block' : 'none';
+      if (low) warn.textContent = `⚠ 在庫が少なくなっています（アラート閾値: ${data.product.alert_threshold}）`;
+    } else {
+      currentProduct = null;
+      showScanResult('error', code, '商品が見つかりません', 'SKUまたは管理番号が登録されていません');
+      document.getElementById('btn-register').disabled = true;
+    }
+  } catch(e) { showScanResult('error', code, '通信エラー', e.message); }
+}
+
+function showScanResult(type, raw, title, sub) {
+  const box = document.getElementById('scan-result-box');
+  box.className = `scan-result-box ${type}`;
+  box.style.display = 'block';
+  document.getElementById('scan-result-header').textContent =
+    type === 'success' ? '✓ 商品が見つかりました' :
+    type === 'warning' ? '⚠ 在庫が少なくなっています' : '✗ 商品が見つかりません';
+  document.getElementById('result-raw').textContent = raw;
+  document.getElementById('result-product-name').textContent = title;
+  document.getElementById('result-sku').textContent = sub;
+  document.getElementById('stock-warning').style.display = 'none';
+}
+
+function setProduct(p) {
+  currentProduct = p;
+  document.getElementById('product-id').value = p.id;
+  document.getElementById('pc-name').textContent = p.name;
+  document.getElementById('pc-name').style.color = '';
+  const card = document.getElementById('product-card');
+  card.className = 'product-card loaded' + (p.stock <= p.alert_threshold ? ' warning' : '');
+  document.getElementById('pc-meta').innerHTML =
+    `<span class="meta-chip highlight">${p.sku || '—'}</span>
+     <span class="meta-chip">${p.maker || '—'}</span>
+     <span class="meta-chip ${p.stock <= p.alert_threshold ? 'alert' : ''}">在庫 ${p.stock}${p.unit}</span>`;
+  document.getElementById('field-serial').style.display = p.serial_type === 'serial' ? 'block' : 'none';
+  document.getElementById('field-lot').style.display   = p.serial_type === 'lot'    ? 'block' : 'none';
+  document.getElementById('field-none-msg').style.display = p.serial_type === 'none' ? 'block' : 'none';
+  document.getElementById('step1').className = 'step-dot done';
+  document.getElementById('step2').className = 'step-dot active';
+  document.getElementById('btn-register').disabled = false;
+  showToast(`「${p.name}」を選択しました`, 'success');
+}
+
+async function submitShip() {
+  if (!currentProduct) { showToast('商品をスキャンしてください', 'error'); return; }
+  const qty = parseInt(document.getElementById('quantity').value);
+  if (!qty || qty < 1) { showToast('数量を入力してください', 'error'); return; }
+  if (!document.getElementById('customer-id').value) { showToast('出荷先を選択してください', 'error'); return; }
+  if (qty > currentProduct.stock) {
+    showToast(`在庫不足です（在庫: ${currentProduct.stock}${currentProduct.unit}）`, 'error'); return;
+  }
+
+  const sel = document.getElementById('customer-id');
+  const custName = sel.options[sel.selectedIndex]?.text || '—';
+
+  const payload = {
+    product_id:  currentProduct.id,
+    ship_type:   document.getElementById('ship-type').value,
+    quantity:    qty,
+    customer_id: document.getElementById('customer-id').value,
+    end_user:    document.getElementById('end-user').value.trim() || null,
+    serial_no:   document.getElementById('serial-no').value.trim() || null,
+    lot_no:      document.getElementById('lot-no').value.trim() || null,
+    expiry_date: document.getElementById('expiry-date').value || null,
+    ship_date:   document.getElementById('ship-date').value,
+    return_date: document.getElementById('return-date').value || null,
+    memo:        document.getElementById('memo').value.trim() || null,
+  };
+
+  const btn = document.getElementById('btn-register');
+  btn.disabled = true; btn.textContent = '登録中...';
+
+  try {
+    const res = await fetch('/barcode/api/ship', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`出荷登録完了！（-${qty}${currentProduct.unit}）`, 'success');
+      addHistory(payload, currentProduct, custName, 'ok');
+      document.getElementById('step2').className = 'step-dot done';
+      document.getElementById('step3').className = 'step-dot done';
+      resetForm();
+    } else {
+      showToast('登録失敗: ' + (data.error || ''), 'error');
+      addHistory(payload, currentProduct, custName, 'error');
+      btn.disabled = false; btn.textContent = '🚚 出荷登録する';
+    }
+  } catch(e) {
+    showToast('通信エラー: ' + e.message, 'error');
+    btn.disabled = false; btn.textContent = '🚚 出荷登録する';
+  }
+}
+
+function resetForm() {
+  currentProduct = null; scanTarget = 'product';
+  ['product-id','serial-no','lot-no','end-user','memo','return-date'].forEach(
+    id => document.getElementById(id).value = '');
+  document.getElementById('quantity').value = '1';
+  document.getElementById('expiry-date').value = '';
+  document.getElementById('customer-id').value = '';
+  document.getElementById('pc-name').textContent = 'バーコードをスキャンすると商品が自動入力されます';
+  document.getElementById('pc-name').style.color = 'var(--text-sub)';
+  document.getElementById('pc-meta').innerHTML = '';
+  document.getElementById('product-card').className = 'product-card';
+  document.getElementById('scan-result-box').style.display = 'none';
+  document.getElementById('field-serial').style.display = 'none';
+  document.getElementById('field-lot').style.display = 'none';
+  document.getElementById('field-none-msg').style.display = 'none';
+  document.getElementById('btn-register').disabled = true;
+  document.getElementById('btn-register').textContent = '🚚 出荷登録する';
+  ['step1','step2','step3'].forEach((id, i) =>
+    document.getElementById(id).className = 'step-dot' + (i === 0 ? ' active' : ''));
+}
+
+function addHistory(payload, product, custName, status) {
+  const time = new Date().toTimeString().slice(0, 8);
+  sessionHistory.unshift({time, product, payload, custName, status});
+  document.getElementById('history-count').textContent = sessionHistory.length + '件';
+  document.getElementById('history-tbody').innerHTML = sessionHistory.map(h => `
+    <tr>
+      <td>${h.time}</td>
+      <td><span class="status-badge ok" style="background:#fff3e0;color:#e65100">${SHIP_TYPE_LABELS[h.payload.ship_type]}</span></td>
+      <td>${h.product.name}</td>
+      <td style="font-family:monospace;font-size:0.82rem">${h.payload.serial_no || h.payload.lot_no || '—'}</td>
+      <td>${h.payload.quantity}${h.product.unit}</td>
+      <td>${h.custName}</td>
+      <td><span class="status-badge ${h.status}">${h.status === 'ok' ? '✓ 完了' : '✗ エラー'}</span></td>
+    </tr>`).join('');
+}
+
+function showToast(msg, type = 'info') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span>${type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ'}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+</script>
+{% endblock %}

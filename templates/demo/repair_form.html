@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}{{ "修理記録編集" if repair else "故障登録" }} - {{ unit.unit_code }}{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width:620px">
+  <a href="/demo/{{ unit.id }}" class="text-decoration-none text-muted small">← {{ unit.unit_code }} 詳細</a>
+  <h2 class="mt-1 mb-4">🔧 {{ "修理記録編集" if repair else "故障・修理登録" }}</h2>
+
+  <div class="alert alert-warning mb-4">
+    <strong>🔬 {{ unit.unit_code }}</strong>　{{ unit.product.name }}
+    {% if unit.serial_number %}<code class="ms-2">{{ unit.serial_number }}</code>{% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <form method="post">
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">故障報告日 <span class="text-danger">*</span></label>
+          <input type="date" name="reported_date" class="form-control"
+                 value="{{ repair.reported_date.isoformat() if repair else today.isoformat() }}" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">故障症状 <span class="text-danger">*</span></label>
+          <textarea name="symptom" class="form-control" rows="3"
+                    placeholder="具体的な症状を記入してください" required>{{ repair.symptom if repair else '' }}</textarea>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">原因（判明している場合）</label>
+          <textarea name="cause" class="form-control" rows="2"
+                    placeholder="原因が判明した時点で記入">{{ repair.cause if repair else '' }}</textarea>
+        </div>
+
+        <hr class="my-3">
+        <p class="text-muted small mb-3">── 修理情報（判明次第入力）──</p>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">修理業者・送付先</label>
+          <input type="text" name="repair_vendor" class="form-control"
+                 placeholder="例: ○○メーカー サービスセンター"
+                 value="{{ repair.repair_vendor if repair else '' }}">
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-6">
+            <label class="form-label fw-bold">メーカー送付日</label>
+            <input type="date" name="sent_date" class="form-control"
+                   value="{{ repair.sent_date.isoformat() if repair and repair.sent_date else '' }}">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold">修理完了日</label>
+            <input type="date" name="repaired_date" class="form-control"
+                   value="{{ repair.repaired_date.isoformat() if repair and repair.repaired_date else '' }}">
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">修理費用（円）</label>
+          <input type="number" name="repair_cost" class="form-control"
+                 placeholder="0"
+                 value="{{ repair.repair_cost|int if repair and repair.repair_cost else '' }}">
+        </div>
+
+        {% if repair %}
+        <div class="mb-3">
+          <label class="form-label fw-bold">修理ステータス</label>
+          <select name="status" class="form-select">
+            <option value="pending"   {{ 'selected' if repair.status=='pending' }}>🔴 未対応</option>
+            <option value="in_repair" {{ 'selected' if repair.status=='in_repair' }}>🟡 修理中</option>
+            <option value="completed" {{ 'selected' if repair.status=='completed' }}>✅ 修理完了</option>
+            <option value="scrapped"  {{ 'selected' if repair.status=='scrapped' }}>🗑️ 廃棄</option>
+          </select>
+          <div class="form-text">
+            「修理完了」→ デモ器ステータスが「貸出可」に戻ります<br>
+            「廃棄」→ デモ器ステータスが「廃棄」になります
+          </div>
+        </div>
+        {% else %}
+        <input type="hidden" name="status" value="pending">
+        {% endif %}
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">担当スタッフ</label>
+          <input type="text" name="staff_name" class="form-control"
+                 value="{{ repair.staff_name if repair else '' }}">
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label fw-bold">備考</label>
+          <textarea name="notes" class="form-control" rows="2">{{ repair.notes if repair else '' }}</textarea>
+        </div>
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-warning">
+            {{ "💾 更新する" if repair else "🔧 故障登録する" }}
+          </button>
+          <a href="/demo/{{ unit.id }}" class="btn btn-outline-secondary">キャンセル</a>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

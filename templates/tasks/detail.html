@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% block title %}{{ task.title }}{% endblock %}
+{% block content %}
+<style>
+.task-detail-header {
+  display: flex; align-items: flex-start; gap: 1rem;
+  margin-bottom: 1.5rem; flex-wrap: wrap;
+}
+.back-btn {
+  color: #8b91b8; text-decoration: none; font-size: 0.875rem;
+  display: flex; align-items: center; gap: 0.4rem; transition: color 0.15s;
+  white-space: nowrap; margin-top: 0.2rem;
+}
+.back-btn:hover { color: #e8eaf6; }
+.task-title-area { flex: 1; }
+.task-title {
+  font-size: 1.3rem; font-weight: 700; line-height: 1.4;
+  margin-bottom: 0.5rem;
+}
+
+.layout { display: grid; grid-template-columns: 1fr 300px; gap: 1.5rem; }
+@media(max-width:768px){ .layout { grid-template-columns: 1fr; } }
+
+.card {
+  background: #1a1d27; border: 1px solid #2e3250;
+  border-radius: 10px; overflow: hidden; margin-bottom: 1.25rem;
+}
+.card-header {
+  padding: 0.875rem 1.25rem; border-bottom: 1px solid #2e3250;
+  font-weight: 600; font-size: 0.85rem; color: #8b91b8;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.card-body { padding: 1.25rem; }
+
+/* メタ情報 */
+.meta-item { margin-bottom: 1rem; }
+.meta-label { font-size: 0.72rem; color: #8b91b8; margin-bottom: 0.3rem; font-weight: 600; text-transform: uppercase; }
+.meta-value { font-size: 0.875rem; }
+
+/* ステータス・優先度 */
+.status-badge, .priority-badge {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.3rem 0.875rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+}
+.status-todo { background: rgba(139,145,184,0.15); color: #8b91b8; }
+.status-in_progress { background: rgba(79,124,255,0.15); color: #4f7cff; }
+.status-done { background: rgba(52,211,153,0.15); color: #34d399; }
+.status-cancelled { background: rgba(75,85,99,0.3); color: #6b7280; }
+.priority-high { background: rgba(248,113,113,0.15); color: #f87171; }
+.priority-medium { background: rgba(251,191,36,0.15); color: #fbbf24; }
+.priority-low { background: rgba(96,165,250,0.15); color: #60a5fa; }
+
+/* 編集フォーム */
+.edit-select, .edit-input {
+  width: 100%; padding: 0.5rem 0.75rem;
+  background: #22263a; border: 1px solid #2e3250;
+  border-radius: 6px; color: #e8eaf6;
+  font-family: inherit; font-size: 0.875rem; outline: none;
+  transition: border-color 0.15s;
+}
+.edit-select:focus, .edit-input:focus { border-color: #4f7cff; }
+
+/* 説明 */
+.description-text {
+  font-size: 0.875rem; line-height: 1.7; color: #c5c8e0;
+  white-space: pre-wrap;
+}
+.no-desc { color: #4b5563; font-size: 0.8rem; font-style: italic; }
+
+/* コメント */
+.comment-item {
+  padding: 0.875rem 0; border-bottom: 1px solid #2e3250;
+}
+.comment-item:last-child { border-bottom: none; }
+.comment-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+.comment-author { font-weight: 600; font-size: 0.85rem; }
+.comment-time { font-size: 0.72rem; color: #8b91b8; font-family: monospace; }
+.comment-body { font-size: 0.875rem; line-height: 1.6; color: #c5c8e0; white-space: pre-wrap; }
+
+.comment-form textarea {
+  width: 100%; padding: 0.75rem;
+  background: #22263a; border: 1px solid #2e3250;
+  border-radius: 6px; color: #e8eaf6; font-family: inherit; font-size: 0.875rem;
+  resize: vertical; min-height: 80px; outline: none; transition: border-color 0.15s;
+}
+.comment-form textarea:focus { border-color: #4f7cff; }
+
+/* ボタン */
+.btn {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.5rem 1.1rem; border-radius: 6px; border: none;
+  cursor: pointer; font-family: inherit; font-size: 0.85rem;
+  font-weight: 500; text-decoration: none; transition: all 0.2s;
+}
+.btn-primary { background: #4f7cff; color: #fff; }
+.btn-primary:hover { background: #3d6ae8; }
+.btn-ghost { background: transparent; color: #8b91b8; border: 1px solid #2e3250; }
+.btn-ghost:hover { border-color: #4f7cff; color: #4f7cff; }
+.btn-danger { background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
+.btn-danger:hover { background: rgba(248,113,113,0.25); }
+.btn-sm { padding: 0.3rem 0.75rem; font-size: 0.78rem; }
+.btn-success { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.2); }
+.btn-success:hover { background: rgba(52,211,153,0.25); }
+
+.action-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+
+.due-overdue { color: #f87171; font-weight: 600; }
+</style>
+
+<!-- ヘッダー -->
+<div class="task-detail-header">
+  <a href="/tasks/" class="back-btn">← タスク一覧</a>
+  <div class="task-title-area">
+    <div class="task-title">{{ task.title }}</div>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+      <span class="status-badge status-{{ task.status }}">
+        {% if task.status=='todo' %}未着手
+        {% elif task.status=='in_progress' %}進行中
+        {% elif task.status=='done' %}✓ 完了
+        {% elif task.status=='cancelled' %}キャンセル{% endif %}
+      </span>
+      <span class="priority-badge priority-{{ task.priority }}">
+        {% if task.priority=='high' %}🔴 高
+        {% elif task.priority=='medium' %}🟡 中
+        {% else %}🔵 低{% endif %}
+      </span>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- 左：詳細・コメント -->
+  <div>
+    <!-- 説明 -->
+    <div class="card">
+      <div class="card-header">説明</div>
+      <div class="card-body">
+        {% if task.description %}
+        <div class="description-text">{{ task.description }}</div>
+        {% else %}
+        <div class="no-desc">説明なし</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- ステータス変更 -->
+    {% if task.status != 'done' and task.status != 'cancelled' %}
+    <div class="action-row" style="margin-bottom:1.25rem;">
+      {% if task.status == 'todo' %}
+      <button class="btn btn-primary" onclick="updateStatus('in_progress')">▶ 進行中にする</button>
+      {% elif task.status == 'in_progress' %}
+      <button class="btn btn-success" onclick="updateStatus('done')">✓ 完了にする</button>
+      <button class="btn btn-ghost" onclick="updateStatus('todo')">← 未着手に戻す</button>
+      {% endif %}
+      <button class="btn btn-danger btn-sm" onclick="updateStatus('cancelled')">キャンセル</button>
+    </div>
+    {% endif %}
+
+    <!-- コメント -->
+    <div class="card">
+      <div class="card-header">コメント（{{ comments|length }}件）</div>
+      <div class="card-body" style="padding: 0.5rem 1.25rem;">
+        {% for c in comments %}
+        <div class="comment-item">
+          <div class="comment-header">
+            <span class="comment-author">{{ c.author_name }}</span>
+            <span class="comment-time">{{ c.created_at[:16] }}</span>
+          </div>
+          <div class="comment-body">{{ c.body }}</div>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:1.5rem;color:#4b5563;font-size:0.8rem;">コメントなし</div>
+        {% endfor %}
+      </div>
+      <!-- コメント投稿 -->
+      <div class="card-body" style="border-top:1px solid #2e3250;padding-top:1rem;">
+        <div class="comment-form">
+          <textarea id="commentBody" placeholder="コメントを入力..."></textarea>
+          <div style="display:flex;justify-content:flex-end;margin-top:0.5rem;">
+            <button class="btn btn-primary btn-sm" onclick="postComment()">投稿</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右：メタ情報編集 -->
+  <div>
+    <div class="card">
+      <div class="card-header">タスク情報</div>
+      <div class="card-body">
+        <div class="meta-item">
+          <div class="meta-label">担当者</div>
+          <select class="edit-select" id="editAssignee" onchange="updateField('assignee_id', this.value ? parseInt(this.value) : null)">
+            <option value="">未割当</option>
+            {% for s in staffs %}
+            <option value="{{ s.id }}" {% if task.assignee_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">優先度</div>
+          <select class="edit-select" id="editPriority" onchange="updateField('priority', this.value)">
+            <option value="high" {% if task.priority=='high' %}selected{% endif %}>🔴 高</option>
+            <option value="medium" {% if task.priority=='medium' %}selected{% endif %}>🟡 中</option>
+            <option value="low" {% if task.priority=='low' %}selected{% endif %}>🔵 低</option>
+          </select>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">期限</div>
+          <input type="date" class="edit-input" id="editDue"
+            value="{{ task.due_date or '' }}"
+            onchange="updateField('due_date', this.value || null)">
+          {% if task.due_date and task.due_date < now and task.status != 'done' %}
+          <div class="due-overdue" style="font-size:0.75rem;margin-top:0.25rem;">⚠ 期限超過</div>
+          {% endif %}
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">作成者</div>
+          <div class="meta-value" style="color:#8b91b8;">{{ task.creator_name }}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">作成日時</div>
+          <div class="meta-value" style="color:#8b91b8;font-family:monospace;font-size:0.8rem;">{{ task.created_at[:16] }}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">最終更新</div>
+          <div class="meta-value" style="color:#8b91b8;font-family:monospace;font-size:0.8rem;">{{ task.updated_at[:16] }}</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-danger" style="width:100%;" onclick="deleteTask()">🗑 タスクを削除</button>
+  </div>
+</div>
+
+<script>
+const TASK_ID = {{ task.id }};
+const CURRENT_ID = {{ current.id }};
+const TODAY = new Date().toISOString().split('T')[0];
+
+async function updateStatus(status) {
+  const labels = {todo:'未着手', in_progress:'進行中', done:'完了', cancelled:'キャンセル'};
+  if (!confirm(`「${labels[status]}」に変更しますか？`)) return;
+  const res = await fetch(`/tasks/api/${TASK_ID}`, {
+    method: 'PATCH', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ status })
+  });
+  if (res.ok) location.reload();
+  else alert('更新失敗');
+}
+
+async function updateField(field, value) {
+  const body = {};
+  body[field] = value;
+  await fetch(`/tasks/api/${TASK_ID}`, {
+    method: 'PATCH', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+}
+
+async function postComment() {
+  const body = document.getElementById('commentBody').value.trim();
+  if (!body) { alert('コメントを入力してください'); return; }
+  const res = await fetch(`/tasks/api/${TASK_ID}/comments`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ author_id: CURRENT_ID, body })
+  });
+  if (res.ok) location.reload();
+  else alert('投稿失敗');
+}
+
+async function deleteTask() {
+  if (!confirm('このタスクを削除しますか？この操作は取り消せません。')) return;
+  const res = await fetch(`/tasks/api/${TASK_ID}`, { method: 'DELETE' });
+  if (res.ok) window.location.href = '/tasks/';
+  else alert('削除失敗');
+}
+</script>
+{% endblock %}

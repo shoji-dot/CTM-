@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block title %}{{ doc.title }} - 承認詳細{% endblock %}
+{% block content %}
+<style>
+.ap-status{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;}
+.ap-status::before{content:'';width:7px;height:7px;border-radius:50%;}
+.ap-status-draft{background:#f1f0f0;color:#888;}.ap-status-draft::before{background:#aaa;}
+.ap-status-in_review{background:#fff8e1;color:#b07c00;}.ap-status-in_review::before{background:#f0b429;}
+.ap-status-approved{background:#e6f4ea;color:#1e7e34;}.ap-status-approved::before{background:#28a745;}
+.ap-status-rejected{background:#fdecea;color:#b71c1c;}.ap-status-rejected::before{background:#e53935;}
+.ap-status-revising{background:#e3f2fd;color:#0d47a1;}.ap-status-revising::before{background:#1976d2;}
+.ap-layout{display:grid;grid-template-columns:1fr 360px;gap:1.5rem;}
+@media(max-width:900px){.ap-layout{grid-template-columns:1fr;}}
+.ap-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:1.5rem;}
+.ap-card-header{padding:14px 20px;border-bottom:1px solid #e5e7eb;font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:space-between;}
+.ap-card-body{padding:20px;}
+.steps-flow{display:flex;align-items:flex-start;padding:20px;gap:0;}
+.step-item{flex:1;display:flex;flex-direction:column;align-items:center;position:relative;}
+.step-item:not(:last-child)::after{content:'';position:absolute;top:16px;left:50%;width:100%;height:2px;background:#e5e7eb;z-index:0;}
+.step-item.done:not(:last-child)::after{background:#28a745;}
+.step-item.current:not(:last-child)::after{background:#f0b429;}
+.step-circle{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;position:relative;z-index:1;border:2px solid #ddd;background:#fff;}
+.step-item.done .step-circle{border-color:#28a745;color:#28a745;background:#e6f4ea;}
+.step-item.current .step-circle{border-color:#f0b429;color:#b07c00;background:#fff8e1;box-shadow:0 0 6px rgba(240,180,41,.4);}
+.step-item.pending .step-circle{border-color:#ddd;color:#aaa;}
+.step-label{font-size:11px;color:#888;margin-top:6px;text-align:center;}
+.step-item.done .step-label{color:#28a745;}.step-item.current .step-label{color:#b07c00;}
+.timeline{display:flex;flex-direction:column;}
+.tl-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #f0f0f0;}
+.tl-item:last-child{border-bottom:none;}
+.tl-icon{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.tl-icon-approved{background:#e6f4ea;}.tl-icon-rejected{background:#fdecea;}.tl-icon-submitted{background:#e3f2fd;}
+.tl-icon-commented{background:#f5f5f5;}.tl-icon-cancelled{background:#fff3e0;}
+.tl-action{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;}
+.tl-action-approved{background:#e6f4ea;color:#1e7e34;}.tl-action-rejected{background:#fdecea;color:#b71c1c;}
+.tl-action-submitted{background:#e3f2fd;color:#0d47a1;}.tl-action-commented{background:#f5f5f5;color:#555;}
+.tl-action-cancelled{background:#fff3e0;color:#e65100;}
+.tl-comment{margin-top:6px;font-size:12px;color:#666;background:#f9f9f9;padding:6px 10px;border-radius:6px;border-left:3px solid #ddd;}
+.action-panel{background:#f0f4ff;border:1px solid #c7d5ff;border-radius:8px;padding:16px;margin-bottom:12px;}
+.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;}
+.meta-item label{font-size:12px;color:#888;display:block;margin-bottom:3px;}
+.meta-item span{font-size:13px;}
+</style>
+
+<div class="page-header">
+  <h1 class="page-title">{{ doc.title }}</h1>
+  <div style="display:flex;gap:8px;">
+    <a href="/approval/" class="btn btn-ghost">← 一覧へ</a>
+    {% if doc.mime_type != 'application/quote' %}
+    <a href="/approval/documents/{{ doc.id }}/file" class="btn btn-ghost" target="_blank">⬇ ダウンロード</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="ap-layout">
+  <!-- 左：文書情報 -->
+  <div>
+    <div class="ap-card">
+      <div class="ap-card-body" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-size:12px;color:#888;margin-bottom:6px;">現在のステータス</div>
+          <span class="ap-status ap-status-{{ doc.status }}">
+            {% if doc.status=='draft' %}下書き{% elif doc.status=='in_review' %}承認中{% elif doc.status=='approved' %}承認済{% elif doc.status=='rejected' %}否認{% elif doc.status=='revising' %}修正中{% endif %}
+          </span>
+        </div>
+        {% if doc.status in ('draft','revising') and doc.uploaded_by == current.id %}
+        <button class="btn btn-primary" onclick="submitDocument()">承認申請する</button>
+        {% endif %}
+      </div>
+      {% if steps %}
+      <div class="steps-flow">
+        {% for step in steps %}
+        <div class="step-item {% if step.step_order < doc.current_step %}done{% elif step.step_order == doc.current_step and doc.status=='in_review' %}current{% else %}pending{% endif %}">
+          <div class="step-circle">{% if step.step_order < doc.current_step %}✓{% else %}{{ step.step_order }}{% endif %}</div>
+          <div class="step-label">{{ step.step_name }}</div>
+          {% if step.approver_name %}<div style="font-size:10px;color:#aaa;text-align:center;">{{ step.approver_name }}</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="ap-card">
+      <div class="ap-card-header">ファイル情報</div>
+      <div class="ap-card-body">
+        {% if doc.mime_type == 'application/quote' %}
+        <div style="text-align:center;padding:24px;color:#888;">
+          <div style="font-size:32px;margin-bottom:8px;">📋</div>
+          <div style="font-size:13px;">見積書 — {{ doc.file_name }}</div>
+          {% if doc.file_name %}
+          <a href="/quotes" class="btn btn-ghost" style="margin-top:12px;">見積管理で確認</a>
+          {% endif %}
+        </div>
+        {% else %}
+        <div style="background:#f9f9f9;border-radius:8px;padding:32px;text-align:center;color:#888;">
+          <div style="font-size:40px;opacity:.5;">{% if 'pdf' in doc.mime_type %}📄{% elif 'word' in doc.mime_type or 'document' in doc.mime_type %}📝{% else %}📊{% endif %}</div>
+          <div style="font-size:13px;margin-top:8px;">{{ doc.file_name }}</div>
+          <a href="/approval/documents/{{ doc.id }}/file" class="btn btn-ghost" target="_blank" style="margin-top:12px;">ファイルを開く</a>
+        </div>
+        {% endif %}
+        <div class="meta-grid">
+          <div class="meta-item"><label>ドキュメント種別</label><span>{{ doc.type_name }}</span></div>
+          <div class="meta-item"><label>申請者</label><span>{{ doc.uploader_name }}</span></div>
+          <div class="meta-item"><label>アップロード日時</label><span class="mono text-sm">{{ doc.created_at[:16] if doc.created_at else '―' }}</span></div>
+          <div class="meta-item"><label>最終更新</label><span class="mono text-sm">{{ doc.updated_at[:16] if doc.updated_at else '―' }}</span></div>
+        </div>
+        {% if doc.comment %}
+        <div style="margin-top:12px;padding:10px;background:#fdecea;border:1px solid #ffcdd2;border-radius:6px;">
+          <div style="font-size:12px;color:#b71c1c;margin-bottom:4px;">差し戻しコメント</div>
+          <div style="font-size:13px;">{{ doc.comment }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- 右：承認操作・履歴 -->
+  <div>
+    {% if doc.status == 'in_review' and is_my_turn %}
+    <div class="ap-card">
+      <div class="ap-card-header">承認操作</div>
+      <div class="ap-card-body">
+        <div class="action-panel">
+          <div style="font-size:12px;color:#4f7cff;font-weight:600;margin-bottom:10px;">⚡ あなたの承認が必要です（Step {{ doc.current_step }}）</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" onclick="openActionModal('approved')">✓ 承認</button>
+            <button class="btn btn-danger btn-sm" onclick="openActionModal('rejected')">✕ 差し戻し</button>
+            <button class="btn btn-ghost btn-sm" onclick="openActionModal('commented')">💬 コメント</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="ap-card">
+      <div class="ap-card-header">承認履歴 <span style="font-size:12px;color:#888;">{{ logs|length }}件</span></div>
+      <div class="ap-card-body" style="padding:8px 20px;">
+        {% if logs %}
+        <div class="timeline">
+          {% for log in logs %}
+          <div class="tl-item">
+            <div class="tl-icon tl-icon-{{ log.action }}">
+              {% if log.action=='approved' %}✓{% elif log.action=='rejected' %}✕{% elif log.action=='submitted' %}📤{% elif log.action=='commented' %}💬{% elif log.action=='cancelled' %}↩{% else %}○{% endif %}
+            </div>
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <span style="font-weight:600;font-size:13px;">{{ log.approver_name }}</span>
+                <span class="tl-action tl-action-{{ log.action }}">
+                  {% if log.action=='approved' %}承認{% elif log.action=='rejected' %}差し戻し{% elif log.action=='submitted' %}申請{% elif log.action=='commented' %}コメント{% elif log.action=='cancelled' %}取消{% else %}{{ log.action }}{% endif %}
+                </span>
+                <span class="mono text-sm text-muted" style="margin-left:auto;">{{ log.created_at[:16] if log.created_at else '' }}</span>
+              </div>
+              {% if log.comment %}<div class="tl-comment">{{ log.comment }}</div>{% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:24px;color:#aaa;font-size:13px;">履歴なし</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 承認アクションモーダル -->
+<div id="actionModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;padding:24px;width:440px;max-width:90vw;">
+    <h3 style="margin:0 0 6px;font-size:16px;" id="modalTitle">承認</h3>
+    <p style="font-size:13px;color:#666;margin-bottom:16px;" id="modalSub"></p>
+    <label class="label" id="commentLabel">コメント（任意）</label>
+    <textarea class="textarea" id="actionComment" rows="3" placeholder="コメントを入力..." style="width:100%;margin-bottom:14px;"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeActionModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="submitAction()">実行</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentAction=null;
+const cfg={
+  approved:{title:'承認',sub:'この文書を承認します。',label:'コメント（任意）',required:false},
+  rejected:{title:'差し戻し',sub:'差し戻しの理由を入力してください。',label:'理由（必須）',required:true},
+  commented:{title:'コメント追加',sub:'コメントを入力してください。',label:'コメント（必須）',required:true},
+};
+function openActionModal(action){
+  currentAction=action;const c=cfg[action];
+  document.getElementById('modalTitle').textContent=c.title;
+  document.getElementById('modalSub').textContent=c.sub;
+  document.getElementById('commentLabel').textContent=c.label;
+  document.getElementById('actionComment').value='';
+  document.getElementById('actionModal').style.display='flex';
+}
+function closeActionModal(){document.getElementById('actionModal').style.display='none';currentAction=null;}
+async function submitAction(){
+  const comment=document.getElementById('actionComment').value.trim();
+  if(cfg[currentAction].required&&!comment){alert('コメントを入力してください');return;}
+  const res=await fetch('/approval/documents/{{ doc.id }}/action',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({approver_id:{{ current.id }},action:currentAction,comment:comment||null})
+  });
+  if(res.ok){location.reload();}else{const e=await res.json();alert(e.detail||'エラーが発生しました');}
+}
+async function submitDocument(){
+  if(!confirm('承認申請を行いますか？'))return;
+  const res=await fetch('/approval/documents/{{ doc.id }}/submit?submitter_id={{ current.id }}',{method:'POST'});
+  if(res.ok){location.reload();}else{const e=await res.json();alert(e.detail||'エラーが発生しました');}
+}
+document.getElementById('actionModal').addEventListener('click',function(e){if(e.target===this)closeActionModal();});
+</script>
+{% endblock %}

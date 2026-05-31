@@ -1,0 +1,104 @@
+﻿{% extends "base.html" %}
+{% block title %}{{ "商品編集" if product else "商品登録" }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">{{ "商品編集" if product else "商品登録" }}</h1>
+  <a href="/products" class="btn btn-ghost">← 一覧に戻る</a>
+</div>
+<div class="form-card">
+  <form method="post" action="{{ '/products/' + product.id|string + '/edit' if product else '/products/new' }}">
+    <div class="form-grid">
+      <div class="form-group span-2">
+        <label class="label">商品名 <span class="required">*</span></label>
+        <input name="name" value="{{ product.name if product else '' }}" required class="input">
+      </div>
+      <div class="form-group">
+        <label class="label">カテゴリ</label>
+        <select name="category" class="select">
+          <option value="medical" {{ "selected" if not product or product.category == "medical" }}>医療機器</option>
+          <option value="ham" {{ "selected" if product and product.category == "ham" }}>生ハム</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="label">商品コード (SKU)</label>
+        <input name="sku" value="{{ product.sku if product else '' }}" class="input">
+      </div>
+      <div class="form-group">
+        <label class="label">単価 (円) <span class="required">*</span></label>
+        <input name="unit_price" type="number" step="0.01" value="{{ product.unit_price if product else '' }}" required class="input">
+      </div>
+      <div class="form-group">
+        <label class="label">単位</label>
+        <input name="unit" value="{{ product.unit if product else '' }}" class="input" placeholder="台 / 本 / kg">
+      </div>
+      <div class="form-group">
+        <label class="label">管理番号種別</label>
+        <select name="tracking_type" class="select">
+          <option value="none" {{ "selected" if not product or product.tracking_type == "none" }}>なし</option>
+          <option value="serial" {{ "selected" if product and product.tracking_type == "serial" }}>シリアル番号</option>
+          <option value="lot" {{ "selected" if product and product.tracking_type == "lot" }}>ロット番号</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="label">在庫アラート閾値</label>
+        <input name="stock_alert_threshold" type="number" value="{{ product.stock_alert_threshold if product else 10 }}" class="input">
+      </div>
+      <div class="form-group span-2">
+        <label class="label">メーカー名</label>
+        <input name="maker" value="{{ product.maker if product else '' }}" class="input" placeholder="例：オムロン・フィリップス">
+      </div>
+
+      <div class="form-group">
+        <label class="label">JANコード</label>
+        <input name="jan_code" value="{{ product.jan_code if product else '' }}" class="input" placeholder="例：4901234567890">
+      </div>
+      <div class="form-group">
+        <label class="label">承認番号 / 認証番号</label>
+        <input name="approval_number" value="{{ product.approval_number if product else '' }}" class="input" placeholder="例：22100BZX00123000">
+      </div>
+
+      <div class="form-group">
+        <label class="label">クラス分類</label>
+        <select name="device_class" class="select">
+          <option value="" {{ "selected" if not product or not product.device_class }}>未設定</option>
+          <option value="misc" {{ "selected" if product and product.device_class == "misc" }}>雑品</option>
+          <option value="1"    {{ "selected" if product and product.device_class == "1" }}>クラスⅠ</option>
+          <option value="2"    {{ "selected" if product and product.device_class == "2" }}>クラスⅡ</option>
+          <option value="3"    {{ "selected" if product and product.device_class == "3" }}>クラスⅢ</option>
+          <option value="4"    {{ "selected" if product and product.device_class == "4" }}>クラスⅣ</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="label">販売区分</label>
+        <select name="sales_role" class="select">
+          <option value="" {{ "selected" if not product or not product.sales_role }}>未設定</option>
+          <option value="maker"       {{ "selected" if product and product.sales_role == "maker" }}>メーカー</option>
+          <option value="distributor" {{ "selected" if product and product.sales_role == "distributor" }}>代理店</option>
+        </select>
+      </div>
+
+      <div class="form-group span-2">
+        <label class="label">型式・仕様</label>
+        <textarea name="model_spec" class="textarea" rows="2" placeholder="例：Type-A / 滅菌済み / 単回使用">{{ product.model_spec if product else '' }}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="label">滅菌状態</label>
+        <select name="sterility" class="select">
+          <option value="" {{ "selected" if not product or not product.sterility }}>未設定</option>
+          <option value="sterile"     {{ "selected" if product and product.sterility == "sterile" }}>滅菌済み</option>
+          <option value="non_sterile" {{ "selected" if product and product.sterility == "non_sterile" }}>未滅菌</option>
+        </select>
+      </div>
+      <div class="form-group span-2">
+        <label class="label">備考</label>
+        <textarea name="notes" class="textarea" rows="3">{{ product.notes if product else '' }}</textarea>
+      </div>
+    </div>
+    <div class="form-actions">
+      <a href="/products" class="btn btn-ghost">キャンセル</a>
+      <button type="submit" class="btn btn-primary">{{ "更新する" if product else "登録する" }}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+

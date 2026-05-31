@@ -1,0 +1,126 @@
+{# templates/notifications/list.html #}
+{% extends "base.html" %}
+{% block title %}通知一覧{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>通知
+    {% if unread_count %}<span class="badge-red">{{ unread_count }}</span>{% endif %}
+  </h1>
+  <div style="display:flex;gap:.5rem">
+    <a href="?unread_only={% if unread_only %}0{% else %}1{% endif %}" class="btn btn-secondary">
+      {% if unread_only %}すべて表示{% else %}未読のみ{% endif %}
+    </a>
+    {% if unread_count %}
+    <button class="btn btn-secondary" onclick="readAll()">すべて既読</button>
+    {% endif %}
+  </div>
+</div>
+
+<div class="notif-list">
+  {% for n in notifs %}
+  <div class="notif-item {% if not n.is_read %}unread{% endif %}" id="notif-{{ n.id }}">
+    <div class="notif-icon type-{{ n.type }}">
+      {% if n.type == 'approval_request' %}📋
+      {% elif n.type == 'approval_reject' %}↩
+      {% elif n.type == 'comment' %}💬
+      {% elif n.type == 'material_update' %}📁
+      {% else %}🔔{% endif %}
+    </div>
+    <div class="notif-body">
+      <p class="notif-msg">{{ n.message }}</p>
+      <span class="notif-time">{{ n.created_at[:16] }}</span>
+    </div>
+    <div class="notif-actions">
+      {% if n.link %}
+      <a href="{{ n.link }}" class="btn btn-primary btn-sm" onclick="markRead({{ n.id }})">開く</a>
+      {% endif %}
+      {% if not n.is_read %}
+      <button class="btn btn-secondary btn-sm" onclick="markRead({{ n.id }}, this)">既読</button>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <p class="empty-state">通知はありません</p>
+  {% endfor %}
+</div>
+
+<style>
+.page-header     { display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem; }
+.badge-red       { background:#ef4444;color:#fff;border-radius:999px;padding:.15rem .5rem;font-size:.75rem;margin-left:.4rem; }
+.notif-list      { display:flex;flex-direction:column;gap:.5rem; }
+.notif-item      { display:flex;gap:.75rem;align-items:flex-start;padding:.85rem 1rem;border:1px solid var(--border);border-radius:8px;background:var(--bg2); }
+.notif-item.unread { border-left:3px solid #3b82f6;background:var(--bg); }
+.notif-icon      { width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;background:var(--bg3,#f1f5f9); }
+.notif-body      { flex:1;min-width:0; }
+.notif-msg       { margin:0 0 .25rem;font-size:.9rem; }
+.notif-time      { font-size:.75rem;color:var(--text-muted); }
+.notif-actions   { display:flex;gap:.4rem;flex-shrink:0; }
+.btn-sm          { font-size:.78rem;padding:.25rem .6rem; }
+.empty-state     { text-align:center;padding:3rem;color:var(--text-muted); }
+</style>
+
+<script>
+async function markRead(id, btn) {
+  await fetch(`/notifications/${id}/read`, {method:'POST'});
+  const item = document.getElementById(`notif-${id}`);
+  item.classList.remove('unread');
+  if (btn) btn.remove();
+}
+async function readAll() {
+  await fetch('/notifications/read-all', {method:'POST'});
+  location.reload();
+}
+</script>
+{% endblock %}
+
+
+{# ================================================================
+   dashboard.html への追記差分
+   既存ダッシュボードの </div>（メインコンテンツ終端）直前に追加
+   ================================================================ #}
+{#
+── お気に入り資料ウィジェット ─────────────────────────────── #}
+{#
+<div class="dashboard-widget">
+  <div class="widget-header">
+    <h3>★ お気に入り資料</h3>
+    <a href="/materials?fav_only=1" class="widget-link">すべて見る</a>
+  </div>
+  {% if fav_materials %}
+  <ul class="widget-list">
+    {% for m in fav_materials %}
+    <li>
+      <span class="ftype ftype-{{ m.file_type.lstrip('.') }}">{{ m.file_type.lstrip('.').upper() }}</span>
+      <a href="/materials/{{ m.id }}/file" download>{{ m.title }}</a>
+      <span class="muted">{{ m.category_name }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">資料をお気に入り登録するとここに表示されます</p>
+  {% endif %}
+</div>
+
+── 通知ウィジェット ──────────────────────────────────────────
+<div class="dashboard-widget">
+  <div class="widget-header">
+    <h3>通知
+      {% if unread_notif_count %}<span class="badge-red">{{ unread_notif_count }}</span>{% endif %}
+    </h3>
+    <a href="/notifications" class="widget-link">すべて見る</a>
+  </div>
+  {% if recent_notifs %}
+  <ul class="widget-list">
+    {% for n in recent_notifs %}
+    <li class="{% if not n.is_read %}unread-item{% endif %}">
+      <span>{{ n.message }}</span>
+      <span class="muted">{{ n.created_at[5:16] }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">新しい通知はありません</p>
+  {% endif %}
+</div>
+#}

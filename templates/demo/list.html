@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}デモ器台帳{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+  <!-- ページヘッダー -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">🔬 デモ器台帳</h2>
+    <a href="/demo/new" class="btn btn-primary">＋ デモ器登録</a>
+  </div>
+<!-- メール送信ボタン -->
+<form method="post" action="/demo/send-alert-emails" style="margin-bottom:1rem">
+  <button type="submit"
+          onclick="return confirm('アラート対象の担当営業にメールを送信しますか？')"
+          style="background:#2563eb;color:#fff;padding:8px 20px;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold">
+    📧 アラートメール送信
+  </button>
+</form>
+
+<!-- 送信結果フラッシュ -->
+{% if request.query_params.get('mail_type') %}
+  {% set mail_type = request.query_params.get('mail_type') %}
+  {% set sent = request.query_params.get('mail_sent', '0') %}
+  {% set no_staff = request.query_params.get('mail_no_staff', '0') %}
+  {% if mail_type == 'info' %}
+    <div style="background:#eff6ff;color:#1e40af;padding:12px 16px;border-radius:6px;margin-bottom:1rem;border:1px solid #bfdbfe">
+      ℹ 送信対象の貸出がありませんでした
+    </div>
+  {% elif mail_type == 'success' %}
+    <div style="background:#dcfce7;color:#166534;padding:12px 16px;border-radius:6px;margin-bottom:1rem;border:1px solid #bbf7d0">
+      ✅ {{ sent }}名の担当営業にメールを送信しました
+      {% if no_staff != '0' %}（担当未設定 {{ no_staff }}件はスキップ）{% endif %}
+    </div>
+  {% else %}
+    <div style="background:#fee2e2;color:#991b1b;padding:12px 16px;border-radius:6px;margin-bottom:1rem;border:1px solid #fecaca">
+      ⚠ 送信中にエラーが発生しました（{{ sent }}名送信済み）
+    </div>
+  {% endif %}
+{% endif %}
+  <!-- ═══════════════════════════════════════
+       返却期限アラートパネル
+  ════════════════════════════════════════ -->
+  {% if alert_loans or alert_shipments %}
+  <div class="card border-danger mb-4">
+    <div class="card-header bg-danger text-white d-flex align-items-center gap-2">
+      <span style="font-size:1.2rem">⚠️</span>
+      <strong>返却期限アラート</strong>
+      <span class="badge bg-white text-danger ms-auto">{{ alert_loans|length + alert_shipments|length }} 件</span>
+    </div>
+    <div class="card-body p-0">
+      <table class="table table-sm table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>種別</th>
+            <th>機器</th>
+            <th>貸出先</th>
+            <th>返却期限</th>
+            <th>状態</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for loan in alert_loans %}
+          {% set days_left = (loan.due_date - today).days %}
+          <tr class="{{ 'table-danger' if days_left < 0 else ('table-warning' if days_left <= 3 else 'table-info') }}">
+            <td><span class="badge bg-secondary">台帳</span></td>
+            <td>
+              <strong>{{ loan.demo_unit.unit_code }}</strong><br>
+              <small class="text-muted">{{ loan.demo_unit.product.name }}</small>
+            </td>
+            <td>{{ loan.customer.name }}<br>
+              <small class="text-muted">{{ loan.contact_name or "" }}</small>
+            </td>
+            <td>
+              <strong>{{ loan.due_date.strftime('%Y/%m/%d') }}</strong><br>
+              {% if days_left < 0 %}
+                <span class="badge bg-danger">{{ (-days_left) }}日超過</span>
+              {% elif days_left == 0 %}
+                <span class="badge bg-warning text-dark">今日が期限</span>
+              {% else %}
+                <span class="badge bg-info text-dark">あと{{ days_left }}日</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if loan.status == "overdue" %}
+                <span class="badge bg-danger">期限超過</span>
+              {% else %}
+                <span class="badge bg-primary">貸出中</span>
+              {% endif %}
+            </td>
+            <td>
+              <a href="/demo/{{ loan.demo_unit_id }}" class="btn btn-sm btn-outline-primary">詳細</a>
+            </td>
+          </tr>
+          {% endfor %}
+
+          {% for ship in alert_shipments %}
+          {% set days_left = (ship.return_due_date - today).days %}
+          <tr class="{{ 'table-danger' if days_left < 0 else ('table-warning' if days_left <= 3 else 'table-info') }}">
+            <td><span class="badge bg-dark">出荷</span></td>
+            <td>
+              <strong>{{ ship.shipment_number }}</strong><br>
+              <small class="text-muted">{{ ship.product.name }}</small>
+            </td>
+            <td>{{ ship.customer.name }}</td>
+            <td>
+              <strong>{{ ship.return_due_date.strftime('%Y/%m/%d') }}</strong><br>
+              {% if days_left < 0 %}
+                <span class="badge bg-danger">{{ (-days_left) }}日超過</span>
+              {% elif days_left == 0 %}
+                <span class="badge bg-warning text-dark">今日が期限</span>
+              {% else %}
+                <span class="badge bg-info text-dark">あと{{ days_left }}日</span>
+              {% endif %}
+            </td>
+            <td><span class="badge bg-primary">出荷中</span></td>
+            <td>
+              <a href="/shipments/{{ ship.id }}" class="btn btn-sm btn-outline-secondary">詳細</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ═══════════════════════════════════════
+       検索・フィルター
+  ════════════════════════════════════════ -->
+  <div class="card mb-3">
+    <div class="card-body py-2">
+      <form method="get" class="row g-2 align-items-center">
+        <div class="col-auto">
+          <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm"
+                 placeholder="管理番号・シリアル・製品名">
+        </div>
+        <div class="col-auto">
+          <select name="status" class="form-select form-select-sm">
+            <option value="">全ステータス</option>
+            <option value="available" {{ 'selected' if status_filter=='available' }}>✅ 貸出可</option>
+            <option value="on_loan"   {{ 'selected' if status_filter=='on_loan' }}>📤 貸出中</option>
+            <option value="in_repair" {{ 'selected' if status_filter=='in_repair' }}>🔧 修理中</option>
+            <option value="retired"   {{ 'selected' if status_filter=='retired' }}>🗑️ 廃棄</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-sm btn-outline-secondary">🔍 絞込</button>
+          <a href="/demo/" class="btn btn-sm btn-link">クリア</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       デモ器一覧テーブル
+  ════════════════════════════════════════ -->
+  <div class="card">
+    <div class="card-body p-0">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>管理番号</th>
+            <th>製品名</th>
+            <th>シリアル番号</th>
+            <th>状態</th>
+            <th>現在の貸出先</th>
+            <th>返却期限</th>
+            <th>修理記録</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for unit in units %}
+          {% set active = unit.loans | selectattr("status", "in", ["on_loan","overdue"]) | list | first %}
+          <tr>
+            <td><strong>{{ unit.unit_code }}</strong></td>
+            <td>{{ unit.product.name }}</td>
+            <td><code>{{ unit.serial_number or "—" }}</code></td>
+            <td>
+              {% if unit.status == "available" %}
+                <span class="badge bg-success">✅ 貸出可</span>
+              {% elif unit.status == "on_loan" %}
+                <span class="badge bg-primary">📤 貸出中</span>
+              {% elif unit.status == "in_repair" %}
+                <span class="badge bg-warning text-dark">🔧 修理中</span>
+              {% elif unit.status == "retired" %}
+                <span class="badge bg-secondary">🗑️ 廃棄</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if active %}
+                {{ active.customer.name }}<br>
+                <small class="text-muted">{{ active.contact_name or "" }}</small>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if active %}
+                {% set days_left = (active.due_date - today).days %}
+                {{ active.due_date.strftime('%Y/%m/%d') }}
+                {% if days_left < 0 %}
+                  <span class="badge bg-danger">{{ (-days_left) }}日超過</span>
+                {% elif days_left <= 3 %}
+                  <span class="badge bg-warning text-dark">あと{{ days_left }}日</span>
+                {% elif days_left <= 7 %}
+                  <span class="badge bg-info text-dark">あと{{ days_left }}日</span>
+                {% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% set open_repairs = unit.repairs | selectattr("status", "in", ["pending","in_repair"]) | list %}
+              {% if open_repairs %}
+                <span class="badge bg-warning text-dark">🔧 {{ open_repairs|length }}件対応中</span>
+              {% else %}
+                <span class="text-muted small">{{ unit.repairs|length }}件</span>
+              {% endif %}
+            </td>
+            <td>
+              <a href="/demo/{{ unit.id }}" class="btn btn-sm btn-outline-primary">詳細</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="text-center text-muted py-4">デモ器が登録されていません</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

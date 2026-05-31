@@ -1,0 +1,79 @@
+﻿{% extends "base.html" %}
+{% block title %}顧客一括登録{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">顧客一括登録（CSVインポート）</h1>
+  <a href="/customers" class="btn btn-ghost">← 一覧に戻る</a>
+</div>
+
+{% if results %}
+<div class="import-results">
+  <div class="import-stat-grid">
+    <div class="import-stat success">
+      <div class="import-stat-value">{{ results.success }}</div>
+      <div class="import-stat-label">登録成功</div>
+    </div>
+    <div class="import-stat skip">
+      <div class="import-stat-value">{{ results.skip }}</div>
+      <div class="import-stat-label">スキップ</div>
+    </div>
+    <div class="import-stat error">
+      <div class="import-stat-value">{{ results.errors | length }}</div>
+      <div class="import-stat-label">エラー</div>
+    </div>
+  </div>
+  {% if results.errors %}
+  <div class="import-errors">
+    <div class="import-errors-title">⚠ エラー詳細</div>
+    {% for e in results.errors %}
+    <div class="import-error-row">{{ e }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if results.success > 0 %}
+  <div style="margin-top:16px">
+    <a href="/customers" class="btn btn-primary">顧客一覧を確認する →</a>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="form-card" style="margin-top:20px">
+  <h2 class="card-title">CSVファイルをアップロード</h2>
+
+  <div class="import-guide">
+    <div class="import-guide-title">📋 CSVフォーマット</div>
+    <table class="table" style="min-width:unset">
+      <thead>
+        <tr><th>列名</th><th>内容</th><th>必須</th><th>例</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="mono">name</td><td>顧客名</td><td class="text-danger">必須</td><td>医療法人〇〇</td></tr>
+        <tr><td class="mono">category</td><td>カテゴリ</td><td>任意</td><td>medical または ham</td></tr>
+        <tr><td class="mono">contact_name</td><td>担当者名</td><td>任意</td><td>田中 一郎</td></tr>
+        <tr><td class="mono">phone</td><td>電話番号</td><td>任意</td><td>03-1234-5678</td></tr>
+        <tr><td class="mono">email</td><td>メール</td><td>任意</td><td>info@example.com</td></tr>
+        <tr><td class="mono">address</td><td>住所</td><td>任意</td><td>東京都〇〇区1-1-1</td></tr>
+        <tr><td class="mono">notes</td><td>備考</td><td>任意</td><td>自由記入</td></tr>
+      </tbody>
+    </table>
+    <div style="margin-top:12px">
+      <a href="/customers/template" class="btn btn-ghost">⬇ CSVテンプレートをダウンロード</a>
+    </div>
+  </div>
+
+  <form method="post" action="/customers/import" enctype="multipart/form-data" style="margin-top:20px">
+    <div class="form-group">
+      <label class="label">CSVファイル <span class="required">*</span></label>
+      <input type="file" name="file" accept=".csv" required class="input" style="padding:6px">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
+        UTF-8またはShift-JIS形式のCSVに対応しています
+      </div>
+    </div>
+    <div class="form-actions">
+      <a href="/customers" class="btn btn-ghost">キャンセル</a>
+      <button type="submit" class="btn btn-primary">インポート実行</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

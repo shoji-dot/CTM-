@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}承認ルート設定{% endblock %}
+{% block content %}
+<style>
+.ap-set-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:1.5rem;overflow:hidden;}
+.ap-set-card-header{padding:12px 20px;border-bottom:1px solid #e5e7eb;font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:space-between;}
+.ap-set-card-body{padding:20px;}
+.ap-flow-item{border:1px solid #e5e7eb;border-radius:8px;margin-bottom:12px;overflow:hidden;}
+.ap-flow-header{padding:12px 16px;background:#f9fafb;display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+.ap-flow-name{font-weight:600;font-size:14px;}
+.ap-flow-type{font-size:12px;color:#888;margin-top:2px;}
+.ap-flow-body{padding:16px;border-top:1px solid #e5e7eb;}
+.ap-step-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:8px;}
+.ap-step-num{width:26px;height:26px;border-radius:50%;background:#e8edff;color:#4f7cff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
+.ap-step-info{flex:1;}
+.ap-step-name{font-size:13px;font-weight:500;}
+.ap-step-approver{font-size:11px;color:#888;margin-top:2px;}
+.ap-type-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#f9fafb;border-radius:6px;margin-bottom:6px;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:none;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.ap-modal{background:#fff;border-radius:10px;padding:24px;width:480px;max-width:90vw;}
+.ap-modal-title{font-size:16px;font-weight:600;margin-bottom:20px;}
+.ap-form-group{margin-bottom:14px;}
+.ap-form-label{display:block;font-size:12px;color:#888;margin-bottom:4px;font-weight:500;}
+.ap-form-control{width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;outline:none;}
+.ap-form-control:focus{border-color:#4f7cff;}
+.btn-danger-sm{background:#fdecea;color:#c62828;border:1px solid #ffcdd2;padding:4px 10px;font-size:12px;border-radius:4px;cursor:pointer;}
+.btn-danger-sm:hover{background:#ffcdd2;}
+</style>
+
+<div class="page-header">
+  <h1 class="page-title">承認ルート設定</h1>
+  <a href="/approval/" class="btn btn-ghost">← 一覧へ</a>
+</div>
+
+<!-- ドキュメント種別 -->
+<div class="ap-set-card">
+  <div class="ap-set-card-header">
+    ドキュメント種別
+    <button class="btn btn-primary btn-sm" onclick="openModal('typeModal')">＋ 追加</button>
+  </div>
+  <div class="ap-set-card-body">
+    <div>
+      {% for dt in document_types %}
+      <div class="ap-type-row">
+        <div>
+          <div style="font-weight:500;font-size:14px;">{{ dt.name }}</div>
+          {% if dt.description %}<div style="font-size:12px;color:#888;">{{ dt.description }}</div>{% endif %}
+        </div>
+        <button class="btn-danger-sm" onclick="deleteType({{ dt.id }}, '{{ dt.name }}')">削除</button>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- 承認フロー -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+  <h2 style="font-size:16px;font-weight:600;margin:0;">承認フロー一覧</h2>
+  <button class="btn btn-primary btn-sm" onclick="openModal('flowModal')">＋ フロー追加</button>
+</div>
+
+{% for flow in flows %}
+<div class="ap-flow-item">
+  <div class="ap-flow-header" onclick="toggleFlow('flow-{{ flow.id }}')">
+    <div>
+      <div class="ap-flow-name">{{ flow.name }}</div>
+      <div class="ap-flow-type">種別：{{ flow.type_name }}</div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openStepModal({{ flow.id }})">＋ ステップ追加</button>
+      <button class="btn-danger-sm" onclick="event.stopPropagation();deleteFlow({{ flow.id }})">削除</button>
+    </div>
+  </div>
+  <div class="ap-flow-body" id="flow-{{ flow.id }}">
+    {% for step in flow.steps %}
+    <div class="ap-step-row">
+      <div class="ap-step-num">{{ step.step_order }}</div>
+      <div class="ap-step-info">
+        <div class="ap-step-name">{{ step.step_name }}</div>
+        <div class="ap-step-approver">
+          {% if step.approver_name %}承認者：{{ step.approver_name }}
+          {% elif step.approver_role %}役職：{{ step.approver_role }}
+          {% else %}未設定{% endif %}
+          {% if step.required_level %} / 必要レベル: {{ step.required_level }}{% endif %}
+        </div>
+      </div>
+      <button class="btn-danger-sm" onclick="deleteStep({{ step.id }}, {{ flow.id }})">削除</button>
+    </div>
+    {% else %}
+    <div style="text-align:center;color:#aaa;font-size:13px;padding:16px;">ステップが未設定です</div>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div style="text-align:center;color:#aaa;padding:40px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
+  承認フローがありません。「＋ フロー追加」から作成してください。
+</div>
+{% endfor %}
+
+<!-- ドキュメント種別追加モーダル -->
+<div class="modal-overlay" id="typeModal">
+  <div class="ap-modal">
+    <div class="ap-modal-title">ドキュメント種別追加</div>
+    <div class="ap-form-group"><label class="ap-form-label">種別名 *</label><input type="text" id="typeName" class="ap-form-control" placeholder="例：業務委託契約書"></div>
+    <div class="ap-form-group"><label class="ap-form-label">説明</label><input type="text" id="typeDesc" class="ap-form-control" placeholder="任意"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-ghost" onclick="closeModal('typeModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="addType()">追加</button>
+    </div>
+  </div>
+</div>
+
+<!-- フロー追加モーダル -->
+<div class="modal-overlay" id="flowModal">
+  <div class="ap-modal">
+    <div class="ap-modal-title">承認フロー追加</div>
+    <div class="ap-form-group">
+      <label class="ap-form-label">ドキュメント種別 *</label>
+      <select id="flowTypeId" class="ap-form-control">
+        {% for dt in document_types %}<option value="{{ dt.id }}">{{ dt.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="ap-form-group"><label class="ap-form-label">フロー名 *</label><input type="text" id="flowName" class="ap-form-control" placeholder="例：標準承認ルート"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-ghost" onclick="closeModal('flowModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="addFlow()">作成</button>
+    </div>
+  </div>
+</div>
+
+<!-- ステップ追加モーダル -->
+<div class="modal-overlay" id="stepModal">
+  <div class="ap-modal">
+    <div class="ap-modal-title">承認ステップ追加</div>
+    <input type="hidden" id="stepFlowId">
+    <div class="ap-form-group"><label class="ap-form-label">ステップ順序 *</label><input type="number" id="stepOrder" class="ap-form-control" placeholder="例：1" min="1"></div>
+    <div class="ap-form-group"><label class="ap-form-label">ステップ名 *</label><input type="text" id="stepName" class="ap-form-control" placeholder="例：課長承認"></div>
+    <div class="ap-form-group">
+      <label class="ap-form-label">承認者（社員マスタから選択）</label>
+      <select id="stepApproverId" class="ap-form-control">
+        <option value="">役職ベースで割当</option>
+        {% for s in staffs %}<option value="{{ s.id }}">{{ s.name }}（{{ s.role }}）</option>{% endfor %}
+      </select>
+    </div>
+    <div class="ap-form-group"><label class="ap-form-label">役職ベース割当（承認者未選択の場合）</label><input type="text" id="stepRole" class="ap-form-control" placeholder="例：部長"></div>
+    <div class="ap-form-group"><label class="ap-form-label">必要承認レベル</label><input type="number" id="stepLevel" class="ap-form-control" value="0" min="0"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-ghost" onclick="closeModal('stepModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="addStep()">追加</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function openModal(id){document.getElementById(id).classList.add('open');}
+function openStepModal(flowId){document.getElementById('stepFlowId').value=flowId;openModal('stepModal');}
+function toggleFlow(id){const el=document.getElementById(id);el.style.display=el.style.display==='none'?'':'none';}
+['typeModal','flowModal','stepModal'].forEach(id=>{document.getElementById(id).addEventListener('click',function(e){if(e.target===this)closeModal(id);});});
+
+async function addType(){
+  const name=document.getElementById('typeName').value.trim();
+  if(!name){alert('種別名を入力してください');return;}
+  const res=await fetch('/approval/document-types',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,description:document.getElementById('typeDesc').value.trim()||null})});
+  if(res.ok){location.reload();}else{const e=await res.json();alert(e.detail||'エラー');}
+}
+async function deleteType(id,name){
+  if(!confirm(`「${name}」を削除しますか？`))return;
+  await fetch(`/approval/document-types/${id}`,{method:'DELETE'});location.reload();
+}
+async function addFlow(){
+  const name=document.getElementById('flowName').value.trim();
+  const type_id=document.getElementById('flowTypeId').value;
+  if(!name){alert('フロー名を入力してください');return;}
+  const res=await fetch('/approval/flows',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({document_type_id:parseInt(type_id),name})});
+  if(res.ok){location.reload();}else{const e=await res.json();alert(e.detail||'エラー');}
+}
+async function deleteFlow(id){if(!confirm('このフローを削除しますか？'))return;await fetch(`/approval/flows/${id}`,{method:'DELETE'});location.reload();}
+async function addStep(){
+  const flow_id=parseInt(document.getElementById('stepFlowId').value);
+  const step_order=parseInt(document.getElementById('stepOrder').value);
+  const step_name=document.getElementById('stepName').value.trim();
+  const approver_id=document.getElementById('stepApproverId').value;
+  const approver_role=document.getElementById('stepRole').value.trim();
+  const required_level=parseInt(document.getElementById('stepLevel').value)||0;
+  if(!step_name||!step_order){alert('順序とステップ名を入力してください');return;}
+  const res=await fetch('/approval/flows/steps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({flow_id,step_order,step_name,approver_id:approver_id?parseInt(approver_id):null,approver_role:approver_role||null,required_level})});
+  if(res.ok){location.reload();}else{const e=await res.json();alert(e.detail||'エラー');}
+}
+async function deleteStep(stepId,flowId){if(!confirm('このステップを削除しますか？'))return;await fetch(`/approval/flows/steps/${stepId}`,{method:'DELETE'});location.reload();}
+</script>
+{% endblock %}

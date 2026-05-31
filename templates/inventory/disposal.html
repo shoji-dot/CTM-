@@ -1,0 +1,99 @@
+﻿{% extends "base.html" %}
+{% block title %}廃棄登録{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">廃棄登録</h1>
+  <a href="/inventory" class="btn btn-ghost">← 在庫一覧</a>
+</div>
+
+{% if request.query_params.get("done") %}
+<div class="alert-banner" style="background:rgba(62,207,142,.12);border-color:rgba(62,207,142,.35);color:var(--success)">
+  ✓ 廃棄登録が完了しました。在庫から減算されました。
+</div>
+{% endif %}
+
+<div class="form-card">
+  <form method="post" action="/inventory/disposal">
+    <div class="form-grid">
+      <div class="form-group span-2">
+        <label class="label">商品 <span class="required">*</span></label>
+        <select name="product_id" class="select" required onchange="onProductChange(this)">
+          <option value="">商品を選択...</option>
+          {% for p in products %}
+          <option value="{{ p.id }}"
+            data-stock="{{ p.inventory.current_stock if p.inventory else 0 }}"
+            data-unit="{{ p.unit }}"
+            data-tracking="{{ p.tracking_type }}">
+            {{ p.name }}（在庫：{{ p.inventory.current_stock if p.inventory else 0 }}{{ p.unit }}）
+          </option>
+          {% endfor %}
+        </select>
+        <div id="stock_info" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="label">廃棄理由 <span class="required">*</span></label>
+        <select name="reason_code" class="select" required>
+          <option value="">選択してください</option>
+          {% for k, v in disposal_reasons.items() %}
+          <option value="{{ k }}">{{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="label">廃棄数量 <span class="required">*</span></label>
+        <input name="quantity" type="number" min="1" value="1" required class="input" id="qty_input">
+      </div>
+
+      <div class="form-group span-2" id="serial_lot_group" style="display:none">
+        <label class="label" id="serial_lot_label">シリアル番号 / ロット番号</label>
+        <input name="serial_lot" class="input" placeholder="廃棄対象のシリアル番号またはロット番号">
+      </div>
+
+      <div class="form-group span-2">
+        <label class="label">備考</label>
+        <textarea name="note" class="textarea" rows="3" placeholder="故障状況や廃棄の経緯など詳細を記入"></textarea>
+      </div>
+    </div>
+
+    <div class="disposal-warning">
+      ⚠ 廃棄登録を行うと在庫から減算されます。この操作は取り消せません。
+    </div>
+
+    <div class="form-actions">
+      <a href="/inventory" class="btn btn-ghost">キャンセル</a>
+      <button type="submit" class="btn btn-danger" onclick="return confirm('廃棄登録しますか？在庫から減算されます。')">廃棄登録する</button>
+    </div>
+  </form>
+</div>
+
+<script>
+function onProductChange(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  const stock = opt.dataset.stock || 0;
+  const unit = opt.dataset.unit || "";
+  const tracking = opt.dataset.tracking || "none";
+  const info = document.getElementById("stock_info");
+  const slGroup = document.getElementById("serial_lot_group");
+  const qtyInput = document.getElementById("qty_input");
+
+  if (sel.value) {
+    info.textContent = `現在の在庫数：${stock} ${unit}`;
+    qtyInput.max = stock;
+  } else {
+    info.textContent = "";
+  }
+
+  if (tracking === "serial") {
+    slGroup.style.display = "flex";
+    document.getElementById("serial_lot_label").textContent = "シリアル番号";
+  } else if (tracking === "lot") {
+    slGroup.style.display = "flex";
+    document.getElementById("serial_lot_label").textContent = "ロット番号";
+  } else {
+    slGroup.style.display = "none";
+  }
+}
+</script>
+{% endblock %}
