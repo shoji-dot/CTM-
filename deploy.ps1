@@ -73,6 +73,9 @@ Write-Host "--- Step 2 done ---"
 
 Write-Host "--- Step 3: Inno Setup ---"
 $ISCC = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+if (-not (Test-Path $ISCC)) { $ISCC = "C:\Program Files (x86)\Inno Setup 7\ISCC.exe" }
+if (-not (Test-Path $ISCC)) { $ISCC = "C:\Program Files\Inno Setup 6\ISCC.exe" }
+if (-not (Test-Path $ISCC)) { $ISCC = "C:\Program Files\Inno Setup 7\ISCC.exe" }
 if (-not (Test-Path $ISCC)) {
     Write-Host "SKIP: Inno Setup not installed -> https://jrsoftware.org/isdl.php"
     Read-Host "Press Enter to exit"
