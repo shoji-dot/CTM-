@@ -1,0 +1,154 @@
+﻿{% extends "base.html" %}
+{% block title %}{{ quote.quote_number }}{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+  <h1 class="page-title">{{ quote.quote_number }}</h1>
+  <div class="header-actions">
+    <a href="/quotes" class="btn btn-ghost">← 一覧</a>
+    <button onclick="window.print()" class="btn btn-primary">🖨 PDF保存 / 印刷</button>
+  </div>
+</div>
+<div class="print-only print-header">
+  <div class="print-header-grid">
+    <div class="print-title-block">
+      <h1 class="print-title">見 積 書</h1>
+      <div class="print-quote-number">見積番号：{{ quote.quote_number }}</div>
+      <div class="print-quote-number">発行日：{{ quote.created_at.strftime("%Y年%m月%d日") }}</div>
+      {% if quote.valid_until %}
+      <div class="print-quote-number">有効期限：{{ quote.valid_until.strftime("%Y年%m月%d日") }}</div>
+      {% endif %}
+    </div>
+    <div class="print-company-block">
+      <div class="print-company-name">{{ company.name }}</div>
+      <div class="print-company-info">{{ company.postal }} {{ company.address }}</div>
+      <div class="print-company-info">TEL：{{ company.tel }}</div>
+      <div class="print-company-info">FAX：{{ company.fax }}</div>
+      <div class="print-company-info">登録番号：{{ company.invoice_no }}</div>
+    </div>
+  </div>
+  <div class="print-customer-block">
+    <span class="print-customer-name">{{ quote.customer.name }}</span> 御中
+  </div>
+</div>
+<div class="detail-grid">
+  <div class="detail-card">
+    <h2 class="card-title no-print">見積情報</h2>
+    <dl class="dl">
+      <dt>見積番号</dt><dd class="mono">{{ quote.quote_number }}</dd>
+      <dt>顧客名</dt>
+      <dd><a href="/customers/{{ quote.customer_id }}" class="link no-print">{{ quote.customer.name }}</a><span class="print-only">{{ quote.customer.name }}</span></dd>
+      <dt>エンドユーザー</dt>
+      <dd>{{ quote.end_user.name if quote.end_user else "―" }}</dd>
+      <dt class="no-print">状態</dt>
+      <dd class="no-print"><span class="badge badge-{{ quote.status }}">{{ {"draft":"下書き","sent":"送付済","accepted":"承認","rejected":"却下"}[quote.status] }}</span></dd>
+      <dt>有効期限</dt><dd>{{ quote.valid_until.strftime("%Y/%m/%d") if quote.valid_until else "―" }}</dd>
+      <dt>作成日</dt><dd>{{ quote.created_at.strftime("%Y/%m/%d") }}</dd>
+      <dt>備考</dt><dd>{{ quote.notes or "―" }}</dd>
+    </dl>
+    <div class="no-print">
+      {% if quote.status == "accepted" %}
+        <div class="accepted-badge">✓ この見積は承認済みです</div>
+        {% if approval_ctx.can_cancel %}
+        <div style="margin-top:12px;">
+          <button class="btn btn-danger btn-sm" onclick="document.getElementById('cancelModal').style.display='flex'">承認を取消す</button>
+        </div>
+        {% endif %}
+        {% if quote.approval_comment %}
+        <div class="text-muted text-sm" style="margin-top:8px;">承認コメント: {{ quote.approval_comment }}</div>
+        {% endif %}
+      {% else %}
+      <div class="action-buttons">
+        <form method="post" action="/quotes/{{ quote.id }}/status" style="display:inline">
+          <select name="status" class="select">
+            <option value="draft" {{ "selected" if quote.status == "draft" }}>下書き</option>
+            <option value="sent" {{ "selected" if quote.status == "sent" }}>送付済</option>
+            <option value="rejected" {{ "selected" if quote.status == "rejected" }}>却下</option>
+          </select>
+          <button type="submit" class="btn btn-ghost">状態を変更</button>
+        </form>
+        {% if approval_ctx.can_approve %}
+        <button class="btn btn-primary" onclick="document.getElementById('approveModal').style.display='flex'">✓ 承認</button>
+        {% elif quote.approval_doc_id %}
+        <span class="text-muted text-sm" style="margin-left:8px;">（承認権限なし）</span>
+        {% endif %}
+      </div>
+      {% if quote.cancelled_by_id %}
+      <div class="text-muted text-sm" style="margin-top:8px;color:#c0392b;">
+        ※ 承認取消済み — {{ quote.cancel_comment }}
+      </div>
+      {% endif %}
+      {% endif %}
+    </div>
+
+    {# 承認モーダル #}
+    <div id="approveModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;">
+      <div style="background:var(--color-bg,#fff);border-radius:8px;padding:24px;width:400px;max-width:90vw;box-shadow:0 4px 20px rgba(0,0,0,.15);">
+        <h3 style="margin:0 0 12px;font-size:16px;">承認の確認</h3>
+        <p style="font-size:13px;color:#666;margin-bottom:16px;">この見積を承認します。コメントを入力できます。</p>
+        <form method="post" action="/quotes/{{ quote.id }}/accept">
+          <textarea name="approval_comment" class="textarea" rows="3" placeholder="承認コメント（任意）" style="width:100%;margin-bottom:12px;"></textarea>
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button type="button" class="btn btn-ghost" onclick="document.getElementById('approveModal').style.display='none'">キャンセル</button>
+            <button type="submit" class="btn btn-primary">承認する</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {# 承認取消モーダル #}
+    <div id="cancelModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;">
+      <div style="background:var(--color-bg,#fff);border-radius:8px;padding:24px;width:400px;max-width:90vw;box-shadow:0 4px 20px rgba(0,0,0,.15);">
+        <h3 style="margin:0 0 12px;font-size:16px;color:#c0392b;">承認の取消</h3>
+        <p style="font-size:13px;color:#666;margin-bottom:16px;">承認を取消します。理由を入力してください。</p>
+        <form method="post" action="/quotes/{{ quote.id }}/cancel_approval">
+          <textarea name="cancel_comment" class="textarea" rows="3" placeholder="取消理由（必須）" required style="width:100%;margin-bottom:12px;"></textarea>
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button type="button" class="btn btn-ghost" onclick="document.getElementById('cancelModal').style.display='none'">キャンセル</button>
+            <button type="submit" class="btn btn-danger">取消を実行</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="detail-card">
+    <h2 class="card-title">見積明細</h2>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>商品名</th><th>単価</th><th>掛率</th><th>数量</th><th>小計</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in quote.items %}
+          <tr>
+            <td>{{ item.product.name }}</td>
+            <td class="text-right">¥{{ "{:,.0f}".format(item.unit_price) }}</td>
+            <td class="text-right">{{ "{:.0f}".format((item.discount_rate or 1.0) * 100) }}%</td>
+            <td class="text-right">{{ item.quantity }} {{ item.product.unit }}</td>
+            <td class="text-right fw-bold">¥{{ "{:,.0f}".format(item.subtotal) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr class="total-row">
+            <td colspan="4" class="text-right fw-bold">合計（税抜）</td>
+            <td class="text-right fw-bold text-lg">¥{{ "{:,.0f}".format(quote.total_amount) }}</td>
+          </tr>
+          <tr class="total-row">
+            <td colspan="4" class="text-right fw-bold">消費税（10%）</td>
+            <td class="text-right fw-bold">¥{{ "{:,.0f}".format(quote.total_amount * 0.1) }}</td>
+          </tr>
+          <tr class="total-row">
+            <td colspan="4" class="text-right fw-bold">合計（税込）</td>
+            <td class="text-right fw-bold text-lg" style="color:var(--accent)">¥{{ "{:,.0f}".format(quote.total_amount * 1.1) }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+<div class="print-only print-footer">
+  <p>このお見積りは有効期限まで有効です。ご不明な点はお気軽にお問い合わせください。</p>
+</div>
+{% endblock %}

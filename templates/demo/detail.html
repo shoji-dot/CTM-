@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% block title %}{{ unit.unit_code }} - デモ器詳細{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+  <!-- ヘッダー -->
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <a href="/demo/" class="text-decoration-none text-muted small">← デモ器台帳</a>
+      <h2 class="mb-0 mt-1">🔬 {{ unit.unit_code }}</h2>
+      <p class="text-muted mb-0">{{ unit.product.name }}
+        {% if unit.serial_number %}<code class="ms-2">{{ unit.serial_number }}</code>{% endif %}
+      </p>
+    </div>
+    <div class="d-flex gap-2">
+      {% if unit.status == "available" %}
+        <a href="/demo/{{ unit.id }}/loan/new" class="btn btn-primary">📤 貸出登録</a>
+      {% endif %}
+      {% if unit.status in ("available", "on_loan") %}
+        <a href="/demo/{{ unit.id }}/repair/new" class="btn btn-warning">🔧 故障登録</a>
+      {% endif %}
+      <a href="/demo/{{ unit.id }}/edit" class="btn btn-outline-secondary">✏️ 編集</a>
+    </div>
+  </div>
+
+  <div class="row g-3">
+
+    <!-- ═══════════ 左カラム：基本情報 ═══════════ -->
+    <div class="col-md-4">
+      <div class="card mb-3">
+        <div class="card-header"><strong>基本情報</strong></div>
+        <div class="card-body">
+          <table class="table table-sm table-borderless mb-0">
+            <tr><th class="text-muted" style="width:40%">管理番号</th>
+                <td><strong>{{ unit.unit_code }}</strong></td></tr>
+            <tr><th class="text-muted">製品名</th>
+                <td>{{ unit.product.name }}</td></tr>
+            <tr><th class="text-muted">シリアル番号</th>
+                <td><code>{{ unit.serial_number or "—" }}</code></td></tr>
+            <tr><th class="text-muted">購入日</th>
+                <td>{{ unit.purchase_date.strftime('%Y/%m/%d') if unit.purchase_date else "—" }}</td></tr>
+            <tr><th class="text-muted">ステータス</th>
+                <td>
+                  {% if unit.status == "available" %}
+                    <span class="badge bg-success fs-6">✅ 貸出可</span>
+                  {% elif unit.status == "on_loan" %}
+                    <span class="badge bg-primary fs-6">📤 貸出中</span>
+                  {% elif unit.status == "in_repair" %}
+                    <span class="badge bg-warning text-dark fs-6">🔧 修理中</span>
+                  {% elif unit.status == "retired" %}
+                    <span class="badge bg-secondary fs-6">🗑️ 廃棄</span>
+                  {% endif %}
+                </td></tr>
+          </table>
+          {% if unit.notes %}
+          <hr>
+          <p class="small text-muted mb-0">{{ unit.notes }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- 現在の貸出状況 -->
+      {% if active_loan %}
+      {% set days_left = (active_loan.due_date - today).days %}
+      <div class="card border-{{ 'danger' if days_left < 0 else ('warning' if days_left <= 3 else 'primary') }} mb-3">
+        <div class="card-header bg-{{ 'danger' if days_left < 0 else ('warning' if days_left <= 3 else 'primary') }}
+                    {{ 'text-white' if days_left >= 0 else 'text-white' }}">
+          <strong>📤 現在の貸出状況</strong>
+        </div>
+        <div class="card-body">
+          <table class="table table-sm table-borderless mb-3">
+            <tr><th class="text-muted">貸出先</th><td><strong>{{ active_loan.customer.name }}</strong></td></tr>
+            <tr><th class="text-muted">担当者</th><td>{{ active_loan.contact_name or "—" }}</td></tr>
+            <tr><th class="text-muted">貸出日</th><td>{{ active_loan.loan_date.strftime('%Y/%m/%d') }}</td></tr>
+            <tr><th class="text-muted">返却期限</th>
+                <td>
+                  <strong>{{ active_loan.due_date.strftime('%Y/%m/%d') }}</strong>
+                  {% if days_left < 0 %}
+                    <span class="badge bg-danger ms-1">{{ (-days_left) }}日超過</span>
+                  {% elif days_left == 0 %}
+                    <span class="badge bg-warning text-dark ms-1">今日が期限</span>
+                  {% elif days_left <= 7 %}
+                    <span class="badge bg-info text-dark ms-1">あと{{ days_left }}日</span>
+                  {% endif %}
+                </td></tr>
+            <tr><th class="text-muted">目的</th><td>{{ active_loan.purpose or "—" }}</td></tr>
+            <tr><th class="text-muted">出荷時状態</th><td>{{ active_loan.condition_out or "—" }}</td></tr>
+          </table>
+
+          <!-- 返却登録フォーム -->
+          <div class="border-top pt-3">
+            <p class="fw-bold mb-2">📥 返却登録</p>
+            <form method="post" action="/demo/{{ unit.id }}/loan/{{ active_loan.id }}/return">
+              <div class="mb-2">
+                <label class="form-label small">返却日</label>
+                <input type="date" name="returned_date" class="form-control form-control-sm"
+                       value="{{ today.isoformat() }}" required>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small">返却時の状態</label>
+                <input type="text" name="condition_in" class="form-control form-control-sm"
+                       placeholder="例: 正常・外装キズあり">
+              </div>
+              <div class="mb-2">
+                <label class="form-label small">返却備考</label>
+                <input type="text" name="notes" class="form-control form-control-sm">
+              </div>
+              <button type="submit" class="btn btn-success btn-sm w-100">📥 返却完了</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ═══════════ 右カラム：履歴 ═══════════ -->
+    <div class="col-md-8">
+
+      <!-- 貸出履歴 -->
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <strong>📋 貸出履歴</strong>
+          <span class="badge bg-secondary">{{ unit.loans|length }}件</span>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>貸出先</th>
+                <th>貸出日</th>
+                <th>返却期限</th>
+                <th>返却日</th>
+                <th>担当者</th>
+                <th>状態</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for loan in unit.loans | sort(attribute='loan_date', reverse=True) %}
+              <tr>
+                <td>{{ loan.customer.name }}<br>
+                  <small class="text-muted">{{ loan.contact_name or "" }}</small></td>
+                <td>{{ loan.loan_date.strftime('%Y/%m/%d') }}</td>
+                <td>{{ loan.due_date.strftime('%Y/%m/%d') }}</td>
+                <td>{{ loan.returned_date.strftime('%Y/%m/%d') if loan.returned_date else "—" }}</td>
+                <td>{{ loan.staff_name or "—" }}</td>
+                <td>
+                  {% if loan.status == "returned" %}
+                    <span class="badge bg-success">返却済</span>
+                  {% elif loan.status == "overdue" %}
+                    <span class="badge bg-danger">期限超過</span>
+                  {% else %}
+                    <span class="badge bg-primary">貸出中</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="6" class="text-center text-muted py-3">貸出履歴なし</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 故障・修理履歴 -->
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <strong>🔧 故障・修理履歴</strong>
+          <div>
+            <span class="badge bg-secondary">{{ unit.repairs|length }}件</span>
+            <a href="/demo/{{ unit.id }}/repair/new" class="btn btn-sm btn-outline-warning ms-2">＋ 故障登録</a>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>報告日</th>
+                <th>症状</th>
+                <th>修理業者</th>
+                <th>修理費</th>
+                <th>完了日</th>
+                <th>状態</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for repair in unit.repairs | sort(attribute='reported_date', reverse=True) %}
+              <tr>
+                <td>{{ repair.reported_date.strftime('%Y/%m/%d') }}</td>
+                <td>
+                  <span title="{{ repair.symptom }}">
+                    {{ repair.symptom[:30] }}{% if repair.symptom|length > 30 %}…{% endif %}
+                  </span>
+                  {% if repair.cause %}
+                    <br><small class="text-muted">原因: {{ repair.cause[:20] }}…</small>
+                  {% endif %}
+                </td>
+                <td>{{ repair.repair_vendor or "—" }}</td>
+                <td>{{ "¥{:,.0f}".format(repair.repair_cost) if repair.repair_cost else "—" }}</td>
+                <td>{{ repair.repaired_date.strftime('%Y/%m/%d') if repair.repaired_date else "—" }}</td>
+                <td>
+                  {% if repair.status == "pending" %}
+                    <span class="badge bg-danger">未対応</span>
+                  {% elif repair.status == "in_repair" %}
+                    <span class="badge bg-warning text-dark">修理中</span>
+                  {% elif repair.status == "completed" %}
+                    <span class="badge bg-success">修理完了</span>
+                  {% elif repair.status == "scrapped" %}
+                    <span class="badge bg-secondary">廃棄</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <a href="/demo/{{ unit.id }}/repair/{{ repair.id }}/edit"
+                     class="btn btn-sm btn-outline-secondary">編集</a>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="7" class="text-center text-muted py-3">修理履歴なし</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /col -->
+  </div><!-- /row -->
+</div>
+{% endblock %}

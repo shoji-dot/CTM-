@@ -1,0 +1,368 @@
+{% extends "base.html" %}
+{% block title %}タスク管理{% endblock %}
+{% block content %}
+<style>
+:root {
+  --task-high: #f87171;
+  --task-medium: #fbbf24;
+  --task-low: #60a5fa;
+  --task-todo: #8b91b8;
+  --task-inprogress: #4f7cff;
+  --task-done: #34d399;
+  --task-cancelled: #4b5563;
+}
+
+.task-page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;
+}
+.task-page-title { font-size: 1.4rem; font-weight: 700; }
+
+/* サマリーバー */
+.task-summary {
+  display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;
+}
+.summary-chip {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.4rem 1rem; border-radius: 20px;
+  font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  border: 2px solid transparent; transition: all 0.15s;
+  background: #1e2235;
+}
+.summary-chip:hover { border-color: currentColor; }
+.summary-chip.active { border-color: currentColor; }
+.chip-todo { color: var(--task-todo); }
+.chip-inprogress { color: var(--task-inprogress); }
+.chip-done { color: var(--task-done); }
+.chip-all { color: #e8eaf6; }
+.chip-count {
+  background: rgba(255,255,255,0.1);
+  padding: 0.1rem 0.5rem; border-radius: 10px;
+  font-family: monospace;
+}
+
+/* フィルターバー */
+.filter-bar {
+  display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: center;
+}
+.filter-select, .filter-input {
+  padding: 0.4rem 0.75rem;
+  background: #1a1d27; border: 1px solid #2e3250;
+  border-radius: 6px; color: #e8eaf6;
+  font-family: inherit; font-size: 0.8rem; outline: none;
+}
+.filter-select:focus, .filter-input:focus { border-color: #4f7cff; }
+
+/* カンバンボード */
+.kanban {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+@media(max-width:768px){ .kanban { grid-template-columns: 1fr; } }
+
+.kanban-col {
+  background: #1a1d27;
+  border: 1px solid #2e3250;
+  border-radius: 10px;
+  overflow: hidden;
+  min-height: 200px;
+}
+.kanban-col-header {
+  padding: 0.875rem 1rem;
+  font-weight: 700; font-size: 0.85rem;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid #2e3250;
+}
+.kanban-col-body { padding: 0.75rem; display: flex; flex-direction: column; gap: 0.625rem; }
+
+/* タスクカード */
+.task-card {
+  background: #22263a; border: 1px solid #2e3250;
+  border-radius: 8px; padding: 0.875rem;
+  cursor: pointer; transition: all 0.15s;
+  text-decoration: none; color: inherit; display: block;
+  border-left: 3px solid transparent;
+}
+.task-card:hover { border-color: #4f7cff; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.task-card.high { border-left-color: var(--task-high); }
+.task-card.medium { border-left-color: var(--task-medium); }
+.task-card.low { border-left-color: var(--task-low); }
+
+.task-card-title { font-weight: 600; font-size: 0.875rem; margin-bottom: 0.5rem; line-height: 1.4; }
+.task-card-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.priority-badge {
+  font-size: 0.65rem; padding: 0.15rem 0.5rem; border-radius: 10px; font-weight: 700;
+}
+.priority-high { background: rgba(248,113,113,0.2); color: var(--task-high); }
+.priority-medium { background: rgba(251,191,36,0.2); color: var(--task-medium); }
+.priority-low { background: rgba(96,165,250,0.2); color: var(--task-low); }
+
+.task-assignee { font-size: 0.72rem; color: #8b91b8; }
+.task-due {
+  font-size: 0.7rem; color: #8b91b8; margin-left: auto;
+  font-family: monospace;
+}
+.task-due.overdue { color: var(--task-high); font-weight: 600; }
+
+/* 列カラー */
+.col-todo .kanban-col-header { border-top: 3px solid var(--task-todo); }
+.col-inprogress .kanban-col-header { border-top: 3px solid var(--task-inprogress); }
+.col-done .kanban-col-header { border-top: 3px solid var(--task-done); }
+
+.col-label-todo { color: var(--task-todo); }
+.col-label-inprogress { color: var(--task-inprogress); }
+.col-label-done { color: var(--task-done); }
+
+.col-count {
+  font-size: 0.7rem; padding: 0.1rem 0.5rem; border-radius: 8px;
+  background: rgba(255,255,255,0.08); font-family: monospace;
+}
+
+/* モーダル */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  z-index: 500; display: none; align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: #1a1d27; border: 1px solid #2e3250;
+  border-radius: 12px; padding: 2rem; width: 520px; max-width: 95vw;
+  max-height: 90vh; overflow-y: auto;
+}
+.modal-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 1.5rem; }
+.form-group { margin-bottom: 1.1rem; }
+.form-label { display: block; font-size: 0.78rem; color: #8b91b8; margin-bottom: 0.35rem; font-weight: 500; }
+.form-control {
+  width: 100%; padding: 0.6rem 0.875rem;
+  background: #22263a; border: 1px solid #2e3250;
+  border-radius: 6px; color: #e8eaf6;
+  font-family: inherit; font-size: 0.875rem; outline: none; transition: border-color 0.15s;
+}
+.form-control:focus { border-color: #4f7cff; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.form-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.5rem 1.25rem; border-radius: 6px; border: none;
+  cursor: pointer; font-family: inherit; font-size: 0.875rem;
+  font-weight: 500; text-decoration: none; transition: all 0.2s;
+}
+.btn-primary { background: #4f7cff; color: #fff; }
+.btn-primary:hover { background: #3d6ae8; }
+.btn-ghost { background: transparent; color: #8b91b8; border: 1px solid #2e3250; }
+.btn-ghost:hover { border-color: #4f7cff; color: #4f7cff; }
+
+.empty-col { text-align: center; padding: 2rem 1rem; color: #4b5563; font-size: 0.8rem; }
+</style>
+
+<div class="task-page-header">
+  <div class="task-page-title">📋 タスク管理</div>
+  <button class="btn btn-primary" onclick="openCreateModal()">＋ タスク追加</button>
+</div>
+
+<!-- サマリー -->
+<div class="task-summary">
+  <div class="summary-chip chip-all active" onclick="filterStatus('')" id="chip-all">
+    すべて <span class="chip-count" id="count-all">0</span>
+  </div>
+  <div class="summary-chip chip-todo" onclick="filterStatus('todo')" id="chip-todo">
+    未着手 <span class="chip-count">{{ counts.todo }}</span>
+  </div>
+  <div class="summary-chip chip-inprogress" onclick="filterStatus('in_progress')" id="chip-inprogress">
+    進行中 <span class="chip-count">{{ counts.in_progress }}</span>
+  </div>
+  <div class="summary-chip chip-done" onclick="filterStatus('done')" id="chip-done">
+    完了 <span class="chip-count">{{ counts.done }}</span>
+  </div>
+</div>
+
+<!-- フィルター -->
+<div class="filter-bar">
+  <select class="filter-select" id="filterAssignee" onchange="loadTasks()">
+    <option value="">担当者：全員</option>
+    <option value="{{ current.id }}">自分のタスク</option>
+    {% for s in staffs %}
+    {% if s.id != current.id %}
+    <option value="{{ s.id }}">{{ s.name }}</option>
+    {% endif %}
+    {% endfor %}
+  </select>
+  <select class="filter-select" id="filterPriority" onchange="loadTasks()">
+    <option value="">優先度：すべて</option>
+    <option value="high">🔴 高</option>
+    <option value="medium">🟡 中</option>
+    <option value="low">🔵 低</option>
+  </select>
+</div>
+
+<!-- カンバン -->
+<div class="kanban">
+  <div class="kanban-col col-todo">
+    <div class="kanban-col-header">
+      <span class="col-label-todo">未着手</span>
+      <span class="col-count" id="cnt-todo">0</span>
+    </div>
+    <div class="kanban-col-body" id="col-todo"></div>
+  </div>
+  <div class="kanban-col col-inprogress">
+    <div class="kanban-col-header">
+      <span class="col-label-inprogress">進行中</span>
+      <span class="col-count" id="cnt-inprogress">0</span>
+    </div>
+    <div class="kanban-col-body" id="col-in_progress"></div>
+  </div>
+  <div class="kanban-col col-done">
+    <div class="kanban-col-header">
+      <span class="col-label-done">完了</span>
+      <span class="col-count" id="cnt-done">0</span>
+    </div>
+    <div class="kanban-col-body" id="col-done"></div>
+  </div>
+</div>
+
+<!-- タスク作成モーダル -->
+<div class="modal-overlay" id="createModal">
+  <div class="modal">
+    <div class="modal-title">＋ タスク追加</div>
+    <div class="form-group">
+      <label class="form-label">タイトル *</label>
+      <input type="text" id="newTitle" class="form-control" placeholder="タスクの内容を入力">
+    </div>
+    <div class="form-group">
+      <label class="form-label">説明</label>
+      <textarea id="newDesc" class="form-control" rows="3" placeholder="詳細説明（任意）"></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">優先度</label>
+        <select id="newPriority" class="form-control">
+          <option value="high">🔴 高</option>
+          <option value="medium" selected>🟡 中</option>
+          <option value="low">🔵 低</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">担当者</label>
+        <select id="newAssignee" class="form-control">
+          <option value="">未割当</option>
+          {% for s in staffs %}
+          <option value="{{ s.id }}" {% if s.id == current.id %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">期限</label>
+      <input type="date" id="newDue" class="form-control">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('createModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="createTask()">作成</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TODAY = new Date().toISOString().split('T')[0];
+let currentStatus = '';
+
+function priorityLabel(p) {
+  return {high:'🔴 高', medium:'🟡 中', low:'🔵 低'}[p] || p;
+}
+function priorityClass(p) {
+  return {high:'priority-high', medium:'priority-medium', low:'priority-low'}[p] || '';
+}
+
+async function loadTasks() {
+  const assignee = document.getElementById('filterAssignee').value;
+  const priority = document.getElementById('filterPriority').value;
+  let url = `/tasks/api?`;
+  if (currentStatus) url += `status=${currentStatus}&`;
+  if (assignee) url += `assignee_id=${assignee}&`;
+  if (priority) url += `priority=${priority}&`;
+
+  const tasks = await fetch(url).then(r => r.json());
+
+  const cols = { todo: [], in_progress: [], done: [] };
+  tasks.forEach(t => {
+    if (cols[t.status] !== undefined) cols[t.status].push(t);
+  });
+
+  const total = tasks.length;
+  document.getElementById('count-all').textContent = total;
+  document.getElementById('cnt-todo').textContent = cols.todo.length;
+  document.getElementById('cnt-inprogress').textContent = cols.in_progress.length;
+  document.getElementById('cnt-done').textContent = cols.done.length;
+
+  ['todo','in_progress','done'].forEach(status => {
+    const el = document.getElementById(`col-${status}`);
+    if (!el) return;
+    if (cols[status].length === 0) {
+      el.innerHTML = `<div class="empty-col">タスクなし</div>`;
+      return;
+    }
+    el.innerHTML = cols[status].map(t => {
+      const isOverdue = t.due_date && t.due_date < TODAY && t.status !== 'done';
+      return `
+        <a href="/tasks/${t.id}" class="task-card ${t.priority}">
+          <div class="task-card-title">${t.title}</div>
+          <div class="task-card-meta">
+            <span class="priority-badge ${priorityClass(t.priority)}">${priorityLabel(t.priority)}</span>
+            ${t.assignee_name ? `<span class="task-assignee">👤 ${t.assignee_name}</span>` : ''}
+            ${t.due_date ? `<span class="task-due ${isOverdue ? 'overdue' : ''}">${isOverdue ? '⚠ ' : ''}${t.due_date}</span>` : ''}
+          </div>
+        </a>`;
+    }).join('');
+  });
+}
+
+function filterStatus(status) {
+  currentStatus = status;
+  document.querySelectorAll('.summary-chip').forEach(c => c.classList.remove('active'));
+  const id = status ? `chip-${status.replace('_','')}` : 'chip-all';
+  document.getElementById(id)?.classList.add('active');
+  loadTasks();
+}
+
+function openCreateModal() { document.getElementById('createModal').classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.getElementById('createModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal('createModal');
+});
+
+async function createTask() {
+  const title = document.getElementById('newTitle').value.trim();
+  if (!title) { alert('タイトルを入力してください'); return; }
+  const body = {
+    title,
+    description: document.getElementById('newDesc').value.trim() || null,
+    priority: document.getElementById('newPriority').value,
+    assignee_id: document.getElementById('newAssignee').value ? parseInt(document.getElementById('newAssignee').value) : null,
+    due_date: document.getElementById('newDue').value || null,
+  };
+  const res = await fetch('/tasks/api', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  if (res.ok) {
+    const data = await res.json();
+    closeModal('createModal');
+    document.getElementById('newTitle').value = '';
+    document.getElementById('newDesc').value = '';
+    document.getElementById('newDue').value = '';
+    loadTasks();
+    // 詳細へ飛ぶか聞く
+    if (confirm('タスクを作成しました。詳細画面を開きますか？')) {
+      window.location.href = `/tasks/${data.id}`;
+    }
+  } else {
+    alert('作成失敗');
+  }
+}
+
+// 初期ロード
+loadTasks();
+</script>
+{% endblock %}

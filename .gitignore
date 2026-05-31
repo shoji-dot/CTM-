@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+venv/
+dist/
+build/
+installer_output/
+*.db-shm
+*.db-wal
+*.db.bak*
+.ctm_github_token

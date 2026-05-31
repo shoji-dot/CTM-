@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}請求書作成 - SalesCore{% endblock %}
+{% block content %}
+<div style="padding:20px 24px;max-width:800px">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+    <a href="/invoices" style="color:#5f6b7a;text-decoration:none">← 請求一覧</a>
+    <h1 style="font-size:1.3rem;font-weight:700;margin:0">📄 請求書作成</h1>
+  </div>
+
+  <!-- 顧客絞込 -->
+  <form method="get" action="/invoices/new" style="background:white;border:1px solid #dde3ea;border-radius:12px;padding:16px;margin-bottom:20px;display:flex;gap:12px;align-items:flex-end">
+    <div style="display:flex;flex-direction:column;gap:4px;flex:1">
+      <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a">顧客で絞込（未請求売上を表示）</label>
+      <select name="customer_id" style="padding:9px 12px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.9rem">
+        <option value="">-- 顧客を選択 --</option>
+        {% for c in customers %}
+        <option value="{{ c.id }}" {% if selected_customer_id==c.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" style="padding:9px 18px;background:#1a73e8;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer">絞込</button>
+  </form>
+
+  <form method="post" action="/invoices/new" style="background:white;border:1px solid #dde3ea;border-radius:16px;padding:24px">
+    <input type="hidden" name="customer_id" value="{{ selected_customer_id or '' }}">
+
+    <!-- 未請求売上リスト -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:0.78rem;font-weight:700;color:#5f6b7a;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">請求に含める売上を選択</div>
+      {% if pending_sales %}
+      <div style="border:1.5px solid #dde3ea;border-radius:10px;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse;font-size:0.87rem">
+          <thead><tr style="background:#f8fafc">
+            <th style="padding:10px 14px;width:40px;border-bottom:1px solid #dde3ea"><input type="checkbox" id="check-all" onclick="toggleAll(this)"></th>
+            <th style="padding:10px 14px;text-align:left;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">売上番号</th>
+            <th style="padding:10px 14px;text-align:left;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">売上日</th>
+            <th style="padding:10px 14px;text-align:left;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">商品</th>
+            <th style="padding:10px 14px;text-align:right;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">金額（税込）</th>
+          </tr></thead>
+          <tbody>
+            {% for s in pending_sales %}
+            <tr style="border-bottom:1px solid #f0f4f8">
+              <td style="padding:10px 14px;text-align:center"><input type="checkbox" name="sale_ids[]" value="{{ s.id }}" class="sale-check" onchange="calcSelected()"></td>
+              <td style="padding:10px 14px;font-family:monospace;font-size:0.82rem">{{ s.sale_number }}</td>
+              <td style="padding:10px 14px">{{ s.sale_date }}</td>
+              <td style="padding:10px 14px">{{ s.product.name }} ×{{ s.quantity }}</td>
+              <td style="padding:10px 14px;text-align:right;font-weight:700" data-amount="{{ s.total_amount }}">¥{{ "{:,.0f}".format(s.total_amount) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px;text-align:right;font-size:0.9rem;color:#1a73e8;font-weight:700">選択合計：<span id="selected-total">¥0</span></div>
+      {% else %}
+      <div style="padding:24px;text-align:center;color:#5f6b7a;border:1.5px solid #dde3ea;border-radius:10px">未請求の売上がありません。顧客を選択してください。</div>
+      {% endif %}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:0.8rem;font-weight:600;color:#5f6b7a">発行日 <span style="color:#e53935">*</span></label>
+        <input type="date" name="issue_date" value="{{ today }}" required style="padding:9px 12px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.9rem">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:0.8rem;font-weight:600;color:#5f6b7a">支払期限</label>
+        <input type="date" name="due_date" style="padding:9px 12px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.9rem">
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px">
+      <label style="font-size:0.8rem;font-weight:600;color:#5f6b7a">備考</label>
+      <input type="text" name="notes" placeholder="備考" style="padding:9px 12px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.9rem">
+    </div>
+    <div style="display:flex;gap:10px">
+      <a href="/invoices" style="padding:12px 20px;border:1.5px solid #dde3ea;border-radius:10px;color:#5f6b7a;text-decoration:none;font-weight:600">キャンセル</a>
+      <button type="submit" style="flex:1;padding:12px;background:#f57c00;color:white;border:none;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer">📄 請求書を作成する</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function toggleAll(cb) {
+  document.querySelectorAll('.sale-check').forEach(c => { c.checked = cb.checked; });
+  calcSelected();
+}
+function calcSelected() {
+  let total = 0;
+  document.querySelectorAll('.sale-check:checked').forEach(c => {
+    const row = c.closest('tr');
+    total += parseFloat(row.querySelector('[data-amount]').dataset.amount) || 0;
+  });
+  document.getElementById('selected-total').textContent = '¥' + Math.round(total).toLocaleString();
+}
+</script>
+{% endblock %}

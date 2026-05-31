@@ -1,0 +1,75 @@
+﻿{% extends "base.html" %}
+{% block title %}出荷管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">出荷管理</h1>
+  <a href="/shipments/new" class="btn btn-primary">＋ 新規出荷登録</a>
+</div>
+<div class="filter-bar">
+  <form method="get" class="filter-form" style="flex-wrap:wrap;gap:8px;">
+    <input type="text" name="q" value="{{ q }}" placeholder="出荷番号 / 顧客 / エンドユーザー / 商品" class="input" style="min-width:260px;">
+    <input type="text" name="serial" value="{{ serial }}" placeholder="シリアル番号" class="input" style="min-width:140px;">
+    <input type="text" name="lot" value="{{ lot }}" placeholder="ロット番号" class="input" style="min-width:120px;">
+    <select name="shipment_type" class="select">
+      <option value="">すべての種別</option>
+      {% for k, v in shipment_types.items() %}
+      <option value="{{ k }}" {% if shipment_type == k %}selected{% endif %}>{{ v }}</option>
+      {% endfor %}
+    </select>
+    <select name="status" class="select">
+      <option value="">すべての状態</option>
+      <option value="shipped" {% if status == "shipped" %}selected{% endif %}>出荷中</option>
+      <option value="returned" {% if status == "returned" %}selected{% endif %}>返却済</option>
+      <option value="completed" {% if status == "completed" %}selected{% endif %}>完了</option>
+    </select>
+    <button type="submit" class="btn btn-primary">絞込</button>
+    <a href="/shipments" class="btn btn-ghost">リセット</a>
+  </form>
+</div>
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>出荷番号</th>
+        <th>種別</th>
+        <th>エンドユーザー / 顧客</th>
+        <th>商品 / 数量</th>
+        <th>管理番号</th>
+        <th>日程</th>
+        <th>状態</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in shipments %}
+      <tr>
+        <td class="mono"><a href="/shipments/{{ s.id }}" class="link">{{ s.shipment_number }}</a></td>
+        <td><span class="badge badge-shiptype-{{ s.shipment_type }}">{{ shipment_types[s.shipment_type] }}</span></td>
+        <td>
+          <div>{{ s.end_user.name if s.end_user else "―" }}</div>
+          <div class="text-muted text-sm">{{ s.customer.name }}</div>
+        </td>
+        <td>
+          <div>{{ s.product.name }}</div>
+          <div class="text-muted text-sm">{{ s.quantity }} {{ s.product.unit or "" }}</div>
+        </td>
+        <td class="mono text-sm">
+          {% if s.serial_number %}<div>S: {{ s.serial_number }}</div>{% endif %}
+          {% if s.lot_number %}<div>L: {{ s.lot_number }}</div>{% endif %}
+          {% if s.expiry_date %}<div>期限: {{ s.expiry_date.strftime("%Y/%m/%d") }}</div>{% endif %}
+          {% if not s.serial_number and not s.lot_number and not s.expiry_date %}―{% endif %}
+        </td>
+        <td class="text-sm">
+          <div>出荷: {{ s.shipped_date.strftime("%Y/%m/%d") }}</div>
+          {% if s.return_due_date %}<div class="text-muted">返却: {{ s.return_due_date.strftime("%Y/%m/%d") }}</div>{% endif %}
+        </td>
+        <td><span class="badge badge-status-{{ s.status }}">{{ {"shipped":"出荷中","returned":"返却済","completed":"完了"}[s.status] }}</span></td>
+        <td><a href="/shipments/{{ s.id }}" class="btn btn-sm btn-ghost">詳細</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="empty">出荷データがありません</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

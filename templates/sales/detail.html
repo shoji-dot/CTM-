@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}売上詳細 - SalesCore{% endblock %}
+{% block content %}
+<div style="padding:20px 24px;max-width:700px">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+    <a href="/sales" style="color:#5f6b7a;text-decoration:none">← 売上一覧</a>
+    <h1 style="font-size:1.3rem;font-weight:700;margin:0">💰 売上詳細</h1>
+  </div>
+  <div style="background:white;border:1px solid #dde3ea;border-radius:16px;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+      <div>
+        <div style="font-family:monospace;font-size:0.85rem;color:#5f6b7a">{{ sale.sale_number }}</div>
+        <div style="font-size:1.2rem;font-weight:700;margin-top:4px">{{ sale.customer.name }}</div>
+      </div>
+      {% if sale.status == 'confirmed' %}
+      <span style="background:#e3f2fd;color:#1565c0;padding:5px 14px;border-radius:999px;font-size:0.82rem;font-weight:700">売上確定</span>
+      {% elif sale.status == 'invoiced' %}
+      <span style="background:#fff3e0;color:#e65100;padding:5px 14px;border-radius:999px;font-size:0.82rem;font-weight:700">請求済</span>
+      {% elif sale.status == 'paid' %}
+      <span style="background:#e8f5e9;color:#2e7d32;padding:5px 14px;border-radius:999px;font-size:0.82rem;font-weight:700">入金済</span>
+      {% endif %}
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.88rem">
+      <tr style="border-bottom:1px solid #f0f4f8"><td style="padding:10px 0;color:#5f6b7a;width:140px">売上日</td><td style="padding:10px 0;font-weight:600">{{ sale.sale_date }}</td></tr>
+      <tr style="border-bottom:1px solid #f0f4f8"><td style="padding:10px 0;color:#5f6b7a">商品</td><td style="padding:10px 0;font-weight:600">{{ sale.product.name }}</td></tr>
+      <tr style="border-bottom:1px solid #f0f4f8"><td style="padding:10px 0;color:#5f6b7a">数量</td><td style="padding:10px 0">{{ sale.quantity }}{{ sale.product.unit }}</td></tr>
+      <tr style="border-bottom:1px solid #f0f4f8"><td style="padding:10px 0;color:#5f6b7a">単価（税抜）</td><td style="padding:10px 0">¥{{ "{:,.0f}".format(sale.unit_price) }}</td></tr>
+      <tr style="border-bottom:1px solid #f0f4f8"><td style="padding:10px 0;color:#5f6b7a">小計</td><td style="padding:10px 0">¥{{ "{:,.0f}".format(sale.subtotal) }}</td></tr>
+      <tr style="border-bottom:1px solid #f0f4f8"><td style="padding:10px 0;color:#5f6b7a">消費税（10%）</td><td style="padding:10px 0">¥{{ "{:,.0f}".format(sale.tax_amount) }}</td></tr>
+      <tr style="border-bottom:1px solid #f0f4f8"><td style="padding:10px 0;color:#1a73e8;font-weight:700">合計（税込）</td><td style="padding:10px 0;font-size:1.1rem;font-weight:800;color:#1a73e8">¥{{ "{:,.0f}".format(sale.total_amount) }}</td></tr>
+      {% if sale.shipment %}<tr style="border-bottom:1px solid #f0f4f8"><td style="padding:10px 0;color:#5f6b7a">出荷番号</td><td style="padding:10px 0"><a href="/shipments/{{ sale.shipment.id }}" style="color:#1a73e8">{{ sale.shipment.shipment_number }}</a></td></tr>{% endif %}
+      {% if sale.quote %}<tr style="border-bottom:1px solid #f0f4f8"><td style="padding:10px 0;color:#5f6b7a">見積番号</td><td style="padding:10px 0"><a href="/quotes/{{ sale.quote.id }}" style="color:#1a73e8">{{ sale.quote.quote_number }}</a></td></tr>{% endif %}
+      {% if sale.notes %}<tr><td style="padding:10px 0;color:#5f6b7a">備考</td><td style="padding:10px 0">{{ sale.notes }}</td></tr>{% endif %}
+    </table>
+    <div style="margin-top:20px;display:flex;gap:10px">
+      {% if sale.status == 'confirmed' %}
+      <a href="/invoices/new?customer_id={{ sale.customer_id }}" style="padding:10px 18px;background:#f57c00;color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.88rem">📄 請求書を作成</a>
+      <form method="post" action="/sales/{{ sale.id }}/delete" onsubmit="return confirm('削除しますか？')">
+        <button type="submit" style="padding:10px 18px;background:transparent;color:#e53935;border:1.5px solid #e53935;border-radius:8px;font-weight:600;font-size:0.88rem;cursor:pointer">削除</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

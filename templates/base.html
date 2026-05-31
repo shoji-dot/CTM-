@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}営業・在庫管理{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <button class="hamburger" onclick="toggleMenu()">☰</button>
+  <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+  <nav class="sidebar" id="sidebar">
+    <div class="logo">
+      <span class="logo-icon">⚕</span>
+      <div>
+        <div class="logo-title">SalesCore</div>
+        <div class="logo-sub">営業・在庫管理</div>
+      </div>
+    </div>
+    <ul class="nav-list">
+
+      <!-- ダッシュボード -->
+      <li><a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">◈</span> ダッシュボード</a></li>
+
+      <!-- 出荷 / 修理 -->
+      {% set grp1_active = ('/shipments' in request.url.path and '/repairs' not in request.url.path) or '/repairs' in request.url.path %}
+      <li class="nav-group-item">
+        <div class="nav-group-header {% if grp1_active %}open{% endif %}" onclick="toggleGroup('grp-shipment')">
+          <span class="nav-icon">◐</span> 出荷 / 修理 <span class="nav-arrow">›</span>
+        </div>
+        <ul class="nav-group {% if grp1_active %}open{% endif %}" id="grp-shipment">
+          <li><a href="/shipments" class="nav-link {% if '/shipments' in request.url.path and '/repairs' not in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">◐</span> 出荷管理</a></li>
+          <li><a href="/repairs/"  class="nav-link {% if '/repairs'   in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">🔧</span> 修理受付管理</a></li>
+        </ul>
+      </li>
+
+      <!-- 見積 / 売上 / 請求 -->
+      {% set grp2_active = '/quotes' in request.url.path or '/sales' in request.url.path or '/invoices' in request.url.path %}
+      <li class="nav-group-item">
+        <div class="nav-group-header {% if grp2_active %}open{% endif %}" onclick="toggleGroup('grp-sales')">
+          <span class="nav-icon">◎</span> 見積 / 売上 / 請求 <span class="nav-arrow">›</span>
+        </div>
+        <ul class="nav-group {% if grp2_active %}open{% endif %}" id="grp-sales">
+          <li><a href="/quotes"   class="nav-link {% if '/quotes'   in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">◎</span> 見積管理</a></li>
+          <li><a href="/sales"    class="nav-link {% if '/sales'    in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">💰</span> 売上管理</a></li>
+          <li><a href="/invoices" class="nav-link {% if '/invoices' in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">📄</span> 請求管理</a></li>
+        </ul>
+      </li>
+
+      <!-- 在庫 / デモ器 / 入出庫 / 廃棄 -->
+      {% set grp3_active = request.url.path == '/inventory' or 'history' in request.url.path or 'disposal' in request.url.path or '/demo' in request.url.path %}
+      <li class="nav-group-item">
+        <div class="nav-group-header {% if grp3_active %}open{% endif %}" onclick="toggleGroup('grp-inventory')">
+          <span class="nav-icon">◱</span> 在庫 / デモ器 / 入出庫 / 廃棄 <span class="nav-arrow">›</span>
+        </div>
+        <ul class="nav-group {% if grp3_active %}open{% endif %}" id="grp-inventory">
+          <li><a href="/inventory"          class="nav-link {% if request.url.path == '/inventory' %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">◱</span> 在庫管理</a></li>
+          <li><a href="/demo/"              class="nav-link {% if '/demo' in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">🔬</span> デモ器台帳</a></li>
+          <li><a href="/inventory/history"  class="nav-link {% if 'history'  in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">◷</span> 入出庫履歴</a></li>
+          <li><a href="/inventory/disposal" class="nav-link {% if 'disposal' in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">✕</span> 廃棄登録</a></li>
+        </ul>
+      </li>
+
+      <!-- スキャン -->
+      {% set grp4_active = '/barcode' in request.url.path %}
+      <li class="nav-group-item">
+        <div class="nav-group-header {% if grp4_active %}open{% endif %}" onclick="toggleGroup('grp-scan')">
+          <span class="nav-icon">▦</span> スキャン <span class="nav-arrow">›</span>
+        </div>
+        <ul class="nav-group {% if grp4_active %}open{% endif %}" id="grp-scan">
+          <li><a href="/barcode/receive" class="nav-link {% if '/barcode/receive' in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">▦</span> スキャン入荷</a></li>
+          <li><a href="/barcode/ship"    class="nav-link {% if '/barcode/ship'    in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">▧</span> スキャン出荷</a></li>
+        </ul>
+      </li>
+
+      <!-- 顧客 / 商品 -->
+      {% set grp5_active = '/customers' in request.url.path or '/products' in request.url.path %}
+      <li class="nav-group-item">
+        <div class="nav-group-header {% if grp5_active %}open{% endif %}" onclick="toggleGroup('grp-customer')">
+          <span class="nav-icon">◉</span> 顧客 / 商品 <span class="nav-arrow">›</span>
+        </div>
+        <ul class="nav-group {% if grp5_active %}open{% endif %}" id="grp-customer">
+          <li><a href="/customers" class="nav-link {% if '/customers' in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">◉</span> 顧客管理</a></li>
+          <li><a href="/products"  class="nav-link {% if '/products'  in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">◫</span> 商品管理</a></li>
+        </ul>
+      </li>
+
+      <!-- 承認 / タスク -->
+      {% set grp6_active = '/approval' in request.url.path or '/tasks' in request.url.path %}
+      <li class="nav-group-item">
+        <div class="nav-group-header {% if grp6_active %}open{% endif %}" onclick="toggleGroup('grp-approval')">
+          <span class="nav-icon">文</span> 承認 / タスク <span class="nav-arrow">›</span>
+        </div>
+        <ul class="nav-group {% if grp6_active %}open{% endif %}" id="grp-approval">
+          <li><a href="/approval/" class="nav-link {% if '/approval' in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">文</span> 承認ワークフロー</a></li>
+          <li><a href="/tasks/"    class="nav-link {% if '/tasks'    in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">📋</span> タスク管理</a></li>
+        </ul>
+      </li>
+
+      <!-- 管理（adminのみ） -->
+      {% if request.state.staff and request.state.staff["role"] == "admin" %}
+      {% set grp7_active = '/staff' in request.url.path %}
+      <li class="nav-group-item">
+        <div class="nav-group-header {% if grp7_active %}open{% endif %}" onclick="toggleGroup('grp-admin')">
+          <span class="nav-icon">◑</span> 管理 <span class="nav-arrow">›</span>
+        </div>
+        <ul class="nav-group {% if grp7_active %}open{% endif %}" id="grp-admin">
+          <li><a href="/staff" class="nav-link {% if '/staff' in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">◑</span> 社員管理</a></li>
+        </ul>
+      </li>
+      {% endif %}
+
+    </ul>
+    <div class="sidebar-user">
+      {% if request.state.staff %}
+      <div class="sidebar-user-name">{{ request.state.staff["name"] }}</div>
+      <div class="sidebar-user-role">{{ "管理者" if request.state.staff["role"] == "admin" else "一般" }}{% if request.state.staff["department"] %} · {{ request.state.staff["department"] }}{% endif %}</div>
+      <a href="/logout" class="btn btn-ghost btn-sm" style="margin-top:8px;width:100%;justify-content:center">ログアウト</a>
+      {% endif %}
+    </div>
+  </nav>
+  <main class="main">
+    <div class="content">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+  <script src="/static/js/main.js"></script>
+{% block scripts %}{% endblock %}
+  <script>
+    function toggleMenu() {
+      document.getElementById("sidebar").classList.toggle("open");
+      document.getElementById("overlay").classList.toggle("open");
+    }
+    function closeMenu() {
+      document.getElementById("sidebar").classList.remove("open");
+      document.getElementById("overlay").classList.remove("open");
+    }
+
+    function toggleGroup(id) {
+      var ul = document.getElementById(id);
+      if (!ul) return;
+      var isOpen = ul.classList.contains("open");
+      if (isOpen) {
+        ul.classList.remove("open");
+      } else {
+        ul.classList.add("open");
+      }
+      // ヘッダー（直前の兄弟要素）のクラスも更新
+      var header = ul.previousElementSibling;
+      if (header) {
+        if (isOpen) { header.classList.remove("open"); }
+        else { header.classList.add("open"); }
+      }
+    }
+  </script>
+</body>
+</html>

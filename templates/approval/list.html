@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}承認ワークフロー{% endblock %}
+{% block content %}
+<style>
+.ap-status{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;}
+.ap-status::before{content:'';width:6px;height:6px;border-radius:50%;}
+.ap-status-draft{background:#f1f0f0;color:#888;}.ap-status-draft::before{background:#aaa;}
+.ap-status-in_review{background:#fff8e1;color:#b07c00;}.ap-status-in_review::before{background:#f0b429;}
+.ap-status-approved{background:#e6f4ea;color:#1e7e34;}.ap-status-approved::before{background:#28a745;}
+.ap-status-rejected{background:#fdecea;color:#b71c1c;}.ap-status-rejected::before{background:#e53935;}
+.ap-status-revising{background:#e3f2fd;color:#0d47a1;}.ap-status-revising::before{background:#1976d2;}
+.step-dot{width:8px;height:8px;border-radius:50%;background:#ddd;display:inline-block;}
+.step-dot.done{background:#28a745;}.step-dot.current{background:#f0b429;box-shadow:0 0 4px #f0b429;}
+.my-turn-row td:first-child{border-left:3px solid #4f7cff;}
+.file-badge{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:4px;font-size:10px;font-weight:700;}
+.file-badge-pdf{background:#fdecea;color:#c62828;}.file-badge-doc{background:#e3f2fd;color:#1565c0;}
+.file-badge-xls{background:#e8f5e9;color:#2e7d32;}.file-badge-quote{background:#f3e5f5;color:#6a1b9a;}
+.filter-chip{padding:4px 12px;border-radius:20px;font-size:12px;border:1px solid #ddd;background:transparent;color:#666;text-decoration:none;display:inline-block;}
+.filter-chip:hover,.filter-chip.active{border-color:#4f7cff;color:#4f7cff;background:#f0f3ff;}
+</style>
+
+<div class="page-header">
+  <h1 class="page-title">承認ワークフロー</h1>
+  <div style="display:flex;gap:8px;">
+    <a href="/approval/settings" class="btn btn-ghost">⚙ 設定</a>
+    <button class="btn btn-primary" onclick="document.getElementById('uploadModal').style.display='flex'">＋ 新規アップロード</button>
+  </div>
+</div>
+
+<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+  <a href="/approval/" class="filter-chip {% if not status %}active{% endif %}">すべて ({{ total_count }})</a>
+  <a href="/approval/?status=in_review" class="filter-chip {% if status=='in_review' %}active{% endif %}">承認中 ({{ in_review_count }})</a>
+  <a href="/approval/?status=draft" class="filter-chip {% if status=='draft' %}active{% endif %}">下書き</a>
+  <a href="/approval/?status=approved" class="filter-chip {% if status=='approved' %}active{% endif %}">承認済</a>
+  <a href="/approval/?status=rejected" class="filter-chip {% if status=='rejected' %}active{% endif %}">差し戻し</a>
+  <a href="/approval/?status=revising" class="filter-chip {% if status=='revising' %}active{% endif %}">修正中</a>
+  <a href="/approval/?approver_id={{ current.id }}" class="filter-chip" style="margin-left:auto;border-color:#f0b429;color:#b07c00;">
+    自分の承認待ち{% if my_pending_count %} ({{ my_pending_count }}){% endif %}
+  </a>
+</div>
+
+<div class="filter-bar" style="margin-bottom:16px;">
+  <input type="text" class="input" placeholder="タイトルで検索..." id="searchInput" oninput="filterTable()" style="max-width:300px;">
+</div>
+
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>文書</th><th>種別</th><th>ステータス</th><th>ステップ</th><th>申請者</th><th>更新日時</th><th></th>
+      </tr>
+    </thead>
+    <tbody id="docTableBody">
+      {% for doc in documents %}
+      <tr class="{% if doc.id in my_turn_ids %}my-turn-row{% endif %}">
+        <td>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="file-badge {% if 'pdf' in (doc.mime_type or '') %}file-badge-pdf{% elif 'word' in (doc.mime_type or '') or 'document' in (doc.mime_type or '') %}file-badge-doc{% elif 'quote' in (doc.mime_type or '') %}file-badge-quote{% else %}file-badge-xls{% endif %}">
+              {% if 'pdf' in (doc.mime_type or '') %}PDF{% elif 'word' in (doc.mime_type or '') or 'document' in (doc.mime_type or '') %}DOC{% elif 'quote' in (doc.mime_type or '') %}見積{% else %}XLS{% endif %}
+            </span>
+            <div>
+              <div style="font-weight:500;font-size:14px;">{{ doc.title }}</div>
+              <div class="text-muted text-sm">{{ doc.file_name }}</div>
+            </div>
+          </div>
+        </td>
+        <td class="text-muted text-sm">{{ doc.type_name }}</td>
+        <td>
+          <span class="ap-status ap-status-{{ doc.status }}">
+            {% if doc.status=='draft' %}下書き{% elif doc.status=='in_review' %}承認中{% elif doc.status=='approved' %}承認済{% elif doc.status=='rejected' %}否認{% elif doc.status=='revising' %}修正中{% endif %}
+          </span>
+        </td>
+        <td>
+          {% if doc.total_steps %}
+          <div style="display:flex;align-items:center;gap:3px;">
+            {% for i in range(1, doc.total_steps + 1) %}
+            <span class="step-dot {% if i < doc.current_step %}done{% elif i == doc.current_step and doc.status == 'in_review' %}current{% endif %}"></span>
+            {% endfor %}
+            {% if doc.status == 'in_review' %}<span class="text-muted text-sm" style="margin-left:4px;">{{ doc.current_step }}/{{ doc.total_steps }}</span>{% endif %}
+          </div>
+          {% else %}―{% endif %}
+        </td>
+        <td class="text-sm text-muted">{{ doc.uploader_name }}</td>
+        <td class="mono text-sm text-muted">{{ doc.updated_at[:16] if doc.updated_at else '―' }}</td>
+        <td><a href="/approval/{{ doc.id }}" class="btn btn-sm btn-ghost">詳細</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="empty">文書がありません</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div id="uploadModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;padding:24px;width:480px;max-width:90vw;">
+    <h3 style="margin:0 0 16px;font-size:16px;">新規ドキュメントアップロード</h3>
+    <form id="uploadForm" enctype="multipart/form-data">
+      <div style="margin-bottom:14px;">
+        <label class="label">タイトル <span class="required">*</span></label>
+        <input type="text" name="title" class="input" required placeholder="例：〇〇社との売買契約書">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label class="label">ドキュメント種別 <span class="required">*</span></label>
+        <select name="document_type_id" class="select" required>
+          {% for dt in document_types %}<option value="{{ dt.id }}">{{ dt.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label class="label">ファイル <span class="required">*</span></label>
+        <div id="uploadZone" onclick="document.getElementById('fileInput').click()"
+             style="border:2px dashed #ccc;border-radius:8px;padding:24px;text-align:center;cursor:pointer;">
+          <div style="font-size:24px;margin-bottom:8px;">📎</div>
+          <div class="text-muted text-sm" id="uploadText">クリックまたはドラッグ＆ドロップ</div>
+          <div class="text-muted text-sm">PDF / Word / Excel 対応</div>
+        </div>
+        <input type="file" id="fileInput" name="file" accept=".pdf,.doc,.docx,.xls,.xlsx" style="display:none" onchange="updateFileName(this)">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('uploadModal').style.display='none'">キャンセル</button>
+        <button type="submit" class="btn btn-primary">アップロード</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateFileName(input){document.getElementById('uploadText').textContent=input.files[0]?input.files[0].name:'クリックまたはドラッグ＆ドロップ';}
+const zone=document.getElementById('uploadZone');
+zone.addEventListener('dragover',e=>{e.preventDefault();zone.style.borderColor='#4f7cff';});
+zone.addEventListener('dragleave',()=>zone.style.borderColor='#ccc');
+zone.addEventListener('drop',e=>{e.preventDefault();zone.style.borderColor='#ccc';const f=e.dataTransfer.files[0];if(f){document.getElementById('fileInput').files=e.dataTransfer.files;document.getElementById('uploadText').textContent=f.name;}});
+document.getElementById('uploadForm').onsubmit=async(e)=>{
+  e.preventDefault();const fd=new FormData(e.target);fd.set('uploaded_by',{{ current.id }});
+  const res=await fetch('/approval/documents/upload',{method:'POST',body:fd});
+  if(res.ok){const d=await res.json();document.getElementById('uploadModal').style.display='none';window.location.href=`/approval/${d.id}`;}
+  else{const err=await res.json();alert(err.detail||'アップロード失敗');}
+};
+document.getElementById('uploadModal').addEventListener('click',function(e){if(e.target===this)this.style.display='none';});
+function filterTable(){const q=document.getElementById('searchInput').value.toLowerCase();document.querySelectorAll('#docTableBody tr').forEach(tr=>{tr.style.display=tr.textContent.toLowerCase().includes(q)?'':'none';});}
+</script>
+{% endblock %}

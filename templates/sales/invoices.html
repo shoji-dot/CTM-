@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}請求管理 - SalesCore{% endblock %}
+{% block content %}
+<div style="padding:20px 24px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <h1 style="font-size:1.4rem;font-weight:700;margin:0">📄 請求管理</h1>
+    <a href="/invoices/new" style="background:#f57c00;color:white;padding:9px 18px;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.9rem">＋ 請求書作成</a>
+  </div>
+  <form method="get" style="background:white;border:1px solid #dde3ea;border-radius:12px;padding:16px;margin-bottom:20px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a">ステータス</label>
+      <select name="status" style="padding:8px 12px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
+        <option value="" {% if not status %}selected{% endif %}>すべて</option>
+        <option value="unpaid" {% if status=='unpaid' %}selected{% endif %}>未入金</option>
+        <option value="partial" {% if status=='partial' %}selected{% endif %}>一部入金</option>
+        <option value="paid" {% if status=='paid' %}selected{% endif %}>入金済</option>
+      </select>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a">顧客</label>
+      <select name="customer_id" style="padding:8px 12px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
+        <option value="">すべて</option>
+        {% for c in customers %}
+        <option value="{{ c.id }}" {% if customer_id==c.id|string %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" style="padding:9px 18px;background:#1a73e8;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer">絞込</button>
+    <a href="/invoices" style="padding:9px 18px;border:1.5px solid #dde3ea;border-radius:8px;color:#5f6b7a;text-decoration:none;font-weight:600">リセット</a>
+  </form>
+  <div style="background:white;border:1px solid #dde3ea;border-radius:12px;overflow:hidden">
+    <table style="width:100%;border-collapse:collapse;font-size:0.87rem">
+      <thead>
+        <tr style="background:#f8fafc">
+          <th style="padding:11px 16px;text-align:left;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">請求番号</th>
+          <th style="padding:11px 16px;text-align:left;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">発行日</th>
+          <th style="padding:11px 16px;text-align:left;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">支払期限</th>
+          <th style="padding:11px 16px;text-align:left;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">顧客</th>
+          <th style="padding:11px 16px;text-align:right;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">請求金額</th>
+          <th style="padding:11px 16px;text-align:center;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">ステータス</th>
+          <th style="padding:11px 16px;text-align:center;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invoices %}
+        <tr style="border-bottom:1px solid #f0f4f8" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+          <td style="padding:12px 16px;font-family:monospace;font-size:0.82rem">{{ inv.invoice_number }}</td>
+          <td style="padding:12px 16px">{{ inv.issue_date }}</td>
+          <td style="padding:12px 16px">{{ inv.due_date or '—' }}</td>
+          <td style="padding:12px 16px;font-weight:600">{{ inv.customer.name }}</td>
+          <td style="padding:12px 16px;text-align:right;font-weight:700">¥{{ "{:,.0f}".format(inv.total_amount) }}</td>
+          <td style="padding:12px 16px;text-align:center">
+            {% if inv.status == 'unpaid' %}<span style="background:#fdecea;color:#e53935;padding:3px 10px;border-radius:999px;font-size:0.75rem;font-weight:700">未入金</span>
+            {% elif inv.status == 'partial' %}<span style="background:#fff3e0;color:#e65100;padding:3px 10px;border-radius:999px;font-size:0.75rem;font-weight:700">一部入金</span>
+            {% elif inv.status == 'paid' %}<span style="background:#e8f5e9;color:#2e7d32;padding:3px 10px;border-radius:999px;font-size:0.75rem;font-weight:700">入金済</span>{% endif %}
+          </td>
+          <td style="padding:12px 16px;text-align:center">
+            <a href="/invoices/{{ inv.id }}" style="color:#1a73e8;font-size:0.82rem;font-weight:600">詳細</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="padding:32px;text-align:center;color:#5f6b7a">請求書がありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

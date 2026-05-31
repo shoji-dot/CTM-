@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}修理詳細 {{ repair.repair_number }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">修理詳細</h1>
+  <div style="display:flex;gap:8px;">
+    {% if repair.status == "repair_ordered" %}
+    <a href="/repairs/{{ repair.id }}/order-print" target="_blank" class="btn btn-ghost">🖨 発注書</a>
+    {% endif %}
+    {% if repair.status in ["repair_completed", "closed"] %}
+    <a href="/repairs/{{ repair.id }}/detail-print" target="_blank" class="btn btn-ghost">🖨 修理明細書</a>
+    {% endif %}
+    <a href="/repairs/" class="btn btn-ghost">← 一覧に戻る</a>
+  </div>
+</div>
+
+<!-- ステップバー -->
+{% set steps = ["received","inspecting","sent_to_maker","maker_responded","quote_submitted","repair_ordered","repair_completed","closed"] %}
+{% set step_labels = {"received":"受付済","inspecting":"自社点検中","sent_to_maker":"メーカー送付済","maker_responded":"メーカー回答済","quote_submitted":"見積提出済","repair_ordered":"修理発注済","repair_completed":"修理完了","closed":"クロージング"} %}
+{% set current_idx = steps.index(repair.status) %}
+<div class="repair-steps" style="display:flex;gap:0;margin-bottom:24px;overflow-x:auto;">
+  {% for s in steps %}
+  {% set idx = loop.index0 %}
+  <div style="flex:1;min-width:80px;text-align:center;padding:8px 4px;font-size:11px;border-bottom:3px solid {% if idx <= current_idx %}#3b82f6{% else %}#e5e7eb{% endif %};color:{% if idx == current_idx %}#1d4ed8{% elif idx < current_idx %}#6b7280{% else %}#9ca3af{% endif %};">
+    <div style="font-weight:{% if idx == current_idx %}700{% else %}400{% endif %};">{{ step_labels[s] }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+  <!-- 基本情報 -->
+  <div class="detail-card">
+    <h2 class="detail-card-title">基本情報</h2>
+    <table class="detail-table">
+      <tr><th>修理番号</th><td class="mono">{{ repair.repair_number }}</td></tr>
+      <tr><th>ステータス</th><td><span class="badge badge-repair-{{ repair.status }}">{{ status_labels[repair.status] }}</span></td></tr>
+      <tr><th>受付日</th><td>{{ repair.received_date }}</td></tr>
+      <tr><th>顧客</th><td>{{ repair.customer_name }}</td></tr>
+      <tr><th>エンドユーザー</th><td>{{ repair.end_user_name or "―" }}</td></tr>
+      <tr><th>商品</th><td>{{ repair.product_name }}</td></tr>
+      <tr><th>シリアル番号</th><td class="mono">{{ repair.serial_number or "―" }}</td></tr>
+      <tr><th>ロット番号</th><td class="mono">{{ repair.lot_number or "―" }}</td></tr>
+      <tr><th>故障内容</th><td>{{ repair.fault_description }}</td></tr>
+      <tr><th>担当者</th><td>{{ repair.staff_name or "―" }}</td></tr>
+      <tr><th>備考</th><td>{{ repair.notes or "―" }}</td></tr>
+    </table>
+  </div>
+
+  <!-- 修理代替品 -->
+  <div class="detail-card">
+    <h2 class="detail-card-title">修理代替品</h2>
+    <table class="detail-table">
+      {% if repair.replacement_shipment_id %}
+      <tr><th>出荷番号</th><td class="mono"><a href="/shipments/{{ repair.replacement_shipment_id }}" class="link">{{ repair.rep_shipment_number }}</a></td></tr>
+      <tr><th>代替品名</th><td>{{ repair.rep_product_name or "―" }}</td></tr>
+      <tr><th>代替品返却日</th><td>{{ repair.replacement_returned_date or "―" }}</td></tr>
+      {% else %}
+      <tr><td colspan="2" class="empty">代替品の紐づけなし</td></tr>
+      {% endif %}
+    </table>
+
+    <h2 class="detail-card-title" style="margin-top:16px;">対応履歴</h2>
+    <table class="detail-table">
+      <tr><th>自社点検日</th><td>{{ repair.inspection_date or "―" }}</td></tr>
+      <tr><th>点検結果</th><td>{{ repair.inspection_result or "―" }}</td></tr>
+      <tr><th>点検者</th><td>{{ repair.inspector or "―" }}</td></tr>
+      <tr><th>メーカー送付日</th><td>{{ repair.sent_to_maker_date or "―" }}</td></tr>
+      <tr><th>メーカー回答</th><td>
+        {% if repair.maker_response == "free" %}無償修理
+        {% elif repair.maker_response == "paid" %}有償修理
+        {% else %}―{% endif %}
+      </td></tr>
+      <tr><th>メーカー見積金額</th><td>{% if repair.maker_quote_amount %}{{ "{:,.0f}".format(repair.maker_quote_amount) }} 円{% else %}―{% endif %}</td></tr>
+      <tr><th>見積提出日</th><td>{{ repair.quote_submitted_date or "―" }}</td></tr>
+      <tr><th>修理発注日</th><td>{{ repair.repair_ordered_date or "―" }}</td></tr>
+      <tr><th>修理完了日</th><td>{{ repair.repair_completed_date or "―" }}</td></tr>
+      <tr><th>発送方法</th><td>{% if repair.delivery_type == "direct" %}顧客直送{% elif repair.delivery_type == "company" %}弊社経由{% else %}―{% endif %}</td></tr>
+      <tr><th>発送先</th><td>{{ repair.delivery_address or "―" }}</td></tr>
+      <tr><th>クロージング日</th><td>{{ repair.closed_date or "―" }}</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- 次のアクション -->
+{% if next_status %}
+<div class="detail-card" style="margin-top:16px;">
+  <h2 class="detail-card-title">次のアクション：{{ next_label }}</h2>
+  <form method="post" action="/repairs/{{ repair.id }}/advance">
+
+    {% if next_status == "inspecting" %}
+    <div class="form-row">
+      <div class="form-group"><label class="label">点検日</label><input type="date" name="inspection_date" value="{{ today if today is defined else '' }}" class="input"></div>
+      <div class="form-group"><label class="label">点検者</label><input type="text" name="inspector" class="input" placeholder="担当者名"></div>
+    </div>
+    <div class="form-group"><label class="label">点検結果</label><textarea name="inspection_result" class="textarea" rows="2" placeholder="点検内容を入力"></textarea></div>
+
+    {% elif next_status == "sent_to_maker" %}
+    <div class="form-group"><label class="label">メーカー送付日</label><input type="date" name="sent_to_maker_date" class="input"></div>
+
+    {% elif next_status == "maker_responded" %}
+    <div class="form-row">
+      <div class="form-group">
+        <label class="label">メーカー回答</label>
+        <select name="maker_response" class="select" required>
+          <option value="">選択</option>
+          <option value="free">無償修理</option>
+          <option value="paid">有償修理</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="label">回答日</label><input type="date" name="maker_response_date" class="input"></div>
+      <div class="form-group"><label class="label">メーカー見積金額（有償時）</label><input type="number" name="maker_quote_amount" class="input" placeholder="例: 50000"></div>
+    </div>
+    <div class="form-group"><label class="label">メーカー回答内容</label><textarea name="maker_response_note" class="textarea" rows="2"></textarea></div>
+
+    {% elif next_status == "quote_submitted" %}
+    <div class="form-group"><label class="label">見積提出日</label><input type="date" name="quote_submitted_date" class="input"></div>
+
+    {% elif next_status == "repair_ordered" %}
+    <div class="form-group"><label class="label">修理発注日</label><input type="date" name="repair_ordered_date" class="input"></div>
+
+    {% elif next_status == "repair_completed" %}
+    <div class="form-row">
+      <div class="form-group"><label class="label">修理完了連絡日</label><input type="date" name="repair_completed_date" class="input"></div>
+      <div class="form-group">
+        <label class="label">発送方法</label>
+        <select name="delivery_type" class="select">
+          <option value="">選択</option>
+          <option value="direct">顧客直送</option>
+          <option value="company">弊社経由</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label class="label">発送先住所</label><input type="text" name="delivery_address" class="input"></div>
+
+    {% elif next_status == "closed" %}
+    <div class="form-row">
+      <div class="form-group"><label class="label">代替品返却日</label><input type="date" name="replacement_returned_date" class="input"></div>
+      <div class="form-group"><label class="label">クロージング日</label><input type="date" name="closed_date" class="input"></div>
+    </div>
+    {% endif %}
+
+    <div class="form-group"><label class="label">備考（追記）</label><textarea name="notes" class="textarea" rows="2">{{ repair.notes or "" }}</textarea></div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">→ {{ next_label }} に進める</button>
+    </div>
+  </form>
+</div>
+{% else %}
+<div class="detail-card" style="margin-top:16px;text-align:center;color:#6b7280;">
+  ✅ この修理はクロージング済みです
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 受付日を今日に設定
+document.querySelectorAll('input[type=date]').forEach(el => {
+  if (!el.value) el.value = new Date().toISOString().split('T')[0];
+});
+</script>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}修理受付 新規登録{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">修理受付 新規登録</h1>
+  <a href="/repairs/" class="btn btn-ghost">← 一覧に戻る</a>
+</div>
+<div class="form-card">
+  <form method="post" action="/repairs/new">
+    <div class="form-section">
+      <h2 class="form-section-title">受付情報</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="label">受付日 <span class="required">*</span></label>
+          <input type="date" name="received_date" value="{{ today }}" class="input" required>
+        </div>
+        <div class="form-group">
+          <label class="label">顧客 <span class="required">*</span></label>
+          <select name="customer_id" class="select" required>
+            <option value="">選択してください</option>
+            {% for c in customers %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="label">エンドユーザー</label>
+          <select name="end_user_id" class="select">
+            <option value="">（なし）</option>
+            {% for c in customers %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h2 class="form-section-title">故障品情報</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="label">商品 <span class="required">*</span></label>
+          <select name="product_id" class="select" required>
+            <option value="">選択してください</option>
+            {% for p in products %}
+            <option value="{{ p.id }}">{{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="label">シリアル番号</label>
+          <input type="text" name="serial_number" class="input" placeholder="例: SN-12345">
+        </div>
+        <div class="form-group">
+          <label class="label">ロット番号</label>
+          <input type="text" name="lot_number" class="input" placeholder="例: LOT-2024">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="label">故障内容 <span class="required">*</span></label>
+        <textarea name="fault_description" class="textarea" rows="3" placeholder="故障・不具合の詳細を入力してください" required></textarea>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h2 class="form-section-title">修理代替品（出荷済みの修理代替品と紐づける場合）</h2>
+      <div class="form-group">
+        <label class="label">修理代替品出荷</label>
+        <select name="replacement_shipment_id" class="select">
+          <option value="">（紐づけなし）</option>
+          {% for s in rep_shipments %}
+          <option value="{{ s.id }}">{{ s.shipment_number }} — {{ s.product_name }} / {{ s.customer_name }}{% if s.serial_number %} / {{ s.serial_number }}{% endif %}</option>
+          {% endfor %}
+        </select>
+        <p class="form-hint">種別「修理代替品」かつ出荷中の出荷が表示されます</p>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-group">
+        <label class="label">備考</label>
+        <textarea name="notes" class="textarea" rows="2"></textarea>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">受付登録</button>
+      <a href="/repairs/" class="btn btn-ghost">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

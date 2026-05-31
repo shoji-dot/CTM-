@@ -1,0 +1,118 @@
+﻿{% extends "base.html" %}
+{% block title %}見積作成{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">見積作成</h1>
+  <a href="/quotes" class="btn btn-ghost">← 一覧に戻る</a>
+</div>
+<div class="form-card">
+  <form method="post" action="/quotes/new" id="quoteForm">
+    <div class="form-grid">
+      <div class="form-group span-2">
+        <label class="label">顧客 <span class="required">*</span></label>
+        <select name="customer_id" class="select" required>
+          <option value="">顧客を選択...</option>
+          {% for c in customers %}
+          <option value="{{ c.id }}">{{ c.name }}（{{ "医療機器" if c.category == "medical" else "生ハム" }}）</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group span-2">
+        <label class="label">エンドユーザー</label>
+        <select name="end_user_id" class="select">
+          <option value="">（なし）</option>
+          {% for c in customers %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="label">有効期限</label>
+        <input name="valid_until" type="date" class="input">
+      </div>
+      <div class="form-group span-2">
+        <label class="label">備考</label>
+        <textarea name="notes" class="textarea" rows="2"></textarea>
+      </div>
+    </div>
+    <h3 class="section-title" style="margin-top:2rem">見積明細</h3>
+    <div id="itemsContainer">
+      <div class="quote-item-row">
+        <select name="product_id[]" class="select product-select" onchange="updatePrice(this)">
+          <option value="">商品を選択...</option>
+          {% for p in products %}
+          <option value="{{ p.id }}" data-price="{{ p.unit_price }}" data-unit="{{ p.unit }}">{{ p.name }} (¥{{ "{:,.0f}".format(p.unit_price) }}/{{ p.unit }})</option>
+          {% endfor %}
+        </select>
+        <input name="quantity[]" type="number" min="1" value="1" class="input qty-input" onchange="calcTotal()">
+        <div style="display:flex;align-items:center;gap:4px">
+          <input name="discount_rate[]" type="number" min="1" max="100" step="0.1" value="100"
+                 class="input discount-input" style="width:70px" onchange="calcTotal()">
+          <span class="text-muted">%</span>
+        </div>
+        <span class="item-price text-muted">―</span>
+        <button type="button" class="btn btn-sm btn-danger" onclick="removeRow(this)">✕</button>
+      </div>
+    </div>
+    <div class="quote-actions-bar">
+      <button type="button" class="btn btn-ghost" onclick="addRow()">＋ 行を追加</button>
+      <div class="total-display">合計: <strong id="totalAmount">¥0</strong></div>
+    </div>
+    <div class="form-actions">
+      <a href="/quotes" class="btn btn-ghost">キャンセル</a>
+      <button type="submit" class="btn btn-primary">見積を作成</button>
+    </div>
+  </form>
+</div>
+<script>
+const products = { {% for p in products %}"{{ p.id }}": { price: {{ p.unit_price }}, unit: "{{ p.unit }}" },{% endfor %} };
+
+function updatePrice(sel) {
+  const row = sel.closest(".quote-item-row");
+  const pid = sel.value;
+  if (pid && products[pid]) {
+    // 商品選択時は小計を再計算して表示
+  }
+  calcTotal();
+}
+
+function calcTotal() {
+  let total = 0;
+  document.querySelectorAll(".quote-item-row").forEach(row => {
+    const pid = row.querySelector(".product-select").value;
+    const qty = parseInt(row.querySelector(".qty-input").value) || 0;
+    const dr = parseFloat(row.querySelector(".discount-input").value) || 100;
+    const priceEl = row.querySelector(".item-price");
+    if (pid && products[pid]) {
+      const subtotal = products[pid].price * qty * (dr / 100);
+      total += subtotal;
+      priceEl.textContent = "¥" + subtotal.toLocaleString(undefined, {maximumFractionDigits: 0})
+                          + "（" + dr + "%掛）";
+    } else {
+      priceEl.textContent = "―";
+    }
+  });
+  document.getElementById("totalAmount").textContent =
+    "¥" + total.toLocaleString(undefined, {maximumFractionDigits: 0});
+}
+
+function addRow() {
+  const container = document.getElementById("itemsContainer");
+  const first = container.querySelector(".quote-item-row");
+  const clone = first.cloneNode(true);
+  clone.querySelector(".product-select").value = "";
+  clone.querySelector(".qty-input").value = 1;
+  clone.querySelector(".discount-input").value = 100;
+  clone.querySelector(".item-price").textContent = "―";
+  clone.querySelector(".product-select").onchange = function() { updatePrice(this); };
+  clone.querySelector(".qty-input").onchange = calcTotal;
+  clone.querySelector(".discount-input").onchange = calcTotal;
+  container.appendChild(clone);
+}
+
+function removeRow(btn) {
+  const rows = document.querySelectorAll(".quote-item-row");
+  if (rows.length > 1) { btn.closest(".quote-item-row").remove(); calcTotal(); }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,42 @@
+﻿{% extends "base.html" %}
+{% block title %}在庫管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">在庫管理</h1>
+  <div class="header-actions">
+    <a href="/inventory/receive" class="btn btn-primary">＋ 入荷登録</a>
+    <a href="/inventory/history" class="btn btn-ghost">入出庫履歴 →</a>
+  </div>
+</div>
+
+{% set alert_count = alert_ids | length %}
+{% if alert_count > 0 %}
+<div class="alert-banner">⚠ {{ alert_count }}件の商品が在庫アラートラインを下回っています</div>
+{% endif %}
+
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>商品名</th><th>SKU</th><th>カテゴリ</th><th>現在庫</th><th>単位</th><th>アラート閾値</th><th>最終更新</th></tr>
+    </thead>
+    <tbody>
+      {% for inv in inventory %}
+      {% set is_alert = inv.product_id in alert_ids %}
+      <tr class="{{ 'alert-row' if is_alert else '' }}">
+        <td><a href="/products/{{ inv.product_id }}" class="link">{{ inv.product.name }}</a></td>
+        <td class="mono text-muted">{{ inv.product.sku or "―" }}</td>
+        <td><span class="badge badge-{{ inv.product.category }}">{{ "医療機器" if inv.product.category == "medical" else "生ハム" }}</span></td>
+        <td class="{{ 'text-danger fw-bold' if is_alert else '' }}">
+          {{ inv.current_stock }}{% if is_alert %} ⚠{% endif %}
+        </td>
+        <td>{{ inv.product.unit or "―" }}</td>
+        <td>{{ inv.product.stock_alert_threshold }}</td>
+        <td class="mono text-sm">{{ inv.updated_at.strftime("%Y/%m/%d %H:%M") }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="empty">商品がありません</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

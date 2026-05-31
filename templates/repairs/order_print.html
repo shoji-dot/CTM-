@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>修理発注書 {{ repair.repair_number }}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Noto Sans JP", "Meiryo", sans-serif; font-size: 12px; color: #111; padding: 24px; }
+  .doc-title { font-size: 20px; font-weight: bold; text-align: center; margin-bottom: 24px; border-bottom: 2px solid #333; padding-bottom: 8px; }
+  .header-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+  .header-section h3 { font-size: 12px; color: #666; margin-bottom: 4px; }
+  .header-section p { font-size: 13px; font-weight: bold; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 12px; }
+  th { background: #f3f4f6; font-weight: 600; width: 160px; }
+  .section-title { font-size: 13px; font-weight: bold; margin: 16px 0 6px; border-left: 3px solid #3b82f6; padding-left: 8px; }
+  .footer { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .sign-box { border: 1px solid #ccc; height: 60px; display: flex; align-items: flex-end; padding: 4px 8px; font-size: 11px; color: #666; }
+  @media print { body { padding: 12px; } .no-print { display: none; } }
+</style>
+</head>
+<body>
+
+<div class="no-print" style="margin-bottom:16px;">
+  <button onclick="window.print()" style="padding:8px 20px;background:#3b82f6;color:#fff;border:none;border-radius:4px;cursor:pointer;">🖨 印刷</button>
+  <button onclick="window.close()" style="padding:8px 20px;background:#6b7280;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-left:8px;">閉じる</button>
+</div>
+
+<div class="doc-title">修 理 発 注 書</div>
+
+<div class="header-grid">
+  <div>
+    <h3>発注先メーカー</h3>
+    <p>（メーカー名をご記入ください）</p>
+  </div>
+  <div style="text-align:right;">
+    <p style="font-size:13px;">{{ company.name }}</p>
+    <p style="font-size:11px;color:#555;">〒{{ company.postal }} {{ company.address }}</p>
+    <p style="font-size:11px;color:#555;">TEL: {{ company.tel }}　FAX: {{ company.fax }}</p>
+    <p style="font-size:11px;color:#555;">登録番号: {{ company.invoice_no }}</p>
+    <p style="margin-top:8px;">発注日：{{ repair.repair_ordered_date or today }}</p>
+  </div>
+</div>
+
+<p class="section-title">発注内容</p>
+<table>
+  <tr><th>修理番号</th><td>{{ repair.repair_number }}</td></tr>
+  <tr><th>顧客</th><td>{{ repair.customer_name }}</td></tr>
+  <tr><th>エンドユーザー</th><td>{{ repair.end_user_name or "―" }}</td></tr>
+  <tr><th>対象商品</th><td>{{ repair.product_name }}</td></tr>
+  <tr><th>シリアル番号</th><td>{{ repair.serial_number or "―" }}</td></tr>
+  <tr><th>ロット番号</th><td>{{ repair.lot_number or "―" }}</td></tr>
+  <tr><th>故障内容</th><td>{{ repair.fault_description }}</td></tr>
+  <tr><th>修理種別</th><td>{% if repair.maker_response == "free" %}無償修理{% elif repair.maker_response == "paid" %}有償修理{% else %}―{% endif %}</td></tr>
+  {% if repair.maker_quote_amount %}
+  <tr><th>メーカー見積金額</th><td>{{ "{:,.0f}".format(repair.maker_quote_amount) }} 円</td></tr>
+  {% endif %}
+</table>
+
+<p class="section-title">メーカー回答内容</p>
+<table>
+  <tr><td style="min-height:60px;">{{ repair.maker_response_note or "―" }}</td></tr>
+</table>
+
+<p class="section-title">備考</p>
+<table>
+  <tr><td style="min-height:40px;">{{ repair.notes or "" }}</td></tr>
+</table>
+
+<div class="footer">
+  <div><div class="sign-box">担当</div></div>
+  <div><div class="sign-box">承認</div></div>
+  <div><div class="sign-box">決裁</div></div>
+</div>
+
+</body>
+</html>

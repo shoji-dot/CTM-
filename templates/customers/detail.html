@@ -1,0 +1,48 @@
+﻿{% extends "base.html" %}
+{% block title %}{{ customer.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">{{ customer.name }}</h1>
+  <div class="header-actions">
+    <a href="/customers/{{ customer.id }}/edit" class="btn btn-ghost">編集</a>
+    <a href="/customers" class="btn btn-ghost">← 一覧</a>
+  </div>
+</div>
+<div class="detail-grid">
+  <div class="detail-card">
+    <h2 class="card-title">基本情報</h2>
+    <dl class="dl">
+      <dt>カテゴリ</dt><dd><span class="badge badge-{{ customer.category }}">{{ "医療機関" if customer.category in ("hospital","medical") else "取引先" }}</span></dd>
+      <dt>電話番号</dt><dd>{{ customer.phone or "―" }}</dd>
+      <dt>メール</dt><dd>{{ customer.email or "―" }}</dd>
+      <dt>住所</dt><dd>{{ customer.address or "―" }}</dd>
+      <dt>取引条件</dt><dd>{{ customer.trading_terms or "―" }}</dd>
+      <dt>備考</dt><dd>{{ customer.notes or "―" }}</dd>
+      <dt>登録日</dt><dd>{{ customer.created_at.strftime("%Y/%m/%d %H:%M") }}</dd>
+    </dl>
+  </div>
+  <div class="detail-card">
+    <div class="section-header">
+      <h2 class="card-title">関連見積</h2>
+      <a href="/quotes/new" class="btn btn-sm btn-primary">＋ 見積作成</a>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>見積番号</th><th>金額</th><th>状態</th><th></th></tr></thead>
+        <tbody>
+          {% for q in customer.quotes %}
+          <tr>
+            <td class="mono">{{ q.quote_number }}</td>
+            <td>¥{{ "{:,.0f}".format(q.total_amount) }}</td>
+            <td><span class="badge badge-{{ q.status }}">{{ {"draft":"下書き","sent":"送付済","accepted":"承認","rejected":"却下"}[q.status] }}</span></td>
+            <td><a href="/quotes/{{ q.id }}" class="btn btn-sm btn-ghost">詳細</a></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="empty">見積なし</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

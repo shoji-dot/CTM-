@@ -1,0 +1,54 @@
+﻿{% extends "base.html" %}
+{% block title %}{{ "社員編集" if staff else "社員登録" }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">{{ "社員編集" if staff else "社員登録" }}</h1>
+  <a href="/staff" class="btn btn-ghost">← 一覧に戻る</a>
+</div>
+<div class="form-card">
+  <form method="post" action="{{ '/staff/' + staff.id|string + '/edit' if staff else '/staff/new' }}">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="label">氏名 <span class="required">*</span></label>
+        <input name="name" value="{{ staff.name if staff else '' }}" required class="input">
+      </div>
+      <div class="form-group">
+        <label class="label">ログインID <span class="required">*</span></label>
+        <input name="login_id" value="{{ staff.login_id if staff else '' }}" required class="input">
+      </div>
+      <div class="form-group">
+        <label class="label">パスワード {{ "（変更する場合のみ入力）" if staff else "" }} <span class="required">{{ "*" if not staff }}</span></label>
+        <input name="password" type="password" class="input" {{ "required" if not staff }} placeholder="{{ '変更しない場合は空欄' if staff else 'パスワードを入力' }}">
+      </div>
+      <div class="form-group">
+        <label class="label">権限</label>
+        <select name="role" class="select">
+          <option value="user" {{ "selected" if not staff or staff.role == "user" }}>一般</option>
+          <option value="admin" {{ "selected" if staff and staff.role == "admin" }}>管理者</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="label">部署・営業所</label>
+        <input name="department" value="{{ staff.department if staff else '' }}" class="input" placeholder="例：東京営業所">
+      </div>
+      <div class="form-group">
+        <label class="label">メールアドレス</label>
+        <input name="email" type="email" value="{{ staff.email if staff else '' }}" class="input">
+      </div>
+      {% if staff %}
+      <div class="form-group">
+        <label class="label">アカウント状態</label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" name="is_active" {{ "checked" if staff.is_active }} style="width:16px;height:16px">
+          <span>有効</span>
+        </label>
+      </div>
+      {% endif %}
+    </div>
+    <div class="form-actions">
+      <a href="/staff" class="btn btn-ghost">キャンセル</a>
+      <button type="submit" class="btn btn-primary">{{ "更新する" if staff else "登録する" }}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

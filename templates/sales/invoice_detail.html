@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}請求書詳細 - SalesCore{% endblock %}
+{% block content %}
+<div style="padding:20px 24px;max-width:800px">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+    <a href="/invoices" style="color:#5f6b7a;text-decoration:none">← 請求一覧</a>
+    <h1 style="font-size:1.3rem;font-weight:700;margin:0">📄 請求書詳細</h1>
+  </div>
+
+  <div style="background:white;border:1px solid #dde3ea;border-radius:16px;padding:24px;margin-bottom:20px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+      <div>
+        <div style="font-family:monospace;font-size:0.85rem;color:#5f6b7a">{{ invoice.invoice_number }}</div>
+        <div style="font-size:1.2rem;font-weight:700;margin-top:4px">{{ invoice.customer.name }}</div>
+        <div style="font-size:0.85rem;color:#5f6b7a;margin-top:2px">発行日：{{ invoice.issue_date }}{% if invoice.due_date %} / 支払期限：{{ invoice.due_date }}{% endif %}</div>
+      </div>
+      {% if invoice.status == 'unpaid' %}<span style="background:#fdecea;color:#e53935;padding:5px 14px;border-radius:999px;font-size:0.82rem;font-weight:700">未入金</span>
+      {% elif invoice.status == 'partial' %}<span style="background:#fff3e0;color:#e65100;padding:5px 14px;border-radius:999px;font-size:0.82rem;font-weight:700">一部入金</span>
+      {% elif invoice.status == 'paid' %}<span style="background:#e8f5e9;color:#2e7d32;padding:5px 14px;border-radius:999px;font-size:0.82rem;font-weight:700">入金済</span>{% endif %}
+    </div>
+
+    <!-- 明細 -->
+    <table style="width:100%;border-collapse:collapse;font-size:0.87rem;margin-bottom:16px">
+      <thead><tr style="background:#f8fafc">
+        <th style="padding:10px 14px;text-align:left;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">売上番号</th>
+        <th style="padding:10px 14px;text-align:left;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">商品</th>
+        <th style="padding:10px 14px;text-align:left;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">売上日</th>
+        <th style="padding:10px 14px;text-align:right;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">金額</th>
+      </tr></thead>
+      <tbody>
+        {% for item in invoice.items %}
+        <tr style="border-bottom:1px solid #f0f4f8">
+          <td style="padding:10px 14px;font-family:monospace;font-size:0.82rem">{{ item.sale.sale_number }}</td>
+          <td style="padding:10px 14px">{{ item.sale.product.name }} ×{{ item.sale.quantity }}</td>
+          <td style="padding:10px 14px">{{ item.sale.sale_date }}</td>
+          <td style="padding:10px 14px;text-align:right">¥{{ "{:,.0f}".format(item.amount) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div style="text-align:right;font-size:0.9rem;border-top:1px solid #dde3ea;padding-top:12px">
+      <div style="margin-bottom:4px">小計：¥{{ "{:,.0f}".format(invoice.subtotal) }}</div>
+      <div style="margin-bottom:4px">消費税：¥{{ "{:,.0f}".format(invoice.tax_amount) }}</div>
+      <div style="font-size:1.2rem;font-weight:800;color:#1a73e8">請求合計：¥{{ "{:,.0f}".format(invoice.total_amount) }}</div>
+    </div>
+  </div>
+
+  <!-- 入金履歴 -->
+  <div style="background:white;border:1px solid #dde3ea;border-radius:16px;padding:24px;margin-bottom:20px">
+    <h2 style="font-size:0.95rem;font-weight:700;margin:0 0 14px">入金履歴</h2>
+    {% if invoice.payments %}
+    <table style="width:100%;border-collapse:collapse;font-size:0.87rem;margin-bottom:12px">
+      <thead><tr style="background:#f8fafc">
+        <th style="padding:9px 14px;text-align:left;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">入金日</th>
+        <th style="padding:9px 14px;text-align:left;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">方法</th>
+        <th style="padding:9px 14px;text-align:right;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">金額</th>
+        <th style="padding:9px 14px;text-align:left;font-size:0.75rem;font-weight:700;color:#5f6b7a;border-bottom:1px solid #dde3ea">備考</th>
+      </tr></thead>
+      <tbody>
+        {% for p in invoice.payments %}
+        <tr style="border-bottom:1px solid #f0f4f8">
+          <td style="padding:9px 14px">{{ p.payment_date }}</td>
+          <td style="padding:9px 14px">{{ p.method or '—' }}</td>
+          <td style="padding:9px 14px;text-align:right;font-weight:700">¥{{ "{:,.0f}".format(p.amount) }}</td>
+          <td style="padding:9px 14px;font-size:0.82rem;color:#5f6b7a">{{ p.notes or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div style="text-align:right;font-size:0.88rem">
+      <span style="color:#5f6b7a">入金済：¥{{ "{:,.0f}".format(paid_total) }}</span>
+      &nbsp;/&nbsp;
+      <span style="font-weight:700;color:{% if remaining <= 0 %}#2e7d32{% else %}#e53935{% endif %}">残高：¥{{ "{:,.0f}".format(remaining) }}</span>
+    </div>
+    {% else %}
+    <div style="color:#5f6b7a;font-size:0.87rem">入金記録がありません</div>
+    {% endif %}
+
+    <!-- 入金登録フォーム -->
+    {% if invoice.status != 'paid' %}
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid #dde3ea">
+      <div style="font-size:0.85rem;font-weight:700;margin-bottom:12px">💳 入金・消込み登録</div>
+      <form method="post" action="/invoices/{{ invoice.id }}/payment" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;align-items:flex-end">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a">入金日 *</label>
+          <input type="date" name="payment_date" value="{{ today }}" required style="padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a">金額 *</label>
+          <input type="number" name="amount" value="{{ remaining|int }}" min="1" required style="padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a">入金方法</label>
+          <select name="method" style="padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
+            <option value="">—</option>
+            <option value="銀行振込">銀行振込</option>
+            <option value="現金">現金</option>
+            <option value="小切手">小切手</option>
+          </select>
+        </div>
+        <button type="submit" style="padding:9px 14px;background:#00c896;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.88rem">✓ 入金登録</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  <div style="display:flex;gap:10px">
+    {% if invoice.status == 'unpaid' %}
+    <form method="post" action="/invoices/{{ invoice.id }}/delete" onsubmit="return confirm('請求書を削除しますか？')">
+      <button type="submit" style="padding:10px 18px;background:transparent;color:#e53935;border:1.5px solid #e53935;border-radius:8px;font-weight:600;cursor:pointer">削除</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

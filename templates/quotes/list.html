@@ -1,0 +1,72 @@
+﻿{% extends "base.html" %}
+{% block title %}見積管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">見積管理</h1>
+  <a href="/quotes/new" class="btn btn-primary">＋ 新規作成</a>
+</div>
+
+<div class="filter-bar">
+  <form method="get" class="filter-form">
+    <select name="status" class="select">
+      <option value="">すべて</option>
+      <option value="draft"    {% if status == "draft"    %}selected{% endif %}>下書き</option>
+      <option value="sent"     {% if status == "sent"     %}selected{% endif %}>送付済</option>
+      <option value="accepted" {% if status == "accepted" %}selected{% endif %}>承認</option>
+      <option value="rejected" {% if status == "rejected" %}selected{% endif %}>却下</option>
+    </select>
+    <input type="text" name="customer"  class="input" placeholder="顧客名"         value="{{ customer }}"  style="width:140px">
+    <input type="text" name="end_user"  class="input" placeholder="エンドユーザー"  value="{{ end_user }}"  style="width:140px">
+    <input type="text" name="product"   class="input" placeholder="製品名"          value="{{ product }}"   style="width:140px">
+    <button type="submit" class="btn btn-ghost">絞込</button>
+    <a href="/quotes" class="btn btn-ghost">リセット</a>
+  </form>
+</div>
+
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>見積番号</th>
+        <th>顧客名</th>
+        <th>エンドユーザー</th>
+        <th>商品名</th>
+        <th>合計金額</th>
+        <th>状態</th>
+        <th>有効期限</th>
+        <th>作成日</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for q in quotes %}
+      <tr>
+        <td class="mono"><a href="/quotes/{{ q.id }}" class="link">{{ q.quote_number }}</a></td>
+        <td>{{ q.customer.name }}</td>
+        <td>{{ q.end_user.name if q.end_user else "―" }}</td>
+        <td>
+          {% if q.items %}
+            {{ q.items[0].product.name }}
+            {% if q.items|length > 1 %}
+              <span class="text-sm" style="color:var(--color-text-secondary)">他{{ q.items|length - 1 }}件</span>
+            {% endif %}
+          {% else %}―{% endif %}
+        </td>
+        <td class="text-right fw-bold">¥{{ "{:,.0f}".format(q.total_amount) }}</td>
+        <td><span class="badge badge-{{ q.status }}">{{ {"draft":"下書き","sent":"送付済","accepted":"承認","rejected":"却下"}[q.status] }}</span></td>
+        <td>{{ q.valid_until.strftime("%Y/%m/%d") if q.valid_until else "―" }}</td>
+        <td class="mono text-sm">{{ q.created_at.strftime("%Y/%m/%d") }}</td>
+        <td class="actions">
+          <a href="/quotes/{{ q.id }}" class="btn btn-sm btn-ghost">詳細</a>
+          <form method="post" action="/quotes/{{ q.id }}/delete" style="display:inline" onsubmit="return confirm('削除しますか？')">
+            <button class="btn btn-sm btn-danger">削除</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="empty">見積がありません</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,321 @@
+{# templates/materials/list.html #}
+{% extends "base.html" %}
+{% block title %}資料ライブラリ{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>資料ライブラリ</h1>
+  <button class="btn btn-primary" onclick="openUploadModal()">＋ アップロード</button>
+</div>
+
+{# ── フィルター ──────────────────────────────────────────── #}
+<form method="get" class="filter-bar">
+  <input type="text" name="q" value="{{ q }}" placeholder="タイトル・要約を検索..." class="search-input">
+
+  <select name="category_id" onchange="this.form.submit()">
+    <option value="0">すべてのカテゴリ</option>
+    {% for c in categories %}
+      <option value="{{ c.id }}" {% if c.id == category_id %}selected{% endif %}>{{ c.name }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="tag" onchange="this.form.submit()">
+    <option value="">すべてのタグ</option>
+    {% for t in tags %}
+      <option value="{{ t.name }}" {% if t.name == tag %}selected{% endif %}>#{{ t.name }}</option>
+    {% endfor %}
+  </select>
+
+  <label class="checkbox-label">
+    <input type="checkbox" name="fav_only" value="1" {% if fav_only %}checked{% endif %} onchange="this.form.submit()">
+    ★ お気に入りのみ
+  </label>
+
+  <button type="submit" class="btn btn-secondary">検索</button>
+</form>
+
+{# ── 資料一覧 ────────────────────────────────────────────── #}
+{% if materials %}
+<div class="material-grid">
+  {% for m in materials %}
+  <div class="material-card" id="card-{{ m.id }}">
+    {# ファイル種別アイコン #}
+    <div class="file-icon {{ m.file_type.lstrip('.') }}">
+      {{ m.file_type.lstrip('.').upper() }}
+    </div>
+
+    <div class="card-body">
+      <div class="card-top">
+        <span class="category-badge">{{ m.category_name or '未分類' }}</span>
+        <button class="fav-btn {% if m.is_fav %}active{% endif %}"
+                onclick="toggleFav({{ m.id }}, this)" title="お気に入り">★</button>
+      </div>
+
+      <h3 class="card-title" onclick="openDetail({{ m.id }})">{{ m.title }}</h3>
+
+      {% if m.ai_summary %}
+      <p class="ai-summary">{{ m.ai_summary[:120] }}{% if m.ai_summary|length > 120 %}…{% endif %}</p>
+      {% endif %}
+
+      {% if m.tag_names %}
+      <div class="tags">
+        {% for t in m.tag_names.split('|') %}
+        <a href="?tag={{ t }}" class="tag">#{{ t }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="card-footer">
+        <span class="meta">{{ m.uploader_name }} ・ v{{ m.version }} ・ {{ m.updated_at[:10] }}</span>
+        <div class="card-actions">
+          {% if m.file_type == '.pdf' %}
+          <button class="btn-icon" onclick="previewPDF({{ m.id }})" title="プレビュー">👁</button>
+          {% endif %}
+          <a class="btn-icon" href="/materials/{{ m.id }}/download" title="ダウンロード">⬇</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="empty-state">資料が見つかりませんでした。</p>
+{% endif %}
+
+{# ── アップロードモーダル ─────────────────────────────────── #}
+<div id="upload-modal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>資料をアップロード</h2>
+      <button class="close-btn" onclick="closeUploadModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <label>タイトル（省略時はファイル名）
+        <input type="text" id="up-title" placeholder="例: 製品Aカタログ 2025年版">
+      </label>
+      <label>カテゴリ
+        <select id="up-category">
+          <option value="">選択してください</option>
+          {% for c in categories %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>タグ（カンマ区切り）
+        <input type="text" id="up-tags" placeholder="例: 循環器, 新製品">
+      </label>
+      <label>説明
+        <textarea id="up-description" rows="2"></textarea>
+      </label>
+      <label class="drop-zone" id="drop-zone">
+        <input type="file" id="up-files" multiple
+               accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt">
+        <span>ここにファイルをドロップ、またはクリックして選択<br>
+          <small>PDF / Word / Excel / PowerPoint（最大50MB/件）</small></span>
+      </label>
+      <div id="file-list"></div>
+      <div id="upload-progress" class="hidden">
+        <div class="progress-bar"><div id="progress-fill"></div></div>
+        <span id="progress-label">アップロード中...</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeUploadModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="doUpload()">アップロード（AI要約付き）</button>
+    </div>
+  </div>
+</div>
+
+{# ── PDF プレビューモーダル ───────────────────────────────── #}
+<div id="pdf-modal" class="modal hidden">
+  <div class="modal-content modal-wide">
+    <div class="modal-header">
+      <h2 id="pdf-modal-title">プレビュー</h2>
+      <button class="close-btn" onclick="closePDF()">✕</button>
+    </div>
+    <div class="modal-body pdf-body">
+      <iframe id="pdf-frame" src="" style="width:100%;height:70vh;border:none;"></iframe>
+    </div>
+  </div>
+</div>
+
+{# ── 詳細ドロワー ────────────────────────────────────────── #}
+<div id="detail-drawer" class="drawer hidden">
+  <div class="drawer-inner">
+    <div class="drawer-header">
+      <h2 id="drawer-title">-</h2>
+      <button onclick="closeDetail()">✕</button>
+    </div>
+    <div id="drawer-body" class="drawer-body"></div>
+  </div>
+</div>
+<div id="drawer-overlay" class="overlay hidden" onclick="closeDetail()"></div>
+
+<style>
+.page-header          { display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem; }
+.filter-bar           { display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.5rem;align-items:center; }
+.search-input         { flex:1;min-width:160px;padding:.45rem .75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg2); }
+.filter-bar select    { padding:.45rem .6rem;border:1px solid var(--border);border-radius:6px;background:var(--bg2); }
+.checkbox-label       { display:flex;align-items:center;gap:.3rem;font-size:.9rem;cursor:pointer; }
+
+.material-grid        { display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem; }
+.material-card        { background:var(--bg2);border:1px solid var(--border);border-radius:10px;display:flex;gap:.75rem;padding:.85rem;transition:box-shadow .15s; }
+.material-card:hover  { box-shadow:0 2px 12px rgba(0,0,0,.1); }
+.file-icon            { width:44px;height:44px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;flex-shrink:0; }
+.file-icon.pdf        { background:#fee2e2;color:#991b1b; }
+.file-icon.docx,.file-icon.doc { background:#dbeafe;color:#1e40af; }
+.file-icon.xlsx,.file-icon.xls { background:#dcfce7;color:#166534; }
+.file-icon.pptx,.file-icon.ppt { background:#ffedd5;color:#9a3412; }
+.card-body            { flex:1;min-width:0;display:flex;flex-direction:column;gap:.3rem; }
+.card-top             { display:flex;justify-content:space-between;align-items:center; }
+.category-badge       { font-size:.72rem;padding:.15rem .5rem;background:var(--bg3,#f1f5f9);border-radius:999px;color:var(--text-muted); }
+.fav-btn              { background:none;border:none;cursor:pointer;font-size:1rem;color:#d1d5db;padding:0; }
+.fav-btn.active       { color:#f59e0b; }
+.card-title           { font-size:.92rem;font-weight:500;cursor:pointer;line-height:1.3;margin:0; }
+.card-title:hover     { text-decoration:underline; }
+.ai-summary           { font-size:.78rem;color:var(--text-muted);line-height:1.4;margin:0; }
+.tags                 { display:flex;flex-wrap:wrap;gap:.25rem; }
+.tag                  { font-size:.72rem;background:var(--bg3,#e0f2fe);color:#0369a1;border-radius:4px;padding:.1rem .35rem;text-decoration:none; }
+.card-footer          { display:flex;justify-content:space-between;align-items:center;margin-top:auto; }
+.meta                 { font-size:.72rem;color:var(--text-muted); }
+.card-actions         { display:flex;gap:.25rem; }
+.btn-icon             { background:none;border:none;cursor:pointer;font-size:.9rem;padding:.15rem;text-decoration:none; }
+.empty-state          { text-align:center;padding:3rem;color:var(--text-muted); }
+
+/* モーダル */
+.modal                { position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000; }
+.modal.hidden         { display:none; }
+.modal-content        { background:var(--bg);border-radius:12px;width:90%;max-width:520px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column; }
+.modal-wide           { max-width:860px; }
+.modal-header         { display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid var(--border); }
+.modal-header h2      { font-size:1rem;margin:0; }
+.modal-body           { padding:1.25rem;display:flex;flex-direction:column;gap:.75rem; }
+.modal-body label     { display:flex;flex-direction:column;gap:.3rem;font-size:.85rem; }
+.modal-body input[type=text],.modal-body select,.modal-body textarea { padding:.45rem .65rem;border:1px solid var(--border);border-radius:6px;background:var(--bg2);font-size:.9rem;color:#e8eaf0; }
+.modal-footer         { display:flex;justify-content:flex-end;gap:.5rem;padding:1rem 1.25rem;border-top:1px solid var(--border); }
+.close-btn            { background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--text-muted); }
+.drop-zone            { border:2px dashed var(--border);border-radius:8px;padding:1.5rem;text-align:center;cursor:pointer; }
+.drop-zone.drag-over  { border-color:#3b82f6;background:#eff6ff; }
+.progress-bar         { height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;margin-top:.5rem; }
+#progress-fill        { height:100%;background:#3b82f6;width:0;transition:width .3s; }
+.pdf-body             { padding:0; }
+
+/* ドロワー */
+.drawer               { position:fixed;right:0;top:0;height:100%;width:420px;background:var(--bg);border-left:1px solid var(--border);z-index:900;transform:translateX(100%);transition:transform .25s;display:flex;flex-direction:column; }
+.drawer:not(.hidden)  { transform:translateX(0); }
+.drawer-inner         { display:flex;flex-direction:column;height:100%; }
+.drawer-header        { display:flex;justify-content:space-between;align-items:center;padding:1rem;border-bottom:1px solid var(--border); }
+.drawer-header h2     { font-size:.95rem;margin:0; }
+.drawer-body          { flex:1;overflow-y:auto;padding:1rem; }
+.overlay              { position:fixed;inset:0;z-index:899; }
+.overlay.hidden       { display:none; }
+
+@media(max-width:640px){
+  .material-grid      { grid-template-columns:1fr; }
+  .drawer             { width:100%; }
+}
+</style>
+
+<script>
+// ── ファイル選択表示 ──────────────────────────────────────
+const fileInput = document.getElementById('up-files');
+const fileList  = document.getElementById('file-list');
+const dropZone  = document.getElementById('drop-zone');
+
+fileInput.addEventListener('change', updateFileList);
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  fileInput.files = e.dataTransfer.files; updateFileList();
+});
+
+function updateFileList() {
+  fileList.innerHTML = [...fileInput.files]
+    .map(f => `<div style="font-size:.8rem;padding:.25rem 0">${f.name} (${(f.size/1024/1024).toFixed(1)} MB)</div>`)
+    .join('');
+}
+
+// ── モーダル開閉 ──────────────────────────────────────────
+function openUploadModal()  { document.getElementById('upload-modal').classList.remove('hidden'); }
+function closeUploadModal() { document.getElementById('upload-modal').classList.add('hidden'); }
+
+// ── アップロード実行 ─────────────────────────────────────
+async function doUpload() {
+  const files = fileInput.files;
+  if (!files.length) { alert('ファイルを選択してください'); return; }
+
+  const fd = new FormData();
+  fd.append('title',       document.getElementById('up-title').value);
+  fd.append('category_id', document.getElementById('up-category').value);
+  fd.append('tags',        document.getElementById('up-tags').value);
+  fd.append('description', document.getElementById('up-description').value);
+  for (const f of files) fd.append('files', f);
+
+  const prog = document.getElementById('upload-progress');
+  const fill = document.getElementById('progress-fill');
+  prog.classList.remove('hidden');
+
+  try {
+    const xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable) fill.style.width = (e.loaded/e.total*100)+'%';
+    };
+    await new Promise((res, rej) => {
+      xhr.open('POST', '/materials/upload');
+      xhr.onload = () => res(xhr.responseText);
+      xhr.onerror = rej;
+      xhr.send(fd);
+    });
+    closeUploadModal();
+    location.reload();
+  } catch(e) {
+    alert('アップロードに失敗しました');
+    prog.classList.add('hidden');
+  }
+}
+
+// ── お気に入りトグル ─────────────────────────────────────
+async function toggleFav(id, btn) {
+  const res = await fetch(`/materials/${id}/favorite`, { method:'POST' });
+  const d   = await res.json();
+  btn.classList.toggle('active', d.is_fav);
+}
+
+// ── PDF プレビュー ───────────────────────────────────────
+function previewPDF(id) {
+  window.open(`/materials/${id}/file`, '_blank');
+}
+function closePDF() {}
+
+// ── 詳細ドロワー ─────────────────────────────────────────
+async function openDetail(id) {
+  const res  = await fetch(`/materials/${id}/json`);
+  const data = await res.json();
+  document.getElementById('drawer-title').textContent = data.title;
+  document.getElementById('drawer-body').innerHTML = `
+    <p style="font-size:.8rem;color:var(--text-muted)">
+      ${data.category_name || '未分類'} ・ v${data.version} ・ ${data.updated_at?.slice(0,10)}
+    </p>
+    ${data.ai_summary ? `<div style="background:var(--bg2);border-radius:8px;padding:.75rem;font-size:.85rem;margin-bottom:.75rem">
+      <strong style="font-size:.75rem;color:var(--text-muted)">AI要約</strong><br>${data.ai_summary}
+    </div>` : ''}
+    ${data.tags?.length ? `<div style="margin-bottom:.75rem">${data.tags.map(t=>`<span class="tag">#${t}</span>`).join(' ')}</div>` : ''}
+    <div style="display:flex;gap:.5rem;margin-bottom:1rem">
+      ${data.file_type==='.pdf' ? `<button class="btn btn-secondary" onclick="previewPDF(${id})">👁 プレビュー</button>` : ''}
+      <a class="btn btn-primary" href="/materials/${id}/download">⬇ ダウンロード</a>
+    </div>
+    <h4 style="font-size:.8rem;margin:.5rem 0">バージョン履歴</h4>
+    ${(data.versions||[]).map(v=>`<div style="font-size:.8rem;padding:.3rem 0;border-bottom:1px solid var(--border)">
+      v${v.version} ・ ${v.created_at?.slice(0,10)} ・ ${v.note||''}
+    </div>`).join('')}
+  `;
+  document.getElementById('detail-drawer').classList.remove('hidden');
+  document.getElementById('drawer-overlay').classList.remove('hidden');
+}
+function closeDetail() {
+  document.getElementById('detail-drawer').classList.add('hidden');
+  document.getElementById('drawer-overlay').classList.add('hidden');
+}
+</script>
+{% endblock %}

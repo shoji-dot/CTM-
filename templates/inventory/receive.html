@@ -1,0 +1,100 @@
+﻿{% extends "base.html" %}
+{% block title %}入荷登録{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">入荷登録</h1>
+  <a href="/inventory" class="btn btn-ghost">← 在庫一覧</a>
+</div>
+
+{% if request.query_params.get("done") %}
+<div class="alert-banner" style="background:rgba(62,207,142,.12);border-color:rgba(62,207,142,.35);color:var(--success)">
+  ✓ 入荷登録が完了しました。在庫に加算されました。
+</div>
+{% endif %}
+
+<div class="form-card">
+  <form method="post" action="/inventory/receive">
+    <div class="form-grid">
+      <div class="form-group span-2">
+        <label class="label">商品 <span class="required">*</span></label>
+        <select name="product_id" class="select" required onchange="onProductChange(this)">
+          <option value="">商品を選択...</option>
+          {% for p in products %}
+          <option value="{{ p.id }}"
+            data-tracking="{{ p.tracking_type }}"
+            data-stock="{{ p.inventory.current_stock if p.inventory else 0 }}"
+            data-unit="{{ p.unit }}">
+            {{ p.name }}（現在庫：{{ p.inventory.current_stock if p.inventory else 0 }}{{ p.unit }}）
+          </option>
+          {% endfor %}
+        </select>
+        <div id="stock_info" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="label">入荷数量 <span class="required">*</span></label>
+        <input name="quantity" type="number" min="1" value="1" required class="input">
+      </div>
+
+      <div class="form-group">
+        <label class="label">入荷理由</label>
+        <input name="reason" class="input" value="入荷" placeholder="例：定期入荷・返品入庫">
+      </div>
+
+      <div class="form-group" id="serial_group" style="display:none">
+        <label class="label">シリアル番号</label>
+        <input name="serial_number" class="input" placeholder="例：SN-12345">
+      </div>
+
+      <div class="form-group" id="lot_group" style="display:none">
+        <label class="label">ロット番号</label>
+        <input name="lot_number" class="input" placeholder="例：LOT-2026-001">
+      </div>
+
+      <div class="form-group">
+        <label class="label">有効期限</label>
+        <input name="expiry_date" type="date" class="input">
+      </div>
+
+      <div class="form-group span-2">
+        <label class="label">備考</label>
+        <textarea name="note" class="textarea" rows="2" placeholder="仕入先・備考など"></textarea>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <a href="/inventory" class="btn btn-ghost">キャンセル</a>
+      <button type="submit" class="btn btn-primary">入荷登録する</button>
+    </div>
+  </form>
+</div>
+
+<script>
+function onProductChange(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  const stock = opt.dataset.stock || 0;
+  const unit = opt.dataset.unit || "";
+  const tracking = opt.dataset.tracking || "none";
+  const info = document.getElementById("stock_info");
+  const serialGroup = document.getElementById("serial_group");
+  const lotGroup = document.getElementById("lot_group");
+
+  if (sel.value) {
+    info.textContent = "現在の在庫数：" + stock + " " + unit;
+  } else {
+    info.textContent = "";
+  }
+
+  if (tracking === "serial") {
+    serialGroup.style.display = "flex";
+    lotGroup.style.display = "none";
+  } else if (tracking === "lot") {
+    serialGroup.style.display = "none";
+    lotGroup.style.display = "flex";
+  } else {
+    serialGroup.style.display = "none";
+    lotGroup.style.display = "none";
+  }
+}
+</script>
+{% endblock %}

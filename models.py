@@ -1,0 +1,275 @@
+from datetime import datetime
+from sqlalchemy import Column, Integer, String, Float, DateTime, Date, ForeignKey, Text, Boolean
+from sqlalchemy.orm import relationship, DeclarativeBase
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class Staff(Base):
+    __tablename__ = "staffs"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False)
+    login_id = Column(String(50), unique=True, nullable=False)
+    password_hash = Column(String(200), nullable=False)
+    role = Column(String(20), default="user")
+    department = Column(String(100), nullable=True)
+    email = Column(String(200), nullable=True)
+    is_active = Column(Boolean, default=True)
+    last_active_at = Column(DateTime, nullable=True)
+    last_active_page = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+
+class Customer(Base):
+    __tablename__ = "customers"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(200), nullable=False)
+    category = Column(String(50), default="hospital")  # hospital / supplier
+    phone = Column(String(50), nullable=True)
+    email = Column(String(200), nullable=True)
+    address = Column(Text, nullable=True)
+    trading_terms = Column(Text, nullable=True)  # 取引条件
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    staff_id = Column(Integer, ForeignKey("staffs.id"), nullable=True)
+    staff = relationship("Staff")
+    quotes = relationship("Quote", back_populates="customer", foreign_keys="Quote.customer_id")
+
+
+class Product(Base):
+    __tablename__ = "products"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(200), nullable=False)
+    category = Column(String(50), nullable=False)
+    sku = Column(String(100), unique=True, nullable=True)
+    unit_price = Column(Float, nullable=False)
+    unit = Column(String(20), nullable=True)
+    stock_alert_threshold = Column(Integer, default=10)
+    tracking_type = Column(String(20), default="none")
+    maker = Column(String(200), nullable=True)
+    jan_code = Column(String(50), nullable=True)          # JANコード
+    approval_number = Column(String(100), nullable=True)  # 承認番号 / 認証番号
+    device_class = Column(String(20), nullable=True)      # クラス分類: misc/1/2/3/4
+    sales_role = Column(String(20), nullable=True)        # maker / distributor
+    model_spec = Column(Text, nullable=True)              # 型式・仕様
+    sterility = Column(String(20), nullable=True)         # 滅菌状態: sterile / non_sterile
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    inventory = relationship("Inventory", back_populates="product", uselist=False)
+    inventory_histories = relationship("InventoryHistory", back_populates="product")
+    quote_items = relationship("QuoteItem", back_populates="product")
+    shipments = relationship("Shipment", back_populates="product")
+
+
+class Inventory(Base):
+    __tablename__ = "inventory"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    product_id = Column(Integer, ForeignKey("products.id"), unique=True)
+    current_stock = Column(Integer, nullable=False, default=0)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    product = relationship("Product", back_populates="inventory")
+
+
+class InventoryHistory(Base):
+    __tablename__ = "inventory_history"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    product_id = Column(Integer, ForeignKey("products.id"))
+    movement_type = Column(String(10), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    reason = Column(String(200), nullable=True)
+    related_quote_id = Column(Integer, ForeignKey("quotes.id"), nullable=True)
+    moved_at = Column(DateTime, default=datetime.now)
+    note = Column(Text, nullable=True)
+    staff_name = Column(String(100), nullable=True)
+    serial_number = Column(String(100), nullable=True)
+    lot_number = Column(String(100), nullable=True)
+    expiry_date = Column(String(20), nullable=True)
+    product = relationship("Product", back_populates="inventory_histories")
+
+
+class Quote(Base):
+    __tablename__ = "quotes"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    quote_number = Column(String(50), unique=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"))
+    end_user_id = Column(Integer, ForeignKey("customers.id"), nullable=True) 
+    status = Column(String(20), default="draft")
+    total_amount = Column(Float, default=0.0)
+    valid_until = Column(Date, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    staff_name = Column(String(100), nullable=True)
+    customer = relationship("Customer", back_populates="quotes", foreign_keys=[customer_id])  # ← foreign_keys追加
+    end_user = relationship("Customer", foreign_keys=[end_user_id])  
+    items = relationship("QuoteItem", back_populates="quote", cascade="all, delete-orphan")
+
+
+class QuoteItem(Base):
+    __tablename__ = "quote_items"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    quote_id = Column(Integer, ForeignKey("quotes.id"))
+    product_id = Column(Integer, ForeignKey("products.id"))
+    quantity = Column(Integer, nullable=False)
+    unit_price = Column(Float, nullable=False)
+    discount_rate = Column(Float, default=1.0) 
+    subtotal = Column(Float, default=0.0)
+    quote = relationship("Quote", back_populates="items")
+    product = relationship("Product", back_populates="quote_items")
+
+
+class Shipment(Base):
+    __tablename__ = "shipments"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    shipment_number = Column(String(50), unique=True)
+    shipment_type = Column(String(20), nullable=False)
+    customer_id = Column(Integer, ForeignKey("customers.id"))
+    end_user_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
+    product_id = Column(Integer, ForeignKey("products.id"))
+    quantity = Column(Integer, nullable=False, default=1)
+    serial_number = Column(String(100), nullable=True)
+    lot_number = Column(String(100), nullable=True)
+    expiry_date = Column(Date, nullable=True)
+    shipped_date = Column(Date, nullable=False)
+    return_due_date = Column(Date, nullable=True)
+    returned_date = Column(Date, nullable=True)
+    status = Column(String(20), default="shipped")
+    notes = Column(Text, nullable=True)
+    staff_name = Column(String(100), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    customer = relationship("Customer", foreign_keys=[customer_id])
+    end_user = relationship("Customer", foreign_keys=[end_user_id])
+    product = relationship("Product", back_populates="shipments")
+
+
+class Sale(Base):
+    __tablename__ = "sales"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sale_number = Column(String(50), unique=True, nullable=False)
+    shipment_id = Column(Integer, ForeignKey("shipments.id"), nullable=True)
+    quote_id = Column(Integer, ForeignKey("quotes.id"), nullable=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    quantity = Column(Integer, nullable=False, default=1)
+    unit_price = Column(Float, nullable=False)
+    subtotal = Column(Float, nullable=False)
+    tax_rate = Column(Float, default=0.10)
+    tax_amount = Column(Float, nullable=False)
+    total_amount = Column(Float, nullable=False)
+    sale_date = Column(Date, nullable=False)
+    status = Column(String(20), default="confirmed")  # confirmed / invoiced / paid
+    notes = Column(Text, nullable=True)
+    staff_name = Column(String(100), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    shipment = relationship("Shipment", foreign_keys=[shipment_id])
+    quote = relationship("Quote", foreign_keys=[quote_id])
+    customer = relationship("Customer", foreign_keys=[customer_id])
+    product = relationship("Product", foreign_keys=[product_id])
+    invoice_items = relationship("InvoiceItem", back_populates="sale")
+
+
+class Invoice(Base):
+    __tablename__ = "invoices"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    invoice_number = Column(String(50), unique=True, nullable=False)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    issue_date = Column(Date, nullable=False)
+    due_date = Column(Date, nullable=True)
+    subtotal = Column(Float, default=0.0)
+    tax_amount = Column(Float, default=0.0)
+    total_amount = Column(Float, default=0.0)
+    status = Column(String(20), default="unpaid")  # unpaid / partial / paid
+    notes = Column(Text, nullable=True)
+    staff_name = Column(String(100), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    customer = relationship("Customer", foreign_keys=[customer_id])
+    items = relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
+    payments = relationship("Payment", back_populates="invoice", cascade="all, delete-orphan")
+
+
+class InvoiceItem(Base):
+    __tablename__ = "invoice_items"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=False)
+    sale_id = Column(Integer, ForeignKey("sales.id"), nullable=False)
+    amount = Column(Float, nullable=False)
+    invoice = relationship("Invoice", back_populates="items")
+    sale = relationship("Sale", back_populates="invoice_items")
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=False)
+    payment_date = Column(Date, nullable=False)
+    amount = Column(Float, nullable=False)
+    method = Column(String(50), nullable=True)  # 銀行振込 / 現金 等
+    notes = Column(Text, nullable=True)
+    staff_name = Column(String(100), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    invoice = relationship("Invoice", back_populates="payments")
+
+# ===================================================================
+# 以下を models.py の末尾に追記してください
+# ===================================================================
+
+class DemoUnit(Base):
+    """デモ機マスタ - デモ器1台1台を管理"""
+    __tablename__ = "demo_units"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    unit_code = Column(String(50), unique=True, nullable=False)   # 管理番号 例: DEMO-001
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    serial_number = Column(String(100), nullable=True)            # 機器シリアル番号
+    status = Column(String(20), default="available")
+    # available(貸出可) / on_loan(貸出中) / in_repair(修理中) / retired(廃棄)
+    purchase_date = Column(Date, nullable=True)                   # 自社購入日
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    product = relationship("Product")
+    loans = relationship("DemoLoan", back_populates="demo_unit", cascade="all, delete-orphan")
+    repairs = relationship("RepairRecord", back_populates="demo_unit", cascade="all, delete-orphan")
+
+
+class DemoLoan(Base):
+    """デモ器貸出記録 - 誰にいつ貸してどう返ってきたか"""
+    __tablename__ = "demo_loans"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    demo_unit_id = Column(Integer, ForeignKey("demo_units.id"), nullable=False)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    end_user_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
+    loan_date = Column(Date, nullable=False)
+    due_date = Column(Date, nullable=False)
+    returned_date = Column(Date, nullable=True)
+    contact_name = Column(String(100), nullable=True)
+    purpose = Column(String(200), nullable=True)
+    status = Column(String(20), default="on_loan")
+    condition_out = Column(String(200), nullable=True)
+    condition_in = Column(String(200), nullable=True)
+    staff_name = Column(String(100), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    demo_unit = relationship("DemoUnit", back_populates="loans")
+    customer  = relationship("Customer", foreign_keys=[customer_id])
+    end_user  = relationship("Customer", foreign_keys=[end_user_id])
+
+
+class RepairRecord(Base):
+    """故障・修理記録 - 故障の内容と修理経緯を追跡"""
+    __tablename__ = "repair_records"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    demo_unit_id = Column(Integer, ForeignKey("demo_units.id"), nullable=False)
+    reported_date = Column(Date, nullable=False)                  # 故障報告日
+    symptom = Column(Text, nullable=False)                        # 故障症状
+    cause = Column(Text, nullable=True)                           # 原因（判明後）
+    repair_vendor = Column(String(200), nullable=True)            # 修理業者
+    repair_cost = Column(Float, nullable=True)                    # 修理費用
+    sent_date = Column(Date, nullable=True)                       # メーカー送付日
+    repaired_date = Column(Date, nullable=True)                   # 修理完了・返却日
+    status = Column(String(20), nullable=False, default="reported")
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    demo_unit = relationship("DemoUnit", back_populates="repairs")
