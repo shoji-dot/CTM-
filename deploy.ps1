@@ -89,7 +89,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-$INSTALLER = "$ROOT\installer_output\CTM_v${APP_VERSION}_installer.exe"
+$INSTALLER = "$ROOT\installer_output\CTM販売管理_v${APP_VERSION}_installer.exe"
 if (-not (Test-Path $INSTALLER)) {
     Write-Host "ERROR: installer not found: $INSTALLER"
     Read-Host "Press Enter to exit"
