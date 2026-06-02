@@ -2,9 +2,31 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>{% block title %}営業・在庫管理{% endblock %}</title>
+
+  <!-- PWA: iOS対応 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SalesCore">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+
+  <!-- PWA: manifest & theme -->
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#1a73e8">
+  <meta name="mobile-web-app-capable" content="yes">
+
   <link rel="stylesheet" href="/static/css/style.css">
+
+  <!-- Service Worker 登録 -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/static/sw.js')
+          .catch(err => console.warn('SW registration failed:', err));
+      });
+    }
+  </script>
 </head>
 <body>
   <button class="hamburger" onclick="toggleMenu()">☰</button>

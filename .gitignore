@@ -8,3 +8,5 @@ installer_output/
 *.db-wal
 *.db.bak*
 .ctm_github_token
+.env
+*.db
