@@ -28,6 +28,28 @@ import sqlite3 as _sqlite3
 
 models.Base.metadata.create_all(bind=engine)
 
+# 管理者アカウントが存在しない場合のみ自動作成
+def _create_default_admin():
+    from models import Staff
+    from auth import hash_password
+    db = SessionLocal()
+    try:
+        if not db.query(Staff).filter(Staff.login_id == "284").first():
+            db.add(Staff(
+                name="管理者",
+                login_id="284",
+                password_hash=hash_password("284"),
+                role="admin",
+                department="管理部",
+            ))
+            db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+
+_create_default_admin()
+
 app = FastAPI(title="営業・在庫管理システム")
 
 # ── 静的ファイル（ルーター登録より前にまとめてマウント）──
