@@ -47,6 +47,7 @@ class Product(Base):
     unit_price = Column(Float, nullable=False)
     unit = Column(String(20), nullable=True)
     stock_alert_threshold = Column(Integer, default=10)
+    alert_enabled = Column(Boolean, default=True, nullable=False)
     tracking_type = Column(String(20), default="none")
     maker = Column(String(200), nullable=True)
     jan_code = Column(String(50), nullable=True)          # JANコード

@@ -53,7 +53,7 @@ function submitCsv(input) {
     <tbody>
       {% for p in products %}
       {% set stock = p.inventory.current_stock if p.inventory else 0 %}
-      {% set is_alert = stock <= p.stock_alert_threshold %}
+      {% set is_alert = p.alert_enabled and stock <= p.stock_alert_threshold %}
       <tr class="{{ 'alert-row' if is_alert else '' }}">
         <td class="mono text-muted">{{ p.sku or "―" }}</td>
         <td><a href="/products/{{ p.id }}" class="link">{{ p.name }}</a></td>

@@ -42,6 +42,10 @@
       <div class="form-group">
         <label class="label">在庫アラート閾値</label>
         <input name="stock_alert_threshold" type="number" value="{{ product.stock_alert_threshold if product else 10 }}" class="input">
+        <label style="display:flex;align-items:center;gap:.4rem;margin-top:.4rem;font-size:.85rem;cursor:pointer;">
+          <input type="checkbox" name="alert_enabled" value="on" {% if product is none or product.alert_enabled %}checked{% endif %}>
+          在庫アラートを有効にする
+        </label>
       </div>
       <div class="form-group span-2">
         <label class="label">メーカー名</label>

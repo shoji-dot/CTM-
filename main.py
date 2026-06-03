@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI, Request, Depends, Body
+from fastapi import FastAPI, Request, Depends, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -27,6 +27,21 @@ from update_checker import router as update_router
 import sqlite3 as _sqlite3
 
 models.Base.metadata.create_all(bind=engine)
+
+# カラム追加マイグレーション（既存DB対応）
+def _run_migrations():
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        for stmt in [
+            "ALTER TABLE products ADD COLUMN alert_enabled BOOLEAN NOT NULL DEFAULT TRUE",
+        ]:
+            try:
+                conn.execute(text(stmt))
+                conn.commit()
+            except Exception:
+                pass  # カラムが既に存在する場合はスキップ
+
+_run_migrations()
 
 # 管理者アカウントが存在しない場合のみ自動作成
 def _create_default_admin():
@@ -254,24 +269,27 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
     # 最新通知（未読）
     recent_notifs = [dict(r) for r in conn.execute(
-        "SELECT * FROM notifications WHERE recipient_id=? AND is_sent=0 ORDER BY created_at DESC LIMIT 5",
-        (current['id'],)
-    ).fetchall()]
+        """SELECT id, message, link, created_at, is_sent
+           FROM notifications
+           WHERE recipient_id = ? AND is_sent = 0
+           ORDER BY created_at DESC LIMIT 5""",
+        (current["id"],)).fetchall()]
 
     unread_notif_count = conn.execute(
         "SELECT COUNT(*) FROM notifications WHERE recipient_id=? AND is_sent=0",
-        (current['id'],)
-    ).fetchone()[0]
+        (current["id"],)).fetchone()[0]
 
     recent_memos = [dict(r) for r in conn.execute(
-        "SELECT * FROM customer_memos ORDER BY updated_at DESC LIMIT 3"
-    ).fetchall()]
+        """SELECT cm.id, cm.hospital, cm.doctor_name, cm.memo, cm.updated_at
+           FROM customer_memos cm
+           WHERE cm.staff_id = ?
+           ORDER BY cm.updated_at DESC LIMIT 5""",
+        (current["id"],)).fetchall()]
 
     conn.close()
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
-        "company": company_info,
         "alerts": alerts,
         "recent_quotes": recent_quotes,
         "recent_shipments": recent_shipments,
@@ -280,12 +298,6 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "online_staffs": online_staffs_data,
         "all_staffs": all_staffs_data,
         "now": now,
-        "current": current,
-        "my_tasks": my_tasks,
-        "my_task_count": my_task_count,
-        "my_approvals": my_approvals,
-        "my_approval_count": my_approval_count,
-        "announcements": announcements,
         "fav_materials": fav_materials,
         "recent_notifs": recent_notifs,
         "unread_notif_count": unread_notif_count,

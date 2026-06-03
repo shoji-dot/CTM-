@@ -89,6 +89,7 @@ async def csv_import(file: UploadFile = File(...), db: Session = Depends(get_db)
 def create_product(
     name: str = Form(...), category: str = Form("medical"), sku: str = Form(""),
     unit_price: float = Form(...), unit: str = Form(""), stock_alert_threshold: int = Form(10),
+    alert_enabled: str = Form("on"),
     tracking_type: str = Form("none"), maker: str = Form(""), jan_code: str = Form(""),
     approval_number: str = Form(""), device_class: str = Form(""), sales_role: str = Form(""),
     model_spec: str = Form(""), sterility: str = Form(""), notes: str = Form(""),
@@ -96,7 +97,9 @@ def create_product(
 ):
     crud.create_product(db, {
         "name": name, "category": category, "sku": sku or None, "unit_price": unit_price,
-        "unit": unit, "stock_alert_threshold": stock_alert_threshold, "tracking_type": tracking_type,
+        "unit": unit, "stock_alert_threshold": stock_alert_threshold,
+        "alert_enabled": alert_enabled == "on",
+        "tracking_type": tracking_type,
         "maker": maker or None, "jan_code": jan_code or None, "approval_number": approval_number or None,
         "device_class": device_class or None, "sales_role": sales_role or None,
         "model_spec": model_spec or None, "sterility": sterility or None, "notes": notes
@@ -123,6 +126,7 @@ def edit_product_form(product_id: int, request: Request, db: Session = Depends(g
 def update_product(
     product_id: int, name: str = Form(...), category: str = Form("medical"), sku: str = Form(""),
     unit_price: float = Form(...), unit: str = Form(""), stock_alert_threshold: int = Form(10),
+    alert_enabled: str = Form("on"),
     tracking_type: str = Form("none"), maker: str = Form(""), jan_code: str = Form(""),
     approval_number: str = Form(""), device_class: str = Form(""), sales_role: str = Form(""),
     model_spec: str = Form(""), sterility: str = Form(""), notes: str = Form(""),
@@ -130,7 +134,9 @@ def update_product(
 ):
     crud.update_product(db, product_id, {
         "name": name, "category": category, "sku": sku or None, "unit_price": unit_price,
-        "unit": unit, "stock_alert_threshold": stock_alert_threshold, "tracking_type": tracking_type,
+        "unit": unit, "stock_alert_threshold": stock_alert_threshold,
+        "alert_enabled": alert_enabled == "on",
+        "tracking_type": tracking_type,
         "maker": maker or None, "jan_code": jan_code or None, "approval_number": approval_number or None,
         "device_class": device_class or None, "sales_role": sales_role or None,
         "model_spec": model_spec or None, "sterility": sterility or None, "notes": notes
@@ -142,9 +148,3 @@ def update_product(
 def duplicate_product(product_id: int, db: Session = Depends(get_db)):
     new_product = crud.duplicate_product(db, product_id)
     return RedirectResponse(f"/products/{new_product.id}/edit", status_code=303)
-
-
-@router.post("/products/{product_id}/delete")
-def delete_product(product_id: int, db: Session = Depends(get_db)):
-    crud.delete_product(db, product_id)
-    return RedirectResponse("/products", status_code=303)

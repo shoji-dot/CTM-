@@ -20,7 +20,7 @@
       <dt>単価</dt><dd>¥{{ "{:,.0f}".format(product.unit_price) }}</dd>
       <dt>単位</dt><dd>{{ product.unit or "―" }}</dd>
       <dt>管理番号</dt><dd>{{ {"none":"なし","serial":"シリアル番号","lot":"ロット番号"}[product.tracking_type] }}</dd>
-      <dt>アラート閾値</dt><dd>{{ product.stock_alert_threshold }}</dd>
+      <dt>アラート閾値</dt><dd>{{ product.stock_alert_threshold }}{% if not product.alert_enabled %} <span style="color:#f5a623;font-size:.8rem;">（アラート無効）</span>{% endif %}</dd>
       <dt>備考</dt><dd>{{ product.notes or "―" }}</dd>
     </dl>
     <div class="stock-display {{ 'stock-alert' if is_alert else '' }}">

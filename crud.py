@@ -130,7 +130,7 @@ def get_inventory_list(db: Session):
 
 def get_alerts(db: Session):
     rows = db.query(Inventory).join(Product).all()
-    return [r for r in rows if r.current_stock <= r.product.stock_alert_threshold]
+    return [r for r in rows if r.product.alert_enabled and r.current_stock <= r.product.stock_alert_threshold]
 
 def move_inventory(db, product_id, movement_type, quantity,
                    reason="", note="", related_quote_id=None,
@@ -464,15 +464,3 @@ def search_demo_units(db: Session, q: str = "", product_id: int = None):
             Product.name.ilike(f"%{q}%"),
         ))
     return query.order_by(DemoUnit.unit_code).limit(30).all()
-
-
-def validate_demo_unit_exists(db: Session, product_id: int, serial_number: str) -> bool:
-    return db.query(DemoUnit).filter(
-        DemoUnit.product_id == product_id,
-        DemoUnit.serial_number == serial_number,
-    ).first() is not None
-    """指定のシリアル番号がデモ器台帳に存在するか確認"""
-    return db.query(DemoUnit).filter(
-        DemoUnit.product_id == product_id,
-        DemoUnit.serial_number == serial_number,
-    ).first() is not None
