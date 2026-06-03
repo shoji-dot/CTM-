@@ -31,11 +31,13 @@ models.Base.metadata.create_all(bind=engine)
 # カラム追加マイグレーション（既存DB対応）
 def _run_migrations():
     from sqlalchemy import text
+    is_pg = "postgresql" in str(engine.url)
+    id_col = "id SERIAL PRIMARY KEY" if is_pg else "id INTEGER PRIMARY KEY AUTOINCREMENT"
     with engine.connect() as conn:
         for stmt in [
             "ALTER TABLE products ADD COLUMN alert_enabled BOOLEAN NOT NULL DEFAULT TRUE",
-            """CREATE TABLE IF NOT EXISTS favorites (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+            f"""CREATE TABLE IF NOT EXISTS favorites (
+                {id_col},
                 staff_id INTEGER NOT NULL,
                 material_id INTEGER NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
