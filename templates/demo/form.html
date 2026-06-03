@@ -10,11 +10,15 @@
       <form method="post">
 
         <div class="mb-3">
-          <label class="form-label fw-bold">管理番号 <span class="text-danger">*</span></label>
+          <label class="form-label fw-bold">管理番号</label>
+          {% if unit %}
           <input type="text" name="unit_code" class="form-control"
-                 value="{{ unit.unit_code if unit else '' }}"
-                 placeholder="例: DEMO-001" required>
-          <div class="form-text">社内で一意の管理番号を入力してください</div>
+                 value="{{ unit.unit_code }}" required>
+          <div class="form-text">変更する場合のみ編集してください</div>
+          {% else %}
+          <input type="text" class="form-control" value="自動採番（DEMO-XXX）" disabled style="background:#f3f4f6;color:#6b7280">
+          <div class="form-text">登録時に自動で番号が割り当てられます</div>
+          {% endif %}
         </div>
 
         <div class="mb-3">

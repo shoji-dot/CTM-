@@ -24,6 +24,8 @@
       <span style="color:var(--text-muted);font-size:12px">〜</span>
       <input name="date_to" type="date" class="input" value="{{ date_to }}">
     </div>
+    <input name="staff_name" type="text" class="input" placeholder="担当者名" value="{{ staff_name }}" style="width:120px">
+    <input name="customer" type="text" class="input" placeholder="顧客名（理由・メモ）" value="{{ customer }}" style="width:160px">
     <button type="submit" class="btn btn-ghost">検索</button>
     <a href="/inventory/history" class="btn btn-ghost">リセット</a>
   </form>

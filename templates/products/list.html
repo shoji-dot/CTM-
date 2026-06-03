@@ -3,8 +3,36 @@
 {% block content %}
 <div class="page-header">
   <h1 class="page-title">商品管理</h1>
-  <a href="/products/new" class="btn btn-primary">＋ 新規登録</a>
+  <div style="display:flex;gap:8px;align-items:center">
+    <a href="/products/csv-template" class="btn btn-ghost" style="font-size:13px">📥 CSVテンプレート</a>
+    <label class="btn btn-ghost" style="font-size:13px;cursor:pointer;margin:0">
+      📤 CSV一括取込
+      <input type="file" accept=".csv" style="display:none" onchange="submitCsv(this)">
+    </label>
+    <a href="/products/new" class="btn btn-primary">＋ 新規登録</a>
+  </div>
 </div>
+{% if request.query_params.get('csv_msg') %}
+<div style="background:#f0fdf4;border:1px solid #86efac;padding:10px 16px;border-radius:6px;margin-bottom:12px;font-size:13px;color:#166534">
+  {{ request.query_params.get('csv_msg') }}
+</div>
+{% endif %}
+<form id="csv-form" method="post" action="/products/csv-import" enctype="multipart/form-data" style="display:none">
+  <input type="file" id="csv-file-input" name="file" accept=".csv">
+</form>
+<script>
+function submitCsv(input) {
+  if (!input.files[0]) return;
+  const form = document.getElementById('csv-form');
+  const fileInput = document.getElementById('csv-file-input');
+  const dt = new DataTransfer();
+  dt.items.add(input.files[0]);
+  fileInput.files = dt.files;
+  if (confirm(input.files[0].name + ' を取り込みますか？')) {
+    form.submit();
+  }
+}
+</script>
 <div class="filter-bar">
   <form method="get" class="filter-form">
     <input name="search" value="{{ search }}" placeholder="商品名で検索..." class="input">

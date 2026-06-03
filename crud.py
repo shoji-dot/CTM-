@@ -167,7 +167,7 @@ def get_inventory_history(db: Session, product_id: int = None):
         q = q.filter(InventoryHistory.product_id == product_id)
     return q.order_by(InventoryHistory.moved_at.desc()).all()
 
-def get_inventory_history_filtered(db, product_id=None, movement_type=None, date_from=None, date_to=None):
+def get_inventory_history_filtered(db, product_id=None, movement_type=None, date_from=None, date_to=None, staff_name=None, customer=None):
     from sqlalchemy import cast, Date
     q = db.query(InventoryHistory).join(Product)
     if product_id:
@@ -178,6 +178,13 @@ def get_inventory_history_filtered(db, product_id=None, movement_type=None, date
         q = q.filter(cast(InventoryHistory.moved_at, Date) >= date_from)
     if date_to:
         q = q.filter(cast(InventoryHistory.moved_at, Date) <= date_to)
+    if staff_name:
+        q = q.filter(InventoryHistory.staff_name.ilike(f"%{staff_name}%"))
+    if customer:
+        q = q.filter(
+            (InventoryHistory.reason.ilike(f"%{customer}%")) |
+            (InventoryHistory.note.ilike(f"%{customer}%"))
+        )
     return q.order_by(InventoryHistory.moved_at.desc()).all()
 
 
@@ -460,7 +467,16 @@ def search_demo_units(db: Session, q: str = "", product_id: int = None):
 
 
 def validate_demo_unit_exists(db: Session, product_id: int, serial_number: str) -> bool:
+    return db.query(DemoUnit).filter(
+        DemoUnit.product_id == product_id,
+        DemoUnit.serial_number == serial_number,
+    ).first() is not None
     """指定のシリアル番号がデモ器台帳に存在するか確認"""
+    return db.query(DemoUnit).filter(
+        DemoUnit.product_id == product_id,
+        DemoUnit.serial_number == serial_number,
+    ).first() is not None
+s(db: Session, product_id: int, serial_number: str) -> bool:
     return db.query(DemoUnit).filter(
         DemoUnit.product_id == product_id,
         DemoUnit.serial_number == serial_number,

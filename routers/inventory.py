@@ -1,4 +1,4 @@
-﻿from datetime import date
+from datetime import date
 from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -17,6 +17,7 @@ DISPOSAL_REASONS = {
     "other": "その他",
 }
 
+
 @router.get("/inventory", response_class=HTMLResponse)
 def list_inventory(request: Request, db: Session = Depends(get_db)):
     inventory = crud.get_inventory_list(db)
@@ -26,12 +27,15 @@ def list_inventory(request: Request, db: Session = Depends(get_db)):
         "request": request, "inventory": inventory, "alert_ids": alert_ids
     })
 
+
 @router.get("/inventory/history", response_class=HTMLResponse)
 def history(request: Request,
             product_id: str = "",
             movement_type: str = "",
             date_from: str = "",
             date_to: str = "",
+            staff_name: str = "",
+            customer: str = "",
             db: Session = Depends(get_db)):
     histories = crud.get_inventory_history_filtered(
         db,
@@ -39,6 +43,8 @@ def history(request: Request,
         movement_type=movement_type,
         date_from=date.fromisoformat(date_from) if date_from else None,
         date_to=date.fromisoformat(date_to) if date_to else None,
+        staff_name=staff_name,
+        customer=customer,
     )
     products = crud.get_products(db)
     return templates.TemplateResponse("inventory/history.html", {
@@ -49,7 +55,10 @@ def history(request: Request,
         "movement_type": movement_type,
         "date_from": date_from,
         "date_to": date_to,
+        "staff_name": staff_name,
+        "customer": customer,
     })
+
 
 @router.get("/inventory/receive", response_class=HTMLResponse)
 def receive_form(request: Request, db: Session = Depends(get_db)):
@@ -58,6 +67,7 @@ def receive_form(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("inventory/receive.html", {
         "request": request, "products": products, "today": today,
     })
+
 
 @router.post("/inventory/receive")
 async def register_receive(request: Request, db: Session = Depends(get_db)):
@@ -82,6 +92,7 @@ async def register_receive(request: Request, db: Session = Depends(get_db)):
     )
     return RedirectResponse("/inventory/receive?done=1", status_code=303)
 
+
 @router.post("/inventory/move")
 async def move_inventory(request: Request, db: Session = Depends(get_db)):
     form_data = await request.form()
@@ -96,6 +107,7 @@ async def move_inventory(request: Request, db: Session = Depends(get_db)):
                         reason=reason, note=note, staff_name=staff_name)
     return RedirectResponse("/inventory", status_code=303)
 
+
 @router.get("/inventory/disposal", response_class=HTMLResponse)
 def disposal_form(request: Request, db: Session = Depends(get_db)):
     products = crud.get_products(db)
@@ -103,6 +115,7 @@ def disposal_form(request: Request, db: Session = Depends(get_db)):
         "request": request, "products": products,
         "disposal_reasons": DISPOSAL_REASONS,
     })
+
 
 @router.post("/inventory/disposal")
 async def register_disposal(request: Request, db: Session = Depends(get_db)):

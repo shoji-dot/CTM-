@@ -130,16 +130,37 @@ def demo_new(request: Request, db: Session = Depends(get_db)):
     })
 
 
+def _gen_unit_code(db: Session) -> str:
+    """DEMO-001 形式の連番を自動生成（既存の最大番号＋1）"""
+    from sqlalchemy import func
+    last = db.query(DemoUnit).filter(
+        DemoUnit.unit_code.like("DEMO-%")
+    ).order_by(DemoUnit.unit_code.desc()).first()
+    if last:
+        try:
+            num = int(last.unit_code.split("-")[-1]) + 1
+        except ValueError:
+            num = db.query(func.count(DemoUnit.id)).scalar() + 1
+    else:
+        num = 1
+    candidate = f"DEMO-{num:03d}"
+    # 万が一重複する場合はインクリメント
+    while db.query(DemoUnit).filter(DemoUnit.unit_code == candidate).first():
+        num += 1
+        candidate = f"DEMO-{num:03d}"
+    return candidate
+
+
 @router.post("/new")
 def demo_create(
     request: Request,
     db: Session = Depends(get_db),
-    unit_code: str = Form(...),
     product_id: int = Form(...),
     serial_number: str = Form(""),
     purchase_date: str = Form(""),
     notes: str = Form(""),
 ):
+    unit_code = _gen_unit_code(db)
     unit = DemoUnit(
         unit_code=unit_code,
         product_id=product_id,
@@ -491,6 +512,22 @@ def _build_alert_html(staff_name: str, loans: list, today: date) -> str:
             <thead>
               <tr style="background:#eff6ff;text-align:left">
                 <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">管理番号</th>
+                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">商品名</th>
+                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">貸出先</th>
+                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">返却期限</th>
+                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">状態</th>
+              </tr>
+            </thead>
+            <tbody>{rows}</tbody>
+          </table>
+          <p style="margin-top:24px;font-size:13px;color:#6b7280">
+            ※ このメールは販売管理システムから自動送信されています。
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+    """
                 <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">製品名</th>
                 <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">貸出先</th>
                 <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">返却期限</th>
@@ -501,6 +538,22 @@ def _build_alert_html(staff_name: str, loans: list, today: date) -> str:
           </table>
           <p style="margin-top:24px;font-size:13px;color:#6b7280">
             ※ このメールはシステムから自動送信されています。
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+    """ttom:2px solid #dbeafe">管理番号</th>
+                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">商品名</th>
+                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">貸出先</th>
+                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">返却期限</th>
+                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">状態</th>
+              </tr>
+            </thead>
+            <tbody>{rows}</tbody>
+          </table>
+          <p style="margin-top:24px;font-size:13px;color:#6b7280">
+            ※ このメールは販売管理システムから自動送信されています。
           </p>
         </div>
       </div>
