@@ -72,9 +72,21 @@
           <button class="btn-icon" onclick="previewPDF({{ m.id }})" title="プレビュー">👁</button>
           {% endif %}
           <a class="btn-icon" href="/materials/{{ m.id }}/download" title="ダウンロード">⬇</a>
-          <button class="btn-icon" onclick="openEditModal({{ m.id }}, {{ m.title|tojson }}, '{{ m.category_id or '' }}', {{ m.tag_names|tojson }}, {{ (m.description or '')|tojson }})" title="編集">✏️</button>
-          <button class="btn-icon" onclick="openReplaceModal({{ m.id }}, {{ m.title|tojson }})" title="差し替え">🔄</button>
-          <button class="btn-icon text-danger" onclick="deleteMaterial({{ m.id }}, {{ m.title|tojson }})" title="削除">🗑</button>
+          <button class="btn-icon edit-btn"
+            data-id="{{ m.id }}"
+            data-title="{{ m.title|e }}"
+            data-category="{{ m.category_id or '' }}"
+            data-tags="{{ m.tag_names|e }}"
+            data-desc="{{ (m.description or '')|e }}"
+            title="編集">✏️</button>
+          <button class="btn-icon replace-btn"
+            data-id="{{ m.id }}"
+            data-title="{{ m.title|e }}"
+            title="差し替え">🔄</button>
+          <button class="btn-icon text-danger delete-btn"
+            data-id="{{ m.id }}"
+            data-title="{{ m.title|e }}"
+            title="削除">🗑</button>
         </div>
       </div>
     </div>
@@ -383,19 +395,39 @@ function closeDetail() {
   document.getElementById('drawer-overlay').classList.add('hidden');
 }
 
-// ── 編集モーダル ─────────────────────────────────────────
-function openEditModal(id, title, categoryId, tagNames, description) {
-  document.getElementById('edit-id').value = id;
-  document.getElementById('edit-title').value = title;
-  document.getElementById('edit-description').value = description || '';
-  document.getElementById('edit-tags').value = tagNames ? tagNames.replace(/\|/g, ', ') : '';
-  const sel = document.getElementById('edit-category');
-  sel.value = categoryId || '';
-  document.getElementById('edit-modal').classList.remove('hidden');
-}
-function closeEditModal() {
-  document.getElementById('edit-modal').classList.add('hidden');
-}
+// ── 編集・差し替え・削除 ─────────────────────────────────
+document.addEventListener('click', function(e) {
+  const editBtn    = e.target.closest('.edit-btn');
+  const replaceBtn = e.target.closest('.replace-btn');
+  const deleteBtn  = e.target.closest('.delete-btn');
+
+  if (editBtn) {
+    const d = editBtn.dataset;
+    document.getElementById('edit-id').value          = d.id;
+    document.getElementById('edit-title').value       = d.title;
+    document.getElementById('edit-description').value = d.desc || '';
+    document.getElementById('edit-tags').value        = (d.tags || '').replace(/\|/g, ', ');
+    document.getElementById('edit-category').value    = d.category || '';
+    document.getElementById('edit-modal').classList.remove('hidden');
+  }
+  if (replaceBtn) {
+    const d = replaceBtn.dataset;
+    document.getElementById('replace-id').value              = d.id;
+    document.getElementById('replace-title-label').textContent = '対象: ' + d.title;
+    document.getElementById('replace-note').value            = '';
+    document.getElementById('replace-file').value            = '';
+    document.getElementById('replace-file-name').textContent = '';
+    document.getElementById('replace-modal').classList.remove('hidden');
+  }
+  if (deleteBtn) {
+    const d = deleteBtn.dataset;
+    if (!confirm('「' + d.title + '」を削除しますか？\n（この操作は取り消せません）')) return;
+    fetch('/materials/' + d.id + '/delete', { method: 'POST' })
+      .then(r => { if (r.ok) document.getElementById('card-' + d.id)?.remove(); else alert('削除に失敗しました'); });
+  }
+});
+
+function closeEditModal() { document.getElementById('edit-modal').classList.add('hidden'); }
 async function doEdit() {
   const id = document.getElementById('edit-id').value;
   const fd = new FormData();
@@ -403,23 +435,12 @@ async function doEdit() {
   fd.append('category_id', document.getElementById('edit-category').value || '0');
   fd.append('tags',        document.getElementById('edit-tags').value);
   fd.append('description', document.getElementById('edit-description').value);
-  const res = await fetch(`/materials/${id}/edit`, { method: 'POST', body: fd });
+  const res = await fetch('/materials/' + id + '/edit', { method: 'POST', body: fd });
   if (res.ok) { closeEditModal(); location.reload(); }
   else { alert('編集に失敗しました'); }
 }
 
-// ── 差し替えモーダル ─────────────────────────────────────
-function openReplaceModal(id, title) {
-  document.getElementById('replace-id').value = id;
-  document.getElementById('replace-title-label').textContent = '対象: ' + title;
-  document.getElementById('replace-note').value = '';
-  document.getElementById('replace-file').value = '';
-  document.getElementById('replace-file-name').textContent = '';
-  document.getElementById('replace-modal').classList.remove('hidden');
-}
-function closeReplaceModal() {
-  document.getElementById('replace-modal').classList.add('hidden');
-}
+function closeReplaceModal() { document.getElementById('replace-modal').classList.add('hidden'); }
 document.getElementById('replace-file').addEventListener('change', function() {
   document.getElementById('replace-file-name').textContent = this.files[0]?.name || '';
 });
@@ -430,20 +451,9 @@ async function doReplace() {
   const fd = new FormData();
   fd.append('file', file);
   fd.append('note', document.getElementById('replace-note').value);
-  const res = await fetch(`/materials/${id}/update`, { method: 'POST', body: fd });
+  const res = await fetch('/materials/' + id + '/update', { method: 'POST', body: fd });
   if (res.ok) { closeReplaceModal(); location.reload(); }
   else { alert('差し替えに失敗しました'); }
-}
-
-// ── 削除 ─────────────────────────────────────────────────
-async function deleteMaterial(id, title) {
-  if (!confirm(`「${title}」を削除しますか？\n（この操作は取り消せません）`)) return;
-  const res = await fetch(`/materials/${id}/delete`, { method: 'POST' });
-  if (res.ok) {
-    document.getElementById('card-' + id)?.remove();
-  } else {
-    alert('削除に失敗しました');
-  }
 }
 </script>
 {% endblock %}
