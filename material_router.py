@@ -88,14 +88,21 @@ async def material_list(request: Request, q: str = "", category_id: int = 0, tag
     staff_id = _staff_id(request)
     db = get_db()
     try:
-        categories = db.query(MaterialCategory).order_by(MaterialCategory.sort_order).all()
-        tags = (
-            db.query(MaterialTag)
-            .join(MaterialTagRelation)
-            .group_by(MaterialTag.id)
-            .order_by(MaterialTag.name)
-            .all()
-        )
+        # セッションclose後もアクセスできるようdictに変換
+        categories = [
+            {"id": c.id, "name": c.name}
+            for c in db.query(MaterialCategory).order_by(MaterialCategory.sort_order).all()
+        ]
+        tags = [
+            {"id": t.id, "name": t.name}
+            for t in (
+                db.query(MaterialTag)
+                .join(MaterialTagRelation)
+                .group_by(MaterialTag.id)
+                .order_by(MaterialTag.name)
+                .all()
+            )
+        ]
 
         query = db.query(Material).filter(Material.is_active == True)
         if q:
@@ -464,6 +471,21 @@ async def import_from_approval(request: Request, document_id: int, category_id: 
                 db.flush()
             exists_rel = db.query(MaterialTagRelation).filter(
                 MaterialTagRelation.material_id == material.id,
+                MaterialTagRelation.tag_id == tag_obj.id
+            ).first()
+            if not exists_rel:
+                db.add(MaterialTagRelation(material_id=material.id, tag_id=tag_obj.id))
+
+        db.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+    return JSONResponse({"status": "ok", "material_id": material.id})
                 MaterialTagRelation.tag_id == tag_obj.id
             ).first()
             if not exists_rel:

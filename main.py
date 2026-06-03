@@ -45,6 +45,24 @@ def _run_migrations():
 
 _run_migrations()
 
+# デフォルトカテゴリの初期投入（空の場合のみ）
+def _seed_material_categories():
+    from models import MaterialCategory
+    db = SessionLocal()
+    try:
+        if db.query(MaterialCategory).count() == 0:
+            defaults = ["製品カタログ", "添付文書・IFU", "学術資料", "社内資料", "その他"]
+            for i, name in enumerate(defaults):
+                db.add(MaterialCategory(name=name, sort_order=i))
+            db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"[seed categories] {e}")
+    finally:
+        db.close()
+
+_seed_material_categories()
+
 # 管理者アカウントが存在しない場合のみ自動作成
 def _create_default_admin():
     from models import Staff
@@ -295,6 +313,23 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "current": current,
         "alerts": alerts,
         "recent_quotes": recent_quotes,
+        "recent_shipments": recent_shipments,
+        "customers_count": customers_count,
+        "products_count": products_count,
+        "online_staffs": online_staffs_data,
+        "all_staffs": all_staffs_data,
+        "now": now,
+        "my_tasks": my_tasks,
+        "my_task_count": my_task_count,
+        "my_approvals": my_approvals,
+        "my_approval_count": my_approval_count,
+        "announcements": announcements,
+        "fav_materials": fav_materials,
+        "recent_notifs": recent_notifs,
+        "unread_notif_count": unread_notif_count,
+        "recent_memos": recent_memos,
+    })
+otes": recent_quotes,
         "recent_shipments": recent_shipments,
         "customers_count": customers_count,
         "products_count": products_count,
