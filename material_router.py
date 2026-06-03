@@ -1,7 +1,7 @@
 import os, uuid, mimetypes, httpx, asyncio
 from pathlib import Path
 from fastapi import APIRouter, Request, Form, File, UploadFile, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, text as _sa_text
@@ -21,6 +21,48 @@ ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt"}
 MAX_FILE_SIZE_MB   = 50
 ANTHROPIC_API_KEY  = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL    = "claude-sonnet-4-20250514"
+DROPBOX_TOKEN      = os.getenv("DROPBOX_ACCESS_TOKEN", "")
+DROPBOX_FOLDER     = "/CTM_materials"
+
+
+def _get_dropbox_client():
+    if not DROPBOX_TOKEN:
+        return None
+    try:
+        import dropbox
+        return dropbox.Dropbox(DROPBOX_TOKEN)
+    except Exception:
+        return None
+
+
+def _dropbox_upload(content: bytes, remote_name: str) -> str:
+    """Upload bytes to Dropbox, return 'dropbox:/<remote_name>'."""
+    dbx = _get_dropbox_client()
+    if not dbx:
+        return ""
+    import dropbox
+    remote_path = f"{DROPBOX_FOLDER}/{remote_name}"
+    dbx.files_upload(content, remote_path, mode=dropbox.files.WriteMode.overwrite)
+    return f"dropbox:{remote_path}"
+
+
+def _dropbox_get_link(dropbox_path: str) -> str:
+    """Return a temporary direct-download link for a Dropbox path."""
+    dbx = _get_dropbox_client()
+    if not dbx:
+        return ""
+    # dropbox_path format: "dropbox:/CTM_materials/xxx.pdf"
+    remote_path = dropbox_path[len("dropbox:"):]
+    try:
+        link = dbx.files_get_temporary_link(remote_path)
+        return link.link
+    except Exception as e:
+        print(f"[Dropbox] get_link error: {e}")
+        return ""
+
+
+def _is_dropbox_path(path: str) -> bool:
+    return path.startswith("dropbox:")
 
 
 def get_db() -> Session:
@@ -178,11 +220,19 @@ async def upload_material(
             display_title = title or Path(f.filename).stem
             ai_summary = await _safe_summary(dest, f.filename, suffix)
 
+            # Dropbox upload
+            if DROPBOX_TOKEN:
+                file_path_str = _dropbox_upload(content, unique_name)
+                if not file_path_str:
+                    file_path_str = str(dest.relative_to(Path(__file__).parent))
+            else:
+                file_path_str = str(dest.relative_to(Path(__file__).parent))
+
             material = Material(
                 title=display_title,
                 description=description,
                 category_id=category_id or None,
-                file_path=str(dest.relative_to(Path(__file__).parent)),
+                file_path=file_path_str,
                 file_name=f.filename,
                 file_type=suffix,
                 file_size=len(content),
@@ -203,7 +253,7 @@ async def upload_material(
             db.add(MaterialVersion(
                 material_id=material.id,
                 version=1,
-                file_path=str(dest.relative_to(Path(__file__).parent)),
+                file_path=file_path_str,
                 file_name=f.filename,
                 file_size=len(content),
                 ai_summary=ai_summary,
@@ -233,11 +283,18 @@ async def update_material_version(request: Request, material_id: int, note: str 
 
         suffix = Path(file.filename).suffix.lower()
         content = await file.read()
-        dest = UPLOAD_DIR / f"{uuid.uuid4().hex}{suffix}"
+        unique_name = f"{uuid.uuid4().hex}{suffix}"
+        dest = UPLOAD_DIR / unique_name
         dest.write_bytes(content)
         ai_summary = await _safe_summary(dest, file.filename, suffix)
         new_ver = material.version + 1
-        rel_path = str(dest.relative_to(Path(__file__).parent))
+
+        if DROPBOX_TOKEN:
+            rel_path = _dropbox_upload(content, unique_name)
+            if not rel_path:
+                rel_path = str(dest.relative_to(Path(__file__).parent))
+        else:
+            rel_path = str(dest.relative_to(Path(__file__).parent))
 
         material.file_path = rel_path
         material.file_name = file.filename
@@ -355,12 +412,19 @@ async def serve_file(request: Request, material_id: int):
         material = db.query(Material).filter(Material.id == material_id, Material.is_active == True).first()
         if not material:
             raise HTTPException(status_code=404)
-        path = Path(__file__).parent / material.file_path
+        file_path_str = material.file_path
         file_name = material.file_name
         file_type = material.file_type
     finally:
         db.close()
 
+    if _is_dropbox_path(file_path_str):
+        link = _dropbox_get_link(file_path_str)
+        if not link:
+            raise HTTPException(status_code=404, detail="Dropboxからリンクを取得できませんでした")
+        return RedirectResponse(url=link)
+
+    path = Path(__file__).parent / file_path_str
     if not path.exists():
         raise HTTPException(status_code=404)
     media_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
@@ -377,11 +441,18 @@ async def download_file(request: Request, material_id: int):
         material = db.query(Material).filter(Material.id == material_id, Material.is_active == True).first()
         if not material:
             raise HTTPException(status_code=404)
-        path = Path(__file__).parent / material.file_path
+        file_path_str = material.file_path
         file_name = material.file_name
     finally:
         db.close()
 
+    if _is_dropbox_path(file_path_str):
+        link = _dropbox_get_link(file_path_str)
+        if not link:
+            raise HTTPException(status_code=404, detail="Dropboxからリンクを取得できませんでした")
+        return RedirectResponse(url=link)
+
+    path = Path(__file__).parent / file_path_str
     if not path.exists():
         raise HTTPException(status_code=404)
     media_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
@@ -475,6 +546,72 @@ async def import_from_approval(request: Request, document_id: int, category_id: 
         existing = db.query(Material).filter(Material.from_approval == document_id).first()
 
         if existing:
+            material = existing
+            new_ver = material.version + 1
+            material.file_path = rel_path
+            material.file_name = doc["file_name"]
+            material.file_size = file_size
+            material.ai_summary = ai_summary
+            material.version = new_ver
+            db.add(MaterialVersion(
+                material_id=material.id,
+                version=new_ver,
+                file_path=rel_path,
+                file_name=doc["file_name"],
+                file_size=file_size,
+                ai_summary=ai_summary,
+                uploaded_by=staff_id,
+                note="承認済み更新",
+            ))
+        else:
+            material = Material(
+                title=doc["title"],
+                category_id=category_id or None,
+                file_path=rel_path,
+                file_name=doc["file_name"],
+                file_type=suffix,
+                file_size=file_size,
+                ai_summary=ai_summary,
+                uploaded_by=staff_id,
+                from_approval=document_id,
+            )
+            db.add(material)
+            db.flush()
+            db.add(MaterialVersion(
+                material_id=material.id,
+                version=1,
+                file_path=rel_path,
+                file_name=doc["file_name"],
+                file_size=file_size,
+                ai_summary=ai_summary,
+                uploaded_by=staff_id,
+                note="承認済み取込",
+            ))
+
+        for tag_name in [t.strip() for t in tags.split(",") if t.strip()]:
+            tag_obj = db.query(MaterialTag).filter(MaterialTag.name == tag_name).first()
+            if not tag_obj:
+                tag_obj = MaterialTag(name=tag_name)
+                db.add(tag_obj)
+                db.flush()
+            exists_rel = db.query(MaterialTagRelation).filter(
+                MaterialTagRelation.material_id == material.id,
+                MaterialTagRelation.tag_id == tag_obj.id
+            ).first()
+            if not exists_rel:
+                db.add(MaterialTagRelation(material_id=material.id, tag_id=tag_obj.id))
+
+        db.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+    return JSONResponse({"status": "ok", "material_id": material.id})
+
             material = existing
             new_ver = material.version + 1
             material.file_path = rel_path
