@@ -126,6 +126,10 @@ async def material_list(request: Request, q: str = "", category_id: int = 0, tag
         materials = []
         for m in raw_materials:
             d = {c.name: getattr(m, c.name) for c in m.__table__.columns}
+            # datetimeを文字列化（テンプレートでのスライス対応）
+            for k, v in d.items():
+                if hasattr(v, "isoformat"):
+                    d[k] = v.isoformat()
             d["category_name"] = m.category.name if m.category else ""
             d["uploader_name"] = m.uploader.name if m.uploader else ""
             d["is_fav"] = 1 if m.id in fav_ids else 0
