@@ -476,8 +476,3 @@ def validate_demo_unit_exists(db: Session, product_id: int, serial_number: str) 
         DemoUnit.product_id == product_id,
         DemoUnit.serial_number == serial_number,
     ).first() is not None
-s(db: Session, product_id: int, serial_number: str) -> bool:
-    return db.query(DemoUnit).filter(
-        DemoUnit.product_id == product_id,
-        DemoUnit.serial_number == serial_number,
-    ).first() is not None
