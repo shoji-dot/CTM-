@@ -287,7 +287,6 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         ORDER BY f.created_at DESC LIMIT 5
     ''', (current['id'],)).fetchall()]
 
-    # 最新通知（未読）
     recent_notifs = [dict(r) for r in conn.execute(
         """SELECT id, message, link, created_at, is_sent
            FROM notifications
@@ -313,23 +312,6 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "current": current,
         "alerts": alerts,
         "recent_quotes": recent_quotes,
-        "recent_shipments": recent_shipments,
-        "customers_count": customers_count,
-        "products_count": products_count,
-        "online_staffs": online_staffs_data,
-        "all_staffs": all_staffs_data,
-        "now": now,
-        "my_tasks": my_tasks,
-        "my_task_count": my_task_count,
-        "my_approvals": my_approvals,
-        "my_approval_count": my_approval_count,
-        "announcements": announcements,
-        "fav_materials": fav_materials,
-        "recent_notifs": recent_notifs,
-        "unread_notif_count": unread_notif_count,
-        "recent_memos": recent_memos,
-    })
-otes": recent_quotes,
         "recent_shipments": recent_shipments,
         "customers_count": customers_count,
         "products_count": products_count,
