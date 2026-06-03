@@ -290,6 +290,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
+        "current": current,
         "alerts": alerts,
         "recent_quotes": recent_quotes,
         "recent_shipments": recent_shipments,
@@ -298,6 +299,11 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "online_staffs": online_staffs_data,
         "all_staffs": all_staffs_data,
         "now": now,
+        "my_tasks": my_tasks,
+        "my_task_count": my_task_count,
+        "my_approvals": my_approvals,
+        "my_approval_count": my_approval_count,
+        "announcements": announcements,
         "fav_materials": fav_materials,
         "recent_notifs": recent_notifs,
         "unread_notif_count": unread_notif_count,
