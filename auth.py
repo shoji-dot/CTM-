@@ -1,4 +1,4 @@
-﻿from datetime import datetime
+﻿from datetime import datetime, timedelta
 from passlib.context import CryptContext
 from itsdangerous import URLSafeTimedSerializer
 from sqlalchemy.orm import Session
@@ -42,6 +42,6 @@ def get_current_staff(token: str, db: Session):
 
 
 def update_last_active(staff: Staff, page: str, db: Session):
-    staff.last_active_at = datetime.now()
+    staff.last_active_at = datetime.utcnow() + timedelta(hours=9)
     staff.last_active_page = page
     db.commit()
