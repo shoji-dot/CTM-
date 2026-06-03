@@ -4,6 +4,8 @@ from fastapi import APIRouter, Request, Form, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 import sqlite3
+from database import engine as _sa_engine
+from sqlalchemy import text as _sa_text
 
 TEMPLATES = Jinja2Templates(directory="templates")
 router    = APIRouter(prefix="/materials", tags=["materials"])
@@ -209,16 +211,21 @@ async def update_material_version(request: Request, material_id: int, note: str 
 @router.post("/{material_id}/favorite")
 async def toggle_favorite(request: Request, material_id: int):
     staff_id = _staff_id(request)
-    con = get_db()
-    existing = con.execute("SELECT id FROM favorites WHERE staff_id=? AND material_id=?", (staff_id, material_id)).fetchone()
-    if existing:
-        con.execute("DELETE FROM favorites WHERE id=?", (existing["id"],))
-        is_fav = False
-    else:
-        con.execute("INSERT INTO favorites (staff_id, material_id) VALUES (?,?)", (staff_id, material_id))
-        is_fav = True
-    con.commit()
-    con.close()
+    with _sa_engine.connect() as conn:
+        existing = conn.execute(
+            _sa_text("SELECT id FROM favorites WHERE staff_id=:s AND material_id=:m"),
+            {"s": staff_id, "m": material_id}
+        ).fetchone()
+        if existing:
+            conn.execute(_sa_text("DELETE FROM favorites WHERE id=:id"), {"id": existing[0]})
+            is_fav = False
+        else:
+            conn.execute(
+                _sa_text("INSERT INTO favorites (staff_id, material_id) VALUES (:s, :m)"),
+                {"s": staff_id, "m": material_id}
+            )
+            is_fav = True
+        conn.commit()
     return JSONResponse({"is_fav": is_fav})
 
 

@@ -34,6 +34,13 @@ def _run_migrations():
     with engine.connect() as conn:
         for stmt in [
             "ALTER TABLE products ADD COLUMN alert_enabled BOOLEAN NOT NULL DEFAULT TRUE",
+            """CREATE TABLE IF NOT EXISTS favorites (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                staff_id INTEGER NOT NULL,
+                material_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(staff_id, material_id)
+            )""",
         ]:
             try:
                 conn.execute(text(stmt))

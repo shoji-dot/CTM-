@@ -89,7 +89,7 @@ async def csv_import(file: UploadFile = File(...), db: Session = Depends(get_db)
 def create_product(
     name: str = Form(...), category: str = Form("medical"), sku: str = Form(""),
     unit_price: float = Form(...), unit: str = Form(""), stock_alert_threshold: int = Form(10),
-    alert_enabled: str = Form("on"),
+    alert_enabled: str = Form(None),
     tracking_type: str = Form("none"), maker: str = Form(""), jan_code: str = Form(""),
     approval_number: str = Form(""), device_class: str = Form(""), sales_role: str = Form(""),
     model_spec: str = Form(""), sterility: str = Form(""), notes: str = Form(""),
@@ -126,7 +126,7 @@ def edit_product_form(product_id: int, request: Request, db: Session = Depends(g
 def update_product(
     product_id: int, name: str = Form(...), category: str = Form("medical"), sku: str = Form(""),
     unit_price: float = Form(...), unit: str = Form(""), stock_alert_threshold: int = Form(10),
-    alert_enabled: str = Form("on"),
+    alert_enabled: str = Form(None),
     tracking_type: str = Form("none"), maker: str = Form(""), jan_code: str = Form(""),
     approval_number: str = Form(""), device_class: str = Form(""), sales_role: str = Form(""),
     model_spec: str = Form(""), sterility: str = Form(""), notes: str = Form(""),
