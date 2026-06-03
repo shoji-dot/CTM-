@@ -528,35 +528,3 @@ def _build_alert_html(staff_name: str, loans: list, today: date) -> str:
     </body>
     </html>
     """
-                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">製品名</th>
-                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">貸出先</th>
-                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">返却期限</th>
-                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">状態</th>
-              </tr>
-            </thead>
-            <tbody>{rows}</tbody>
-          </table>
-          <p style="margin-top:24px;font-size:13px;color:#6b7280">
-            ※ このメールはシステムから自動送信されています。
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
-    """ttom:2px solid #dbeafe">管理番号</th>
-                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">商品名</th>
-                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">貸出先</th>
-                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">返却期限</th>
-                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">状態</th>
-              </tr>
-            </thead>
-            <tbody>{rows}</tbody>
-          </table>
-          <p style="margin-top:24px;font-size:13px;color:#6b7280">
-            ※ このメールは販売管理システムから自動送信されています。
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
-    """
