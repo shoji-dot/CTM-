@@ -24,8 +24,7 @@ ANTHROPIC_MODEL    = "claude-sonnet-4-20250514"
 
 
 def get_db() -> Session:
-    db = SessionLocal()
-    return db
+    return SessionLocal()
 
 
 def _staff_id(request):
@@ -162,7 +161,6 @@ async def upload_material(
     staff_id = _staff_id(request)
     db = get_db()
     results = []
-
     try:
         for f in files:
             suffix = Path(f.filename).suffix.lower()
@@ -267,6 +265,65 @@ async def update_material_version(request: Request, material_id: int, note: str 
         db.close()
 
     return JSONResponse({"status": "ok", "version": new_ver})
+
+
+@router.post("/{material_id}/edit")
+async def edit_material(
+    request: Request,
+    material_id: int,
+    title: str = Form(...),
+    description: str = Form(""),
+    category_id: int = Form(0),
+    tags: str = Form(""),
+):
+    _staff_id(request)
+    db = get_db()
+    try:
+        material = db.query(Material).filter(Material.id == material_id).first()
+        if not material:
+            raise HTTPException(status_code=404)
+        material.title = title
+        material.description = description
+        material.category_id = category_id or None
+
+        db.query(MaterialTagRelation).filter(MaterialTagRelation.material_id == material_id).delete()
+        for tag_name in [t.strip() for t in tags.split(",") if t.strip()]:
+            tag_obj = db.query(MaterialTag).filter(MaterialTag.name == tag_name).first()
+            if not tag_obj:
+                tag_obj = MaterialTag(name=tag_name)
+                db.add(tag_obj)
+                db.flush()
+            db.add(MaterialTagRelation(material_id=material_id, tag_id=tag_obj.id))
+
+        db.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+    return JSONResponse({"status": "ok"})
+
+
+@router.post("/{material_id}/delete")
+async def delete_material(request: Request, material_id: int):
+    _staff_id(request)
+    db = get_db()
+    try:
+        material = db.query(Material).filter(Material.id == material_id).first()
+        if not material:
+            raise HTTPException(status_code=404)
+        material.is_active = False
+        db.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+    return JSONResponse({"status": "ok"})
 
 
 @router.post("/{material_id}/favorite")

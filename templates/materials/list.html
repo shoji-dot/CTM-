@@ -72,6 +72,9 @@
           <button class="btn-icon" onclick="previewPDF({{ m.id }})" title="プレビュー">👁</button>
           {% endif %}
           <a class="btn-icon" href="/materials/{{ m.id }}/download" title="ダウンロード">⬇</a>
+          <button class="btn-icon" onclick="openEditModal({{ m.id }}, {{ m.title|tojson }}, '{{ m.category_id or '' }}', {{ m.tag_names|tojson }}, {{ (m.description or '')|tojson }})" title="編集">✏️</button>
+          <button class="btn-icon" onclick="openReplaceModal({{ m.id }}, {{ m.title|tojson }})" title="差し替え">🔄</button>
+          <button class="btn-icon text-danger" onclick="deleteMaterial({{ m.id }}, {{ m.title|tojson }})" title="削除">🗑</button>
         </div>
       </div>
     </div>
@@ -139,6 +142,67 @@
   </div>
 </div>
 
+{# ── 編集モーダル ─────────────────────────────────────────── #}
+<div id="edit-modal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>資料を編集</h2>
+      <button class="close-btn" onclick="closeEditModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id">
+      <label>タイトル
+        <input type="text" id="edit-title">
+      </label>
+      <label>カテゴリ
+        <select id="edit-category">
+          <option value="">未分類</option>
+          {% for c in categories %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>タグ（カンマ区切り）
+        <input type="text" id="edit-tags" placeholder="例: 循環器, 新製品">
+      </label>
+      <label>説明
+        <textarea id="edit-description" rows="2"></textarea>
+      </label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeEditModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="doEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+{# ── 差し替えモーダル ──────────────────────────────────────── #}
+<div id="replace-modal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>ファイルを差し替え</h2>
+      <button class="close-btn" onclick="closeReplaceModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="replace-id">
+      <p id="replace-title-label" style="font-size:.85rem;color:var(--text-muted)"></p>
+      <label>変更メモ
+        <input type="text" id="replace-note" placeholder="例: 2026年版に更新">
+      </label>
+      <label class="drop-zone" id="replace-drop-zone">
+        <input type="file" id="replace-file"
+               accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt">
+        <span>ここにファイルをドロップ、またはクリックして選択</span>
+      </label>
+      <div id="replace-file-name" style="font-size:.8rem"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeReplaceModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="doReplace()">差し替え実行</button>
+    </div>
+  </div>
+</div>
+
 {# ── 詳細ドロワー ────────────────────────────────────────── #}
 <div id="detail-drawer" class="drawer hidden">
   <div class="drawer-inner">
@@ -181,6 +245,7 @@
 .card-actions         { display:flex;gap:.25rem; }
 .btn-icon             { background:none;border:none;cursor:pointer;font-size:.9rem;padding:.15rem;text-decoration:none; }
 .empty-state          { text-align:center;padding:3rem;color:var(--text-muted); }
+.text-danger          { color:#ef4444; }
 
 /* モーダル */
 .modal                { position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000; }
@@ -316,6 +381,69 @@ async function openDetail(id) {
 function closeDetail() {
   document.getElementById('detail-drawer').classList.add('hidden');
   document.getElementById('drawer-overlay').classList.add('hidden');
+}
+
+// ── 編集モーダル ─────────────────────────────────────────
+function openEditModal(id, title, categoryId, tagNames, description) {
+  document.getElementById('edit-id').value = id;
+  document.getElementById('edit-title').value = title;
+  document.getElementById('edit-description').value = description || '';
+  document.getElementById('edit-tags').value = tagNames ? tagNames.replace(/\|/g, ', ') : '';
+  const sel = document.getElementById('edit-category');
+  sel.value = categoryId || '';
+  document.getElementById('edit-modal').classList.remove('hidden');
+}
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.add('hidden');
+}
+async function doEdit() {
+  const id = document.getElementById('edit-id').value;
+  const fd = new FormData();
+  fd.append('title',       document.getElementById('edit-title').value);
+  fd.append('category_id', document.getElementById('edit-category').value || '0');
+  fd.append('tags',        document.getElementById('edit-tags').value);
+  fd.append('description', document.getElementById('edit-description').value);
+  const res = await fetch(`/materials/${id}/edit`, { method: 'POST', body: fd });
+  if (res.ok) { closeEditModal(); location.reload(); }
+  else { alert('編集に失敗しました'); }
+}
+
+// ── 差し替えモーダル ─────────────────────────────────────
+function openReplaceModal(id, title) {
+  document.getElementById('replace-id').value = id;
+  document.getElementById('replace-title-label').textContent = '対象: ' + title;
+  document.getElementById('replace-note').value = '';
+  document.getElementById('replace-file').value = '';
+  document.getElementById('replace-file-name').textContent = '';
+  document.getElementById('replace-modal').classList.remove('hidden');
+}
+function closeReplaceModal() {
+  document.getElementById('replace-modal').classList.add('hidden');
+}
+document.getElementById('replace-file').addEventListener('change', function() {
+  document.getElementById('replace-file-name').textContent = this.files[0]?.name || '';
+});
+async function doReplace() {
+  const id   = document.getElementById('replace-id').value;
+  const file = document.getElementById('replace-file').files[0];
+  if (!file) { alert('ファイルを選択してください'); return; }
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('note', document.getElementById('replace-note').value);
+  const res = await fetch(`/materials/${id}/update`, { method: 'POST', body: fd });
+  if (res.ok) { closeReplaceModal(); location.reload(); }
+  else { alert('差し替えに失敗しました'); }
+}
+
+// ── 削除 ─────────────────────────────────────────────────
+async function deleteMaterial(id, title) {
+  if (!confirm(`「${title}」を削除しますか？\n（この操作は取り消せません）`)) return;
+  const res = await fetch(`/materials/${id}/delete`, { method: 'POST' });
+  if (res.ok) {
+    document.getElementById('card-' + id)?.remove();
+  } else {
+    alert('削除に失敗しました');
+  }
 }
 </script>
 {% endblock %}
