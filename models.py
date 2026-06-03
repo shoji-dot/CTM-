@@ -274,3 +274,84 @@ class RepairRecord(Base):
     created_at = Column(DateTime, default=datetime.now)
 
     demo_unit = relationship("DemoUnit", back_populates="repairs")
+
+
+# ── 資料ライブラリ ──────────────────────────────────────────────────────────────
+
+class MaterialCategory(Base):
+    __tablename__ = "material_categories"
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    name       = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.now)
+
+    materials  = relationship("Material", back_populates="category")
+
+
+class Material(Base):
+    __tablename__ = "materials"
+    id            = Column(Integer, primary_key=True, autoincrement=True)
+    title         = Column(String(300), nullable=False)
+    description   = Column(Text, nullable=True)
+    category_id   = Column(Integer, ForeignKey("material_categories.id"), nullable=True)
+    file_path     = Column(String(500), nullable=False)
+    file_name     = Column(String(300), nullable=False)
+    file_type     = Column(String(20), nullable=False)
+    file_size     = Column(Integer, nullable=False)
+    ai_summary    = Column(Text, nullable=True)
+    version       = Column(Integer, default=1)
+    uploaded_by   = Column(Integer, ForeignKey("staffs.id"), nullable=True)
+    from_approval = Column(Integer, nullable=True)
+    is_active     = Column(Boolean, default=True)
+    created_at    = Column(DateTime, default=datetime.now)
+    updated_at    = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    category  = relationship("MaterialCategory", back_populates="materials")
+    uploader  = relationship("Staff")
+    versions  = relationship("MaterialVersion", back_populates="material", cascade="all, delete-orphan")
+    favorites = relationship("Favorite", back_populates="material", cascade="all, delete-orphan")
+    tag_relations = relationship("MaterialTagRelation", back_populates="material", cascade="all, delete-orphan")
+
+
+class MaterialTag(Base):
+    __tablename__ = "material_tags"
+    id   = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, unique=True)
+
+    tag_relations = relationship("MaterialTagRelation", back_populates="tag", cascade="all, delete-orphan")
+
+
+class MaterialTagRelation(Base):
+    __tablename__ = "material_tag_relations"
+    material_id = Column(Integer, ForeignKey("materials.id"), primary_key=True)
+    tag_id      = Column(Integer, ForeignKey("material_tags.id"), primary_key=True)
+
+    material = relationship("Material", back_populates="tag_relations")
+    tag      = relationship("MaterialTag", back_populates="tag_relations")
+
+
+class MaterialVersion(Base):
+    __tablename__ = "material_versions"
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    material_id = Column(Integer, ForeignKey("materials.id"), nullable=False)
+    version     = Column(Integer, nullable=False)
+    file_path   = Column(String(500), nullable=False)
+    file_name   = Column(String(300), nullable=False)
+    file_size   = Column(Integer, nullable=False)
+    ai_summary  = Column(Text, nullable=True)
+    uploaded_by = Column(Integer, ForeignKey("staffs.id"), nullable=True)
+    note        = Column(String(300), nullable=True)
+    created_at  = Column(DateTime, default=datetime.now)
+
+    material = relationship("Material", back_populates="versions")
+
+
+class Favorite(Base):
+    __tablename__ = "favorites"
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    staff_id    = Column(Integer, ForeignKey("staffs.id"), nullable=False)
+    material_id = Column(Integer, ForeignKey("materials.id"), nullable=False)
+    created_at  = Column(DateTime, default=datetime.now)
+
+    material = relationship("Material", back_populates="favorites")
