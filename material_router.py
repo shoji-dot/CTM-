@@ -88,7 +88,6 @@ async def material_list(request: Request, q: str = "", category_id: int = 0, tag
     staff_id = _staff_id(request)
     db = get_db()
     try:
-        # セッションclose後もアクセスできるようdictに変換
         categories = [
             {"id": c.id, "name": c.name}
             for c in db.query(MaterialCategory).order_by(MaterialCategory.sort_order).all()
@@ -133,7 +132,6 @@ async def material_list(request: Request, q: str = "", category_id: int = 0, tag
         materials = []
         for m in raw_materials:
             d = {c.name: getattr(m, c.name) for c in m.__table__.columns}
-            # datetimeを文字列化（テンプレートでのスライス対応）
             for k, v in d.items():
                 if hasattr(v, "isoformat"):
                     d[k] = v.isoformat()
@@ -362,7 +360,6 @@ async def material_detail_json(request: Request, material_id: int):
     finally:
         db.close()
 
-    # DateTimeをシリアライズ可能な形式に変換
     for key, val in d.items():
         if hasattr(val, "isoformat"):
             d[key] = val.isoformat()
@@ -471,21 +468,6 @@ async def import_from_approval(request: Request, document_id: int, category_id: 
                 db.flush()
             exists_rel = db.query(MaterialTagRelation).filter(
                 MaterialTagRelation.material_id == material.id,
-                MaterialTagRelation.tag_id == tag_obj.id
-            ).first()
-            if not exists_rel:
-                db.add(MaterialTagRelation(material_id=material.id, tag_id=tag_obj.id))
-
-        db.commit()
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        db.close()
-
-    return JSONResponse({"status": "ok", "material_id": material.id})
                 MaterialTagRelation.tag_id == tag_obj.id
             ).first()
             if not exists_rel:
