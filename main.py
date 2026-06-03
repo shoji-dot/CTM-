@@ -278,14 +278,27 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         LIMIT 10
     """).fetchall()]
 
-    fav_materials = [dict(r) for r in conn.execute('''
-        SELECT m.id, m.title, m.file_type, m.updated_at, mc.name AS category_name
-        FROM favorites f
-        JOIN materials m ON m.id = f.material_id
-        LEFT JOIN material_categories mc ON mc.id = m.category_id
-        WHERE f.staff_id = ? AND m.is_active=1
-        ORDER BY f.created_at DESC LIMIT 5
-    ''', (current['id'],)).fetchall()]
+    from models import Favorite, Material, MaterialCategory as MatCat
+    from sqlalchemy.orm import aliased
+    _fav_rows = (
+        db.query(Material, MatCat.name)
+        .join(Favorite, Favorite.material_id == Material.id)
+        .outerjoin(MatCat, MatCat.id == Material.category_id)
+        .filter(Favorite.staff_id == current['id'], Material.is_active == True)
+        .order_by(Favorite.created_at.desc())
+        .limit(5)
+        .all()
+    )
+    fav_materials = [
+        {
+            "id": m.id,
+            "title": m.title,
+            "file_type": m.file_type,
+            "updated_at": str(m.updated_at),
+            "category_name": cat_name,
+        }
+        for m, cat_name in _fav_rows
+    ]
 
     recent_notifs = [dict(r) for r in conn.execute(
         """SELECT id, message, link, created_at, is_sent
