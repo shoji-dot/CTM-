@@ -26,9 +26,34 @@ def new_product_form(request: Request):
 
 @router.get("/products/csv-template")
 def csv_template_dl():
-    headers = ["name","category","sku","unit_price","unit","stock_alert_threshold","maker","jan_code","approval_number","notes"]
-    sample = ["サンプル商品","medical","SKU-001","10000","個","10","メーカー名","","",""]
-    content = ",".join(headers) + "\n" + ",".join(sample) + "\n"
+    headers = [
+        "商品名","カテゴリ","商品コード(SKU)","単価(円)","単位",
+        "管理番号種別","在庫アラート閾値","在庫アラート有効",
+        "メーカー名","JANコード","承認番号","クラス分類","販売区分",
+        "型式・仕様","滅菌状態","備考"
+    ]
+    sample = [
+        "サンプル商品","医療機器","SKU-001","10000","個",
+        "なし","10","有効",
+        "メーカー名","","","クラスⅡ","代理店",
+        "","未設定",""
+    ]
+    note = [
+        "※商品名・単価は必須",
+        "医療機器 または 生ハム",
+        "","","",
+        "なし / シリアル番号 / ロット番号","","有効 または 無効",
+        "","","",
+        "未設定 / 雑品 / クラスⅠ / クラスⅡ / クラスⅢ / クラスⅣ",
+        "未設定 / メーカー / 代理店",
+        "","未設定 / 滅菌済み / 未滅菌",""
+    ]
+    lines = [
+        ",".join(headers),
+        ",".join(sample),
+        ",".join(note),
+    ]
+    content = "\n".join(lines) + "\n"
     return Response(
         content=content.encode("utf-8-sig"),
         media_type="text/csv",
@@ -38,6 +63,39 @@ def csv_template_dl():
 
 @router.post("/products/csv-import")
 async def csv_import(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    # 日本語列名 → 内部キー のマッピング
+    COL = {
+        "商品名": "name", "カテゴリ": "category", "商品コード(SKU)": "sku",
+        "単価(円)": "unit_price", "単位": "unit",
+        "管理番号種別": "tracking_type", "在庫アラート閾値": "stock_alert_threshold",
+        "在庫アラート有効": "alert_enabled", "メーカー名": "maker",
+        "JANコード": "jan_code", "承認番号": "approval_number",
+        "クラス分類": "device_class", "販売区分": "sales_role",
+        "型式・仕様": "model_spec", "滅菌状態": "sterility", "備考": "notes",
+        # 英語列名も引き続き受け付ける（後方互換）
+        "name": "name", "category": "category", "sku": "sku",
+        "unit_price": "unit_price", "unit": "unit",
+        "tracking_type": "tracking_type", "stock_alert_threshold": "stock_alert_threshold",
+        "alert_enabled": "alert_enabled", "maker": "maker",
+        "jan_code": "jan_code", "approval_number": "approval_number",
+        "device_class": "device_class", "sales_role": "sales_role",
+        "model_spec": "model_spec", "sterility": "sterility", "notes": "notes",
+    }
+    # 日本語値 → 内部コード
+    CATEGORY_MAP  = {"医療機器": "medical", "生ハム": "ham", "medical": "medical", "ham": "ham"}
+    TRACKING_MAP  = {"なし": "none", "シリアル番号": "serial", "ロット番号": "lot",
+                     "none": "none", "serial": "serial", "lot": "lot"}
+    CLASS_MAP     = {"未設定": "", "雑品": "misc", "クラスⅠ": "1", "クラスⅡ": "2",
+                     "クラスⅢ": "3", "クラスⅣ": "4",
+                     "misc": "misc", "1": "1", "2": "2", "3": "3", "4": "4"}
+    ROLE_MAP      = {"未設定": "", "メーカー": "maker", "代理店": "distributor",
+                     "maker": "maker", "distributor": "distributor"}
+    STERILITY_MAP = {"未設定": "", "滅菌済み": "sterile", "未滅菌": "non_sterile",
+                     "sterile": "sterile", "non_sterile": "non_sterile"}
+
+    def g(row_norm, key, default=""):
+        return row_norm.get(key, default) or default
+
     try:
         content = await file.read()
         text = None
@@ -49,30 +107,52 @@ async def csv_import(file: UploadFile = File(...), db: Session = Depends(get_db)
                 continue
         if text is None:
             return JSONResponse({"error": "文字コードの読み取りに失敗しました"}, status_code=400)
+
         reader = csv.DictReader(io.StringIO(text))
-        required = {"name", "unit_price"}
-        if not required.issubset(set(reader.fieldnames or [])):
-            return JSONResponse({"error": f"必須列が不足しています: {required}"}, status_code=400)
+        fieldnames = reader.fieldnames or []
+
+        # 列名を内部キーに正規化
+        def normalize_row(row):
+            return {COL[k]: v.strip() for k, v in row.items() if k in COL}
+
+        # 必須列チェック（日英どちらでも可）
+        mapped_fields = {COL[f] for f in fieldnames if f in COL}
+        if not {"name", "unit_price"}.issubset(mapped_fields):
+            return JSONResponse({"error": "必須列「商品名」「単価(円)」が不足しています"}, status_code=400)
+
         created = 0
         errors = []
-        for i, row in enumerate(reader, start=2):
+        for i, raw_row in enumerate(reader, start=2):
+            # 注釈行スキップ（1列目が「※」で始まる）
+            first_val = list(raw_row.values())[0] if raw_row else ""
+            if first_val.startswith("※"):
+                continue
             try:
-                name = row.get("name", "").strip()
+                row = normalize_row(raw_row)
+                name = g(row, "name")
                 if not name:
                     errors.append(f"{i}行目: 商品名が空")
                     continue
-                price_str = row.get("unit_price", "0").strip().replace(",", "")
+                price_str = g(row, "unit_price", "0").replace(",", "")
+                alert_raw = g(row, "alert_enabled", "有効").lower()
+                alert_enabled = alert_raw not in ("無効", "false", "0", "off")
                 crud.create_product(db, {
                     "name": name,
-                    "category": row.get("category", "medical").strip() or "medical",
-                    "sku": row.get("sku", "").strip() or None,
+                    "category": CATEGORY_MAP.get(g(row, "category", "医療機器"), "medical"),
+                    "sku": g(row, "sku") or None,
                     "unit_price": float(price_str) if price_str else 0,
-                    "unit": row.get("unit", "").strip(),
-                    "stock_alert_threshold": int(row.get("stock_alert_threshold", 10) or 10),
-                    "maker": row.get("maker", "").strip() or None,
-                    "jan_code": row.get("jan_code", "").strip() or None,
-                    "approval_number": row.get("approval_number", "").strip() or None,
-                    "notes": row.get("notes", "").strip(),
+                    "unit": g(row, "unit"),
+                    "tracking_type": TRACKING_MAP.get(g(row, "tracking_type", "なし"), "none"),
+                    "stock_alert_threshold": int(g(row, "stock_alert_threshold", "10") or 10),
+                    "alert_enabled": alert_enabled,
+                    "maker": g(row, "maker") or None,
+                    "jan_code": g(row, "jan_code") or None,
+                    "approval_number": g(row, "approval_number") or None,
+                    "device_class": CLASS_MAP.get(g(row, "device_class", ""), "") or None,
+                    "sales_role": ROLE_MAP.get(g(row, "sales_role", ""), "") or None,
+                    "model_spec": g(row, "model_spec") or None,
+                    "sterility": STERILITY_MAP.get(g(row, "sterility", ""), "") or None,
+                    "notes": g(row, "notes"),
                 })
                 created += 1
             except Exception as e:
