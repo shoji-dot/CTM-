@@ -190,4 +190,8 @@ def task_detail_page(task_id: int, request: Request, db: Session = Depends(get_d
 
     return templates.TemplateResponse("tasks/detail.html", {
         "request": request,
-  
+        "task": dict(task_row._mapping),
+        "comments": comments,
+        "staffs": staffs,
+        "current": request.state.staff,
+    })
