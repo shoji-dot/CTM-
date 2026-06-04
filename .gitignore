@@ -7,6 +7,9 @@ installer_output/
 *.db-shm
 *.db-wal
 *.db.bak*
+*.db.backup_*
+*.backup_*
+.fuse_hidden*
 .ctm_github_token
 .env
 *.db
