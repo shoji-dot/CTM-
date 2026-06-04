@@ -24,7 +24,7 @@ from customer_memo_router import router as memo_router
 from notification_router import router as notif_router
 from repair_router import router as repair_router
 from update_checker import router as update_router
-import sqlite3 as _sqlite3
+from sqlalchemy import text as _sa_text
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -175,38 +175,45 @@ app.include_router(update_router)
 
 
 @app.post("/api/announcements")
-async def create_announcement(request: Request, body: dict = Body(...)):
-    import sqlite3
-    DB_PATH = os.path.join(os.path.dirname(__file__), 'sales_app.db')
+async def create_announcement(
+    request: Request,
+    body: dict = Body(...),
+    db: Session = Depends(get_db)
+):
+    from fastapi import HTTPException
     current = request.state.staff
-    conn = sqlite3.connect(DB_PATH, timeout=30)
-    cur = conn.execute("""
-        INSERT INTO announcements (title, body, author_id, is_pinned)
-        VALUES (?,?,?,?)
-    """, (body['title'], body['body'], current['id'], body.get('is_pinned', 0)))
-    conn.commit()
-    aid = cur.lastrowid
-    conn.close()
+    result = db.execute(
+        _sa_text("""
+            INSERT INTO announcements (title, body, author_id, is_pinned)
+            VALUES (:title,:body,:author,:pinned)
+            RETURNING id
+        """),
+        {"title": body['title'], "body": body['body'],
+         "author": current['id'], "pinned": body.get('is_pinned', 0)}
+    )
+    aid = result.scalar()
+    db.commit()
     return {"id": aid}
 
 
 @app.delete("/api/announcements/{announcement_id}")
-async def delete_announcement(announcement_id: int, request: Request):
-    import sqlite3
+async def delete_announcement(
+    announcement_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
     from fastapi import HTTPException
-    DB_PATH = os.path.join(os.path.dirname(__file__), 'sales_app.db')
     current = request.state.staff
-    conn = sqlite3.connect(DB_PATH, timeout=30)
-    row = conn.execute("SELECT author_id FROM announcements WHERE id=?", (announcement_id,)).fetchone()
+    row = db.execute(
+        _sa_text("SELECT author_id FROM announcements WHERE id=:i"),
+        {"i": announcement_id}
+    ).fetchone()
     if not row:
-        conn.close()
         raise HTTPException(404, "Not found")
     if row[0] != current['id'] and current['role'] != 'admin':
-        conn.close()
         raise HTTPException(403, "権限がありません")
-    conn.execute("DELETE FROM announcements WHERE id=?", (announcement_id,))
-    conn.commit()
-    conn.close()
+    db.execute(_sa_text("DELETE FROM announcements WHERE id=:i"), {"i": announcement_id})
+    db.commit()
     return {"result": "ok"}
 
 
@@ -214,9 +221,6 @@ async def delete_announcement(announcement_id: int, request: Request):
 def dashboard(request: Request, db: Session = Depends(get_db)):
     from datetime import datetime, timedelta
     from models import Staff
-    import sqlite3
-
-    DB_PATH = os.path.join(os.path.dirname(__file__), 'sales_app.db')
 
     alerts = crud.get_alerts(db)
     recent_quotes = crud.get_quotes(db)[:5]
@@ -245,44 +249,41 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
     current = request.state.staff
 
-    conn = sqlite3.connect(DB_PATH, timeout=30)
-    conn.row_factory = sqlite3.Row
-
-    my_tasks = [dict(r) for r in conn.execute("""
+    my_tasks = [dict(r._mapping) for r in db.execute(_sa_text("""
         SELECT t.*, a.name as assignee_name
         FROM tasks t LEFT JOIN staffs a ON t.assignee_id=a.id
-        WHERE t.assignee_id=? AND t.status IN ('todo','in_progress')
+        WHERE t.assignee_id=:uid AND t.status IN ('todo','in_progress')
         ORDER BY CASE t.status WHEN 'in_progress' THEN 1 ELSE 2 END,
                  CASE t.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
                  t.due_date ASC NULLS LAST
         LIMIT 5
-    """, (current['id'],)).fetchall()]
+    """), {"uid": current['id']}).fetchall()]
 
-    my_task_count = conn.execute(
-        "SELECT COUNT(*) FROM tasks WHERE assignee_id=? AND status NOT IN ('done','cancelled')",
-        (current['id'],)
-    ).fetchone()[0]
+    my_task_count = db.execute(
+        _sa_text("SELECT COUNT(*) FROM tasks WHERE assignee_id=:uid AND status NOT IN ('done','cancelled')"),
+        {"uid": current['id']}
+    ).scalar()
 
-    my_approvals = [dict(r) for r in conn.execute("""
+    my_approvals = [dict(r._mapping) for r in db.execute(_sa_text("""
         SELECT d.id, d.title, d.current_step, dt.name as type_name
         FROM documents d
         JOIN document_types dt ON d.document_type_id=dt.id
         JOIN approval_flows af ON af.document_type_id=d.document_type_id AND af.is_active=1
         JOIN approval_steps ast ON ast.flow_id=af.id AND ast.step_order=d.current_step
         WHERE d.status='in_review'
-        AND (ast.approver_id=? OR ast.approver_role=(SELECT role FROM staffs WHERE id=?))
+        AND (ast.approver_id=:uid OR ast.approver_role=(SELECT role FROM staffs WHERE id=:uid2))
         ORDER BY d.updated_at DESC
         LIMIT 5
-    """, (current['id'], current['id'])).fetchall()]
+    """), {"uid": current['id'], "uid2": current['id']}).fetchall()]
 
     my_approval_count = len(my_approvals)
 
-    announcements = [dict(r) for r in conn.execute("""
+    announcements = [dict(r._mapping) for r in db.execute(_sa_text("""
         SELECT a.*, s.name as author_name
         FROM announcements a JOIN staffs s ON a.author_id=s.id
         ORDER BY a.is_pinned DESC, a.created_at DESC
         LIMIT 10
-    """).fetchall()]
+    """)).fetchall()]
 
     from models import Favorite, Material, MaterialCategory as MatCat
     from sqlalchemy.orm import aliased
@@ -306,30 +307,29 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         for m, cat_name in _fav_rows
     ]
 
-    recent_notifs = [dict(r) for r in conn.execute(
+    recent_notifs = [dict(r._mapping) for r in db.execute(_sa_text(
         """SELECT id, message, link, created_at, is_sent
            FROM notifications
-           WHERE recipient_id = ? AND is_sent = 0
-           ORDER BY created_at DESC LIMIT 5""",
-        (current["id"],)).fetchall()]
+           WHERE recipient_id = :uid AND is_sent = 0
+           ORDER BY created_at DESC LIMIT 5"""
+    ), {"uid": current["id"]}).fetchall()]
 
-    unread_notif_count = conn.execute(
-        "SELECT COUNT(*) FROM notifications WHERE recipient_id=? AND is_sent=0",
-        (current["id"],)).fetchone()[0]
+    unread_notif_count = db.execute(
+        _sa_text("SELECT COUNT(*) FROM notifications WHERE recipient_id=:uid AND is_sent=0"),
+        {"uid": current["id"]}
+    ).scalar()
 
-    recent_memos = [dict(r) for r in conn.execute(
+    recent_memos = [dict(r._mapping) for r in db.execute(_sa_text(
         """SELECT cm.id, cm.hospital, cm.doctor_name, cm.memo, cm.updated_at
            FROM customer_memos cm
-           WHERE cm.staff_id = ?
-           ORDER BY cm.updated_at DESC LIMIT 5""",
-        (current["id"],)).fetchall()]
+           WHERE cm.staff_id = :uid
+           ORDER BY cm.updated_at DESC LIMIT 5"""
+    ), {"uid": current["id"]}).fetchall()]
 
-    overdue_repairs_count = conn.execute(
-        "SELECT COUNT(*) FROM repairs WHERE step_deadline < ? AND status != 'closed'",
-        (today.isoformat(),)
-    ).fetchone()[0]
-
-    conn.close()
+    overdue_repairs_count = db.execute(
+        _sa_text("SELECT COUNT(*) FROM repairs WHERE step_deadline < :today AND status != 'closed'"),
+        {"today": today.isoformat()}
+    ).scalar()
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,

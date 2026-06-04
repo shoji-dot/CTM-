@@ -1,9 +1,10 @@
 import smtplib
-import sqlite3
 import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
+from sqlalchemy import text
+from database import SessionLocal
 
 # ─── SMTP設定（環境変数推奨） ─────────────────────────
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
@@ -11,8 +12,6 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "your@gmail.com")
 SMTP_PASS = os.getenv("SMTP_PASS", "your_app_password")
 FROM_NAME = "販売管理システム"
-
-DB_PATH = os.path.join(os.path.dirname(__file__), 'sales_app.db')
 
 TEMPLATES = {
     "approval_request": {
@@ -85,89 +84,90 @@ def send_email(to_email: str, subject: str, body: str) -> bool:
         print(f"メール送信エラー: {e}")
         return False
 
+def _row(row):
+    return dict(row._mapping)
+
 def process_pending_notifications():
     """未送信通知を処理する（定期実行用）"""
-    conn = sqlite3.connect(DB_PATH, timeout=30)
-    conn.row_factory = sqlite3.Row
+    db = SessionLocal()
+    try:
+        pending = [_row(r) for r in db.execute(text("""
+            SELECT n.*, d.title as doc_title, d.comment as doc_comment,
+                   d.created_at as doc_created_at, d.updated_at as doc_updated_at,
+                   s.name as recipient_name, s.email as recipient_email,
+                   up.name as uploader_name
+            FROM notifications n
+            JOIN documents d ON n.document_id = d.id
+            JOIN staffs s ON n.recipient_id = s.id
+            JOIN staffs up ON d.uploaded_by = up.id
+            WHERE n.is_sent = 0 AND n.document_id IS NOT NULL
+        """)).fetchall()]
 
-    pending = conn.execute("""
-        SELECT n.*, d.title as doc_title, d.comment as doc_comment,
-               d.created_at as doc_created_at, d.updated_at as doc_updated_at,
-               s.name as recipient_name, s.email as recipient_email,
-               up.name as uploader_name
-        FROM notifications n
-        JOIN documents d ON n.document_id = d.id
-        JOIN staffs s ON n.recipient_id = s.id
-        JOIN staffs up ON d.uploaded_by = up.id
-        WHERE n.is_sent = 0
-    """).fetchall()
+        sent_count = 0
+        for notif in pending:
+            if not notif['recipient_email']:
+                continue
+            tmpl = TEMPLATES.get(notif['type'])
+            if not tmpl:
+                continue
 
-    sent_count = 0
-    for notif in pending:
-        if not notif['recipient_email']:
-            continue
+            subject = tmpl['subject'].format(doc_title=notif['doc_title'])
+            body = tmpl['body'].format(
+                name=notif['recipient_name'],
+                doc_title=notif['doc_title'],
+                uploader_name=notif['uploader_name'],
+                created_at=notif['doc_created_at'],
+                comment=notif['doc_comment'] or '',
+                approved_at=notif['doc_updated_at'],
+            )
 
-        tmpl = TEMPLATES.get(notif['type'])
-        if not tmpl:
-            continue
+            if send_email(notif['recipient_email'], subject, body):
+                db.execute(
+                    text("UPDATE notifications SET is_sent=1, sent_at=:t WHERE id=:i"),
+                    {"t": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "i": notif['id']}
+                )
+                sent_count += 1
 
-        subject = tmpl['subject'].format(doc_title=notif['doc_title'])
-        body = tmpl['body'].format(
-            name=notif['recipient_name'],
-            doc_title=notif['doc_title'],
-            uploader_name=notif['uploader_name'],
-            created_at=notif['doc_created_at'],
-            comment=notif['doc_comment'] or '',
-            approved_at=notif['doc_updated_at'],
-        )
-
-        if send_email(notif['recipient_email'], subject, body):
-            conn.execute("""
-                UPDATE notifications SET is_sent=1, sent_at=? WHERE id=?
-            """, (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), notif['id']))
-            sent_count += 1
-
-    conn.commit()
-    conn.close()
-    print(f"通知送信完了: {sent_count}件")
-    return sent_count
+        db.commit()
+        print(f"通知送信完了: {sent_count}件")
+        return sent_count
+    finally:
+        db.close()
 
 def send_reminders():
     """承認待ち通知のリマインド送信"""
-    conn = sqlite3.connect(DB_PATH, timeout=30)
-    conn.row_factory = sqlite3.Row
+    db = SessionLocal()
+    try:
+        docs = [_row(r) for r in db.execute(text("""
+            SELECT d.*, dt.name as type_name, up.name as uploader_name,
+                   af.id as flow_id
+            FROM documents d
+            JOIN document_types dt ON d.document_type_id = dt.id
+            JOIN staffs up ON d.uploaded_by = up.id
+            JOIN approval_flows af ON af.document_type_id = d.document_type_id AND af.is_active=1
+            WHERE d.status = 'in_review'
+        """)).fetchall()]
 
-    # 承認中ドキュメントを取得
-    docs = conn.execute("""
-        SELECT d.*, dt.name as type_name, up.name as uploader_name,
-               af.id as flow_id
-        FROM documents d
-        JOIN document_types dt ON d.document_type_id = dt.id
-        JOIN staffs up ON d.uploaded_by = up.id
-        JOIN approval_flows af ON af.document_type_id = d.document_type_id AND af.is_active=1
-        WHERE d.status = 'in_review'
-    """).fetchall()
+        for doc in docs:
+            step = db.execute(text("""
+                SELECT ast.*, s.name as approver_name, s.email as approver_email
+                FROM approval_steps ast
+                LEFT JOIN staffs s ON ast.approver_id = s.id
+                WHERE ast.flow_id=:f AND ast.step_order=:s
+            """), {"f": doc['flow_id'], "s": doc['current_step']}).fetchone()
 
-    for doc in docs:
-        # 現在の承認者を取得
-        step = conn.execute("""
-            SELECT ast.*, s.name as approver_name, s.email as approver_email
-            FROM approval_steps ast
-            LEFT JOIN staffs s ON ast.approver_id = s.id
-            WHERE ast.flow_id=? AND ast.step_order=?
-        """, (doc['flow_id'], doc['current_step'])).fetchone()
+            if not step or not step._mapping.get('approver_email'):
+                continue
 
-        if not step or not step['approver_email']:
-            continue
+            db.execute(
+                text("INSERT INTO notifications (document_id, recipient_id, type) VALUES (:d,:r,'reminder')"),
+                {"d": doc['id'], "r": step._mapping['approver_id']}
+            )
 
-        # リマインド通知を作成
-        conn.execute("""
-            INSERT INTO notifications (document_id, recipient_id, type)
-            VALUES (?,?,'reminder')
-        """, (doc['id'], step['approver_id']))
+        db.commit()
+    finally:
+        db.close()
 
-    conn.commit()
-    conn.close()
     process_pending_notifications()
 
 if __name__ == '__main__':

@@ -1,12 +1,12 @@
-import os
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-import sqlite3
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from database import get_db
 
 TEMPLATES = Jinja2Templates(directory="templates")
-router    = APIRouter(prefix="/notifications", tags=["notifications"])
-DB_PATH   = os.path.join(os.path.dirname(__file__), "sales_app.db")
+router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 NOTIF_TYPES = {
     "approval_request": "承認依頼",
@@ -17,11 +17,11 @@ NOTIF_TYPES = {
 }
 
 
-def get_db():
-    con = sqlite3.connect(DB_PATH)
-    con.row_factory = sqlite3.Row
-    return con
+def _row(row):
+    return dict(row._mapping)
 
+def _rows(rows):
+    return [_row(r) for r in rows]
 
 def _staff_id(request: Request) -> int:
     staff = getattr(request.state, "staff", None)
@@ -31,7 +31,7 @@ def _staff_id(request: Request) -> int:
 
 
 def create_notification(
-    con: sqlite3.Connection,
+    db: Session,
     recipient_id: int,
     notif_type: str,
     message: str,
@@ -39,33 +39,35 @@ def create_notification(
     resource_id: int | None = None,
     link: str = "",
 ):
-    con.execute(
-        """
-        INSERT INTO notifications
-            (recipient_id, type, message, link, resource_type, resource_id)
-        VALUES (?,?,?,?,?,?)
-        """,
-        (recipient_id, notif_type, message, link, resource_type, resource_id),
+    db.execute(
+        text("""
+            INSERT INTO notifications
+                (recipient_id, type, message, link, resource_type, resource_id)
+            VALUES (:r,:t,:m,:l,:rt,:ri)
+        """),
+        {"r": recipient_id, "t": notif_type, "m": message,
+         "l": link, "rt": resource_type, "ri": resource_id},
     )
 
 
 @router.get("/", response_class=HTMLResponse)
-async def notification_list(request: Request, unread_only: int = 0):
+async def notification_list(
+    request: Request,
+    unread_only: int = 0,
+    db: Session = Depends(get_db)
+):
     staff_id = _staff_id(request)
-    con = get_db()
-
-    sql = "SELECT * FROM notifications WHERE recipient_id=?"
-    params: list = [staff_id]
+    sql = "SELECT * FROM notifications WHERE recipient_id=:s"
+    params: dict = {"s": staff_id}
     if unread_only:
         sql += " AND is_sent=0"
     sql += " ORDER BY created_at DESC LIMIT 100"
 
-    notifs = con.execute(sql, params).fetchall()
-    unread_count = con.execute(
-        "SELECT COUNT(*) FROM notifications WHERE recipient_id=? AND is_sent=0",
-        (staff_id,),
-    ).fetchone()[0]
-    con.close()
+    notifs = _rows(db.execute(text(sql), params).fetchall())
+    unread_count = db.execute(
+        text("SELECT COUNT(*) FROM notifications WHERE recipient_id=:s AND is_sent=0"),
+        {"s": staff_id},
+    ).scalar()
 
     return TEMPLATES.TemplateResponse(
         "notifications/list.html",
@@ -80,49 +82,40 @@ async def notification_list(request: Request, unread_only: int = 0):
 
 
 @router.get("/recent")
-async def recent_notifications(request: Request):
+async def recent_notifications(request: Request, db: Session = Depends(get_db)):
     staff_id = _staff_id(request)
-    con = get_db()
-    rows = con.execute(
-        """
-        SELECT id, type, message, link, is_sent, created_at
-        FROM notifications WHERE recipient_id=?
-        ORDER BY created_at DESC LIMIT 5
-        """,
-        (staff_id,),
-    ).fetchall()
-    unread = con.execute(
-        "SELECT COUNT(*) FROM notifications WHERE recipient_id=? AND is_sent=0",
-        (staff_id,),
-    ).fetchone()[0]
-    con.close()
-    return JSONResponse({
-        "notifications": [dict(r) for r in rows],
-        "unread_count": unread,
-    })
+    rows = _rows(db.execute(
+        text("""
+            SELECT id, type, message, link, is_sent, created_at
+            FROM notifications WHERE recipient_id=:s
+            ORDER BY created_at DESC LIMIT 5
+        """),
+        {"s": staff_id},
+    ).fetchall())
+    unread = db.execute(
+        text("SELECT COUNT(*) FROM notifications WHERE recipient_id=:s AND is_sent=0"),
+        {"s": staff_id},
+    ).scalar()
+    return JSONResponse({"notifications": rows, "unread_count": unread})
 
 
 @router.post("/{notif_id}/read")
-async def mark_read(request: Request, notif_id: int):
+async def mark_read(request: Request, notif_id: int, db: Session = Depends(get_db)):
     staff_id = _staff_id(request)
-    con = get_db()
-    con.execute(
-        "UPDATE notifications SET is_sent=1 WHERE id=? AND recipient_id=?",
-        (notif_id, staff_id),
+    db.execute(
+        text("UPDATE notifications SET is_sent=1 WHERE id=:i AND recipient_id=:s"),
+        {"i": notif_id, "s": staff_id},
     )
-    con.commit()
-    con.close()
+    db.commit()
     return JSONResponse({"status": "ok"})
 
 
 @router.post("/read-all")
-async def mark_all_read(request: Request):
+async def mark_all_read(request: Request, db: Session = Depends(get_db)):
     staff_id = _staff_id(request)
-    con = get_db()
-    con.execute(
-        "UPDATE notifications SET is_sent=1 WHERE recipient_id=? AND is_sent=0",
-        (staff_id,),
+    db.execute(
+        text("UPDATE notifications SET is_sent=1 WHERE recipient_id=:s AND is_sent=0"),
+        {"s": staff_id},
     )
-    con.commit()
-    con.close()
+    db.commit()
     return JSONResponse({"status": "ok"})

@@ -2,22 +2,23 @@
 customer_memo_router.py
 顧客メモ機能: 病院名・医師名・メモ・検索
 """
-import os
-from fastapi import APIRouter, Request, Form, HTTPException
+from datetime import datetime
+from fastapi import APIRouter, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-import sqlite3
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from database import get_db
 
 TEMPLATES = Jinja2Templates(directory="templates")
-router    = APIRouter(prefix="/customer-memos", tags=["customer_memos"])
-DB_PATH   = os.path.join(os.path.dirname(__file__), "sales_app.db")
+router = APIRouter(prefix="/customer-memos", tags=["customer_memos"])
 
 
-def get_db():
-    con = sqlite3.connect(DB_PATH)
-    con.row_factory = sqlite3.Row
-    return con
+def _row(row):
+    return dict(row._mapping)
 
+def _rows(rows):
+    return [_row(r) for r in rows]
 
 def _staff_id(request: Request) -> int:
     staff = getattr(request.state, "staff", None)
@@ -27,26 +28,21 @@ def _staff_id(request: Request) -> int:
 
 
 @router.get("/", response_class=HTMLResponse)
-async def memo_list(request: Request, q: str = ""):
-    staff_id = _staff_id(request)
-    con = get_db()
-
+async def memo_list(request: Request, q: str = "", db: Session = Depends(get_db)):
+    _staff_id(request)
     sql = """
         SELECT cm.*, s.name AS staff_name
         FROM customer_memos cm
         LEFT JOIN staffs s ON cm.staff_id = s.id
         WHERE 1=1
     """
-    params: list = []
+    params: dict = {}
     if q:
-        sql += " AND (cm.hospital LIKE ? OR cm.doctor_name LIKE ? OR cm.memo LIKE ?)"
+        sql += " AND (cm.hospital LIKE :q1 OR cm.doctor_name LIKE :q2 OR cm.memo LIKE :q3)"
         like = f"%{q}%"
-        params += [like, like, like]
-
+        params = {"q1": like, "q2": like, "q3": like}
     sql += " ORDER BY cm.updated_at DESC"
-    memos = con.execute(sql, params).fetchall()
-    con.close()
-
+    memos = _rows(db.execute(text(sql), params).fetchall())
     return TEMPLATES.TemplateResponse(
         "customer_memos/list.html",
         {"request": request, "memos": memos, "q": q},
@@ -59,15 +55,14 @@ async def create_memo(
     hospital: str    = Form(...),
     doctor_name: str = Form(""),
     memo: str        = Form(""),
+    db: Session = Depends(get_db),
 ):
     staff_id = _staff_id(request)
-    con = get_db()
-    con.execute(
-        "INSERT INTO customer_memos (hospital, doctor_name, memo, staff_id) VALUES (?,?,?,?)",
-        (hospital, doctor_name, memo, staff_id),
+    db.execute(
+        text("INSERT INTO customer_memos (hospital, doctor_name, memo, staff_id) VALUES (:h,:d,:m,:s)"),
+        {"h": hospital, "d": doctor_name, "m": memo, "s": staff_id},
     )
-    con.commit()
-    con.close()
+    db.commit()
     return JSONResponse({"status": "ok"})
 
 
@@ -78,45 +73,40 @@ async def update_memo(
     hospital: str    = Form(...),
     doctor_name: str = Form(""),
     memo: str        = Form(""),
+    db: Session = Depends(get_db),
 ):
-    staff_id = _staff_id(request)
-    con = get_db()
-    con.execute(
-        """
-        UPDATE customer_memos
-        SET hospital=?, doctor_name=?, memo=?,
-            updated_at=datetime('now','localtime')
-        WHERE id=?
-        """,
-        (hospital, doctor_name, memo, memo_id),
+    _staff_id(request)
+    db.execute(
+        text("""
+            UPDATE customer_memos
+            SET hospital=:h, doctor_name=:d, memo=:m, updated_at=:t
+            WHERE id=:i
+        """),
+        {"h": hospital, "d": doctor_name, "m": memo,
+         "t": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "i": memo_id},
     )
-    con.commit()
-    con.close()
+    db.commit()
     return JSONResponse({"status": "ok"})
 
 
 @router.delete("/{memo_id}")
-async def delete_memo(request: Request, memo_id: int):
+async def delete_memo(request: Request, memo_id: int, db: Session = Depends(get_db)):
     _staff_id(request)
-    con = get_db()
-    con.execute("DELETE FROM customer_memos WHERE id=?", (memo_id,))
-    con.commit()
-    con.close()
+    db.execute(text("DELETE FROM customer_memos WHERE id=:i"), {"i": memo_id})
+    db.commit()
     return JSONResponse({"status": "ok"})
 
 
 @router.get("/json")
-async def memo_list_json(request: Request, q: str = ""):
+async def memo_list_json(request: Request, q: str = "", db: Session = Depends(get_db)):
     """ダッシュボード埋め込み用 JSON API"""
-    staff_id = _staff_id(request)
-    con = get_db()
+    _staff_id(request)
     sql = "SELECT * FROM customer_memos WHERE 1=1"
-    params: list = []
+    params: dict = {}
     if q:
-        sql += " AND (hospital LIKE ? OR doctor_name LIKE ? OR memo LIKE ?)"
+        sql += " AND (hospital LIKE :q1 OR doctor_name LIKE :q2 OR memo LIKE :q3)"
         like = f"%{q}%"
-        params += [like, like, like]
+        params = {"q1": like, "q2": like, "q3": like}
     sql += " ORDER BY updated_at DESC LIMIT 20"
-    rows = [dict(r) for r in con.execute(sql, params).fetchall()]
-    con.close()
+    rows = _rows(db.execute(text(sql), params).fetchall())
     return JSONResponse(rows)
