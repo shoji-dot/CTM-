@@ -220,9 +220,15 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
     alerts = crud.get_alerts(db)
     recent_quotes = crud.get_quotes(db)[:5]
-    recent_shipments = crud.get_shipments(db, status="shipped")[:5]
-    customers_count = len(crud.get_customers(db))
-    products_count = len(crud.get_products(db))
+    from models import DemoLoan
+    import datetime as _dt
+    today = _dt.date.today()
+    overdue_loans = (
+        db.query(DemoLoan)
+        .filter(DemoLoan.due_date < today, DemoLoan.status == "on_loan")
+        .all()
+    )
+    overdue_loans_count = len(overdue_loans)
     threshold = datetime.utcnow() + timedelta(hours=9) - timedelta(minutes=5)
     all_staffs = db.query(Staff).filter(Staff.is_active == True).all()
     online_staffs = [s for s in all_staffs if s.last_active_at and s.last_active_at >= threshold]
@@ -325,9 +331,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "current": current,
         "alerts": alerts,
         "recent_quotes": recent_quotes,
-        "recent_shipments": recent_shipments,
-        "customers_count": customers_count,
-        "products_count": products_count,
+        "overdue_loans_count": overdue_loans_count,
         "online_staffs": online_staffs_data,
         "all_staffs": all_staffs_data,
         "now": now,

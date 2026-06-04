@@ -215,25 +215,15 @@
 
 <!-- 統計カード -->
 <div class="stats-grid">
-  <a href="/customers" class="stat-card">
-    <div class="stat-label">顧客数</div>
-    <div class="stat-value">{{ customers_count }}</div>
-    <div class="stat-link">一覧を見る →</div>
-  </a>
-  <a href="/products" class="stat-card">
-    <div class="stat-label">商品数</div>
-    <div class="stat-value">{{ products_count }}</div>
-    <div class="stat-link">一覧を見る →</div>
-  </a>
   <a href="/inventory" class="stat-card {% if alerts %}alert-card{% endif %}">
     <div class="stat-label">在庫アラート</div>
     <div class="stat-value">{{ alerts | length }}</div>
     <div class="stat-link">在庫を確認 →</div>
   </a>
-  <a href="/shipments" class="stat-card">
-    <div class="stat-label">出荷中</div>
-    <div class="stat-value">{{ recent_shipments | length }}</div>
-    <div class="stat-link">一覧を見る →</div>
+  <a href="/demo" class="stat-card {% if overdue_loans_count %}alert-card{% endif %}">
+    <div class="stat-label">貸出返却期限超過</div>
+    <div class="stat-value">{{ overdue_loans_count }}</div>
+    <div class="stat-link">デモ器一覧 →</div>
   </a>
   <a href="/tasks/" class="stat-card">
     <div class="stat-label">自分のタスク</div>
