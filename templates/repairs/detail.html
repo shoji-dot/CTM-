@@ -91,6 +91,9 @@
       <tr><th>顧客向け見積</th><td>
         {% if repair.quote_id %}
           <a href="/quotes/{{ repair.quote_id }}" class="link">見積を開く →</a>
+        {% elif repair.status in ["quote_submitted","repair_ordered","repair_completed","closed"] and repair.maker_response == "paid" %}
+          <a href="/quotes/new?repair_id={{ repair.id }}&customer_id={{ repair.customer_id }}&end_user_id={{ repair.end_user_id or '' }}&product_id={{ repair.product_id }}&amount={{ repair.maker_quote_amount or '' }}&repair_number={{ repair.repair_number }}"
+             class="btn btn-sm btn-primary">＋ 見積を作成</a>
         {% else %}―{% endif %}
       </td></tr>
       <tr><th>修理発注日</th><td>{{ repair.repair_ordered_date or "―" }}</td></tr>

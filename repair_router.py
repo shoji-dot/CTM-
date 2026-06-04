@@ -6,8 +6,6 @@ from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 import company_config
-from database import SessionLocal
-import crud
 
 TEMPLATES = Jinja2Templates(directory="templates")
 router = APIRouter(prefix="/repairs", tags=["repairs"])
@@ -272,29 +270,7 @@ async def advance_status(
                       maker_quote_amount=_f(maker_quote_amount), maker_response_note=_d(maker_response_note))
     elif next_st == "quote_submitted":
         fields["quote_submitted_date"] = _d(quote_submitted_date)
-        # 有償修理の場合のみ見積を自動作成
-        if repair.get("maker_response") == "paid" and repair.get("maker_quote_amount") and not repair.get("quote_id"):
-            db = SessionLocal()
-            try:
-                from datetime import date as _date
-                valid_until = (_date.today() + timedelta(days=30)).isoformat()
-                q = crud.create_quote(
-                    db,
-                    customer_id=repair["customer_id"],
-                    end_user_id=repair.get("end_user_id"),
-                    valid_until=_date.fromisoformat(valid_until),
-                    notes=f"修理費用（修理番号: {repair['repair_number']}）",
-                    items=[{
-                        "product_id": repair["product_id"],
-                        "quantity": 1,
-                        "unit_price": repair["maker_quote_amount"],
-                        "discount_rate": 1.0,
-                    }],
-                    created_by_id=staff.get("id"),
-                )
-                fields["quote_id"] = q.id
-            finally:
-                db.close()
+        # 見積は手動作成（詳細画面のボタンから /quotes/new へ誘導）
     elif next_st == "repair_ordered":
         fields["repair_ordered_date"] = _d(repair_ordered_date)
     elif next_st == "repair_completed":

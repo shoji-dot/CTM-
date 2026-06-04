@@ -19,11 +19,29 @@ def list_quotes(request: Request, status: str = "", db: Session = Depends(get_db
 
 
 @router.get("/quotes/new", response_class=HTMLResponse)
-def new_quote_form(request: Request, db: Session = Depends(get_db)):
+def new_quote_form(
+    request: Request,
+    db: Session = Depends(get_db),
+    repair_id: str = "",
+    customer_id: str = "",
+    end_user_id: str = "",
+    product_id: str = "",
+    amount: str = "",
+    repair_number: str = "",
+):
     customers = crud.get_customers(db)
     products = crud.get_products(db)
+    # 修理案件からの引き渡しデータ
+    prefill = {
+        "repair_id": repair_id,
+        "customer_id": int(customer_id) if customer_id else None,
+        "end_user_id": int(end_user_id) if end_user_id else None,
+        "product_id": int(product_id) if product_id else None,
+        "amount": float(amount) if amount else None,
+        "repair_number": repair_number,
+    }
     return templates.TemplateResponse("quotes/form.html", {
-        "request": request, "customers": customers, "products": products
+        "request": request, "customers": customers, "products": products, "prefill": prefill,
     })
 
 
@@ -34,16 +52,34 @@ async def create_quote(request: Request, db: Session = Depends(get_db)):
     valid_until_str = form_data.get("valid_until", "")
     valid_until = date.fromisoformat(valid_until_str) if valid_until_str else None
     notes = form_data.get("notes", "")
+    repair_id = form_data.get("repair_id", "")
 
     product_ids = form_data.getlist("product_id[]")
     quantities = form_data.getlist("quantity[]")
+    unit_prices = form_data.getlist("unit_price[]")
 
     items = []
-    for pid, qty in zip(product_ids, quantities):
+    for i, (pid, qty) in enumerate(zip(product_ids, quantities)):
         if pid and qty:
-            items.append({"product_id": int(pid), "quantity": int(qty)})
+            item = {"product_id": int(pid), "quantity": int(qty)}
+            if i < len(unit_prices) and unit_prices[i]:
+                item["unit_price"] = float(unit_prices[i])
+            items.append(item)
 
-    crud.create_quote(db, customer_id=customer_id, valid_until=valid_until, notes=notes, items=items)
+    staff = getattr(request.state, "staff", None)
+    created_by_id = staff["id"] if staff else None
+    q = crud.create_quote(db, customer_id=customer_id, valid_until=valid_until, notes=notes, items=items, created_by_id=created_by_id)
+
+    # 修理案件と紐付け
+    if repair_id:
+        import sqlite3 as _sq, os as _os
+        _db_path = _os.path.join(_os.path.dirname(__file__), "sales_app.db")
+        con = _sq.connect(_db_path, timeout=30)
+        con.execute("UPDATE repairs SET quote_id=? WHERE id=?", (q.id, int(repair_id)))
+        con.commit()
+        con.close()
+        return RedirectResponse(f"/repairs/{repair_id}", status_code=303)
+
     return RedirectResponse("/quotes", status_code=303)
 
 
