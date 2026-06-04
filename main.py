@@ -320,7 +320,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     recent_notifs = [dict(r._mapping) for r in db.execute(_sa_text(
         """SELECT id, message, link, created_at, is_sent
            FROM notifications
-           WHERE recipient_id = :uid AND is_sent = 0
+           WHERE recipient_id = :uid AND is_sent = FALSE
            ORDER BY created_at DESC LIMIT 5"""
     ), {"uid": current["id"]}).fetchall()]
 
@@ -348,4 +348,16 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "recent_quotes": recent_quotes,
         "overdue_loans_count": overdue_loans_count,
         "online_staffs": online_staffs_data,
-        "all_staffs": all_
+        "all_staffs": all_staffs_data,
+        "now": now,
+        "my_tasks": my_tasks,
+        "my_task_count": my_task_count,
+        "my_approvals": my_approvals,
+        "my_approval_count": my_approval_count,
+        "announcements": announcements,
+        "fav_materials": fav_materials,
+        "recent_notifs": recent_notifs,
+        "unread_notif_count": unread_notif_count,
+        "recent_memos": recent_memos,
+        "overdue_repairs_count": overdue_repairs_count,
+    })
