@@ -225,6 +225,11 @@
     <div class="stat-value">{{ overdue_loans_count }}</div>
     <div class="stat-link">デモ器一覧 →</div>
   </a>
+  <a href="/repairs/?status=" class="stat-card {% if overdue_repairs_count %}alert-card{% endif %}">
+    <div class="stat-label">修理工程期限超過</div>
+    <div class="stat-value">{{ overdue_repairs_count }}</div>
+    <div class="stat-link">修理一覧 →</div>
+  </a>
   <a href="/tasks/" class="stat-card">
     <div class="stat-label">自分のタスク</div>
     <div class="stat-value">{{ my_task_count }}</div>
@@ -504,3 +509,4 @@ async function readAllNotifs() {
 }
 </script>
 {% endblock %}
+                                                                                                                                                                                                                                                                                                                                                            

@@ -29,13 +29,17 @@
         <th>商品</th>
         <th>シリアル番号</th>
         <th>ステータス</th>
+        <th>工程期限</th>
         <th></th>
       </tr>
     </thead>
     <tbody>
       {% for r in repairs %}
-      <tr>
-        <td class="mono"><a href="/repairs/{{ r.id }}" class="link">{{ r.repair_number }}</a></td>
+      <tr {% if r.is_overdue %}style="background:rgba(239,68,68,0.06);"{% endif %}>
+        <td class="mono">
+          <a href="/repairs/{{ r.id }}" class="link">{{ r.repair_number }}</a>
+          {% if r.is_overdue %}<span class="badge" style="background:#ef4444;color:#fff;margin-left:4px;">期限超過</span>{% endif %}
+        </td>
         <td class="mono text-sm">{{ r.received_date }}</td>
         <td>{{ r.customer_name }}</td>
         <td>{{ r.end_user_name or "―" }}</td>
@@ -44,10 +48,15 @@
         <td>
           <span class="badge badge-repair-{{ r.status }}">{{ status_labels[r.status] }}</span>
         </td>
+        <td class="mono text-sm">
+          {% if r.step_deadline and r.status != 'closed' %}
+            <span {% if r.is_overdue %}style="color:#ef4444;font-weight:700;"{% endif %}>{{ r.step_deadline }}</span>
+          {% else %}―{% endif %}
+        </td>
         <td><a href="/repairs/{{ r.id }}" class="btn btn-sm btn-ghost">詳細</a></td>
       </tr>
       {% else %}
-      <tr><td colspan="8" class="empty">修理受付データがありません</td></tr>
+      <tr><td colspan="9" class="empty">修理受付データがありません</td></tr>
       {% endfor %}
     </tbody>
   </table>

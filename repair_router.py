@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -88,7 +88,15 @@ async def repair_list(request: Request, status: str = "", q: str = ""):
         like = f"%{q}%"
         params += [like, like, like, like, like]
     sql += " ORDER BY r.id DESC"
-    repairs = [dict(r) for r in con.execute(sql, params).fetchall()]
+    today = date.today().isoformat()
+    repairs = []
+    for r in con.execute(sql, params).fetchall():
+        d = dict(r)
+        d["is_overdue"] = (
+            d.get("step_deadline") and d["step_deadline"] < today
+            and d["status"] != "closed"
+        )
+        repairs.append(d)
     con.close()
     return TEMPLATES.TemplateResponse("repairs/list.html", {
         "request": request,
@@ -96,6 +104,7 @@ async def repair_list(request: Request, status: str = "", q: str = ""):
         "status": status,
         "q": q,
         "status_labels": STATUS_LABELS,
+        "today": today,
     })
 
 
@@ -191,6 +200,11 @@ async def repair_detail(repair_id: int, request: Request):
         raise HTTPException(404)
     repair = dict(row)
     con.close()
+    today = date.today().isoformat()
+    repair["is_overdue"] = (
+        repair.get("step_deadline") and repair["step_deadline"] < today
+        and repair["status"] != "closed"
+    )
     next_status = NEXT_STATUS.get(repair["status"])
     return TEMPLATES.TemplateResponse("repairs/detail.html", {
         "request": request,
@@ -198,6 +212,7 @@ async def repair_detail(repair_id: int, request: Request):
         "status_labels": STATUS_LABELS,
         "next_status": next_status,
         "next_label": STATUS_LABELS.get(next_status, ""),
+        "today": today,
     })
 
 
@@ -234,7 +249,8 @@ async def advance_status(
         con.close()
         return RedirectResponse(f"/repairs/{repair_id}", status_code=303)
 
-    fields = {"status": next_st, "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    deadline = (date.today() + timedelta(days=14)).isoformat()
+    fields = {"status": next_st, "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "step_deadline": deadline}
     def _d(v): return v if v else None
     def _f(v): return float(v) if v else None
 
@@ -254,11 +270,30 @@ async def advance_status(
                       delivery_type=_d(delivery_type), delivery_address=_d(delivery_address))
     elif next_st == "closed":
         fields.update(replacement_returned_date=_d(replacement_returned_date), closed_date=_d(closed_date))
+        fields["step_deadline"] = None
     if notes:
         fields["notes"] = notes
 
     set_clause = ", ".join(f"{k}=?" for k in fields)
     con.execute(f"UPDATE repairs SET {set_clause} WHERE id=?", (*fields.values(), repair_id))
+    con.commit()
+    con.close()
+    return RedirectResponse(f"/repairs/{repair_id}", status_code=303)
+
+
+# ── 期限変更 ─────────────────────────────────────────
+@router.post("/{repair_id}/set-deadline")
+async def set_deadline(
+    repair_id: int,
+    request: Request,
+    step_deadline: str = Form(...),
+):
+    _staff(request)
+    con = get_db()
+    con.execute(
+        "UPDATE repairs SET step_deadline=?, updated_at=? WHERE id=?",
+        (step_deadline or None, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), repair_id)
+    )
     con.commit()
     con.close()
     return RedirectResponse(f"/repairs/{repair_id}", status_code=303)

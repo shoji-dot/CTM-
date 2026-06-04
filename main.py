@@ -324,6 +324,11 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
            ORDER BY cm.updated_at DESC LIMIT 5""",
         (current["id"],)).fetchall()]
 
+    overdue_repairs_count = conn.execute(
+        "SELECT COUNT(*) FROM repairs WHERE step_deadline < ? AND status != 'closed'",
+        (today.isoformat(),)
+    ).fetchone()[0]
+
     conn.close()
 
     return templates.TemplateResponse("dashboard.html", {
@@ -344,4 +349,5 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "recent_notifs": recent_notifs,
         "unread_notif_count": unread_notif_count,
         "recent_memos": recent_memos,
+        "overdue_repairs_count": overdue_repairs_count,
     })

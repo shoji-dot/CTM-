@@ -33,7 +33,15 @@
     <h2 class="detail-card-title">基本情報</h2>
     <table class="detail-table">
       <tr><th>修理番号</th><td class="mono">{{ repair.repair_number }}</td></tr>
-      <tr><th>ステータス</th><td><span class="badge badge-repair-{{ repair.status }}">{{ status_labels[repair.status] }}</span></td></tr>
+      <tr><th>ステータス</th><td>
+        <span class="badge badge-repair-{{ repair.status }}">{{ status_labels[repair.status] }}</span>
+        {% if repair.is_overdue %}<span class="badge" style="background:#ef4444;color:#fff;margin-left:6px;">⚠ 期限超過</span>{% endif %}
+      </td></tr>
+      <tr><th>工程期限</th><td>
+        {% if repair.step_deadline and repair.status != 'closed' %}
+          <span {% if repair.is_overdue %}style="color:#ef4444;font-weight:700;"{% endif %}>{{ repair.step_deadline }}</span>
+        {% else %}―{% endif %}
+      </td></tr>
       <tr><th>受付日</th><td>{{ repair.received_date }}</td></tr>
       <tr><th>顧客</th><td>{{ repair.customer_name }}</td></tr>
       <tr><th>エンドユーザー</th><td>{{ repair.end_user_name or "―" }}</td></tr>
@@ -80,6 +88,20 @@
     </table>
   </div>
 </div>
+
+<!-- 工程期限変更 -->
+{% if repair.status != 'closed' %}
+<div class="detail-card" style="margin-top:16px;">
+  <h2 class="detail-card-title">工程期限の変更</h2>
+  <form method="post" action="/repairs/{{ repair.id }}/set-deadline" style="display:flex;align-items:flex-end;gap:12px;">
+    <div class="form-group" style="margin:0;">
+      <label class="label">期限日</label>
+      <input type="date" name="step_deadline" class="input" value="{{ repair.step_deadline or '' }}" style="width:160px;">
+    </div>
+    <button type="submit" class="btn btn-ghost">更新</button>
+  </form>
+</div>
+{% endif %}
 
 <!-- 次のアクション -->
 {% if next_status %}
