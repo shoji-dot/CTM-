@@ -12,10 +12,10 @@ templates = Jinja2Templates(directory="templates")
 
 
 @router.get("/products", response_class=HTMLResponse)
-def list_products(request: Request, search: str = "", category: str = "", db: Session = Depends(get_db)):
-    products = crud.get_products(db, search=search, category=category)
+def list_products(request: Request, search: str = "", maker: str = "", category: str = "", db: Session = Depends(get_db)):
+    products = crud.get_products(db, search=search, maker=maker, category=category)
     return templates.TemplateResponse("products/list.html", {
-        "request": request, "products": products, "search": search, "category": category
+        "request": request, "products": products, "search": search, "maker": maker, "category": category
     })
 
 

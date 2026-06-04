@@ -36,6 +36,7 @@ function submitCsv(input) {
 <div class="filter-bar">
   <form method="get" class="filter-form">
     <input name="search" value="{{ search }}" placeholder="商品名で検索..." class="input">
+    <input name="maker" value="{{ maker }}" placeholder="メーカー名で検索..." class="input">
     <select name="category" class="select">
       <option value="">すべて</option>
       <option value="medical" {% if category == "medical" %}selected{% endif %}>医療機器</option>

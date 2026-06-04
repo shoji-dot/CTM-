@@ -56,10 +56,12 @@ def delete_customer(db: Session, customer_id: int):
 
 
 # ── Products ───────────────────────────────────────────────
-def get_products(db: Session, search: str = "", category: str = ""):
+def get_products(db: Session, search: str = "", category: str = "", maker: str = ""):
     q = db.query(Product)
     if search:
         q = q.filter(Product.name.contains(search))
+    if maker:
+        q = q.filter(Product.maker.contains(maker))
     if category:
         q = q.filter(Product.category == category)
     return q.order_by(Product.id.desc()).all()
