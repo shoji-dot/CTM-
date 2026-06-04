@@ -36,6 +36,8 @@ def _run_migrations():
     with engine.connect() as conn:
         for stmt in [
             "ALTER TABLE products ADD COLUMN alert_enabled BOOLEAN NOT NULL DEFAULT TRUE",
+            "ALTER TABLE staffs ADD COLUMN position VARCHAR(100)",
+            "ALTER TABLE staffs ADD COLUMN approval_level INTEGER DEFAULT 0",
         ]:
             try:
                 conn.execute(text(stmt))

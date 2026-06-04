@@ -11,7 +11,29 @@ from collections import defaultdict
 
 from database import get_db
 from models import DemoUnit, DemoLoan, RepairRecord, Product, Customer
-from utils.mail import send_email
+
+import smtplib, os
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+def send_email(to_list: list[str], subject: str, html_body: str) -> bool:
+    """SMTPメール送信（環境変数設定時のみ実際に送信）"""
+    smtp_host = os.getenv("SMTP_HOST", "")
+    smtp_user = os.getenv("SMTP_USER", "")
+    smtp_pass = os.getenv("SMTP_PASS", "")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    if not smtp_host or not smtp_user:
+        raise RuntimeError("SMTP設定が未設定です（環境変数 SMTP_HOST / SMTP_USER / SMTP_PASS を設定してください）")
+    msg = MIMEMultipart("alternative")
+    msg["From"] = smtp_user
+    msg["To"]   = ", ".join(to_list)
+    msg["Subject"] = subject
+    msg.attach(MIMEText(html_body, "html", "utf-8"))
+    with smtplib.SMTP(smtp_host, smtp_port) as s:
+        s.starttls()
+        s.login(smtp_user, smtp_pass)
+        s.send_message(msg)
+    return True
 
 router = APIRouter(prefix="/demo", tags=["demo"])
 templates = Jinja2Templates(directory="templates")

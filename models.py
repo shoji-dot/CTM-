@@ -19,6 +19,8 @@ class Staff(Base):
     is_active = Column(Boolean, default=True)
     last_active_at = Column(DateTime, nullable=True)
     last_active_page = Column(String(200), nullable=True)
+    position = Column(String(100), nullable=True)
+    approval_level = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.now)
 
 

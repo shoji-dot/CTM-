@@ -2,16 +2,7 @@ from datetime import datetime, date
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, aliased, joinedload
 from models import Customer, Product, Inventory, InventoryHistory, Quote, QuoteItem, Shipment, DemoUnit
-import sqlite3 as _sqlite3
-import os as _os
-
-_DB_PATH = _os.path.join(_os.path.dirname(__file__), "sales_app.db")
-
-def _raw_db():
-    conn = _sqlite3.connect(_DB_PATH, timeout=30)
-    conn.row_factory = _sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    return conn
+from sqlalchemy import text as _sa_text
 
 def _now_str():
     return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -260,55 +251,54 @@ def create_quote(db: Session, customer_id: int, valid_until: date, notes: str, i
     # ── 承認フローに自動登録 ──────────────────────────────
     if created_by_id:
         try:
-            conn = _raw_db()
-            dt_row = conn.execute(
-                "SELECT id FROM document_types WHERE name='見積' AND is_active=1 LIMIT 1"
+            dt_row = db.execute(
+                _sa_text("SELECT id FROM document_types WHERE name='見積' AND is_active=1 LIMIT 1")
             ).fetchone()
             if dt_row:
-                dt_id = dt_row['id']
-                flow = conn.execute(
-                    "SELECT * FROM approval_flows WHERE document_type_id=? AND is_active=1 LIMIT 1",
-                    (dt_id,)
+                dt_id = dt_row[0]
+                flow = db.execute(
+                    _sa_text("SELECT id FROM approval_flows WHERE document_type_id=:t AND is_active=1 LIMIT 1"),
+                    {"t": dt_id}
                 ).fetchone()
                 if flow:
-                    # documents レコード作成
-                    cur = conn.execute("""
-                        INSERT INTO documents
-                          (title, document_type_id, file_path, file_name, file_size, mime_type, uploaded_by, status)
-                        VALUES (?,?,?,?,?,?,?,'draft')
-                    """, (
-                        f"見積書 {quote.quote_number}",
-                        dt_id, '', quote.quote_number, 0, 'application/quote', created_by_id
-                    ))
-                    doc_id = cur.lastrowid
+                    flow_id = flow[0]
+                    result = db.execute(
+                        _sa_text("""
+                            INSERT INTO documents
+                              (title, document_type_id, file_path, file_name, file_size, mime_type, uploaded_by, status)
+                            VALUES (:title,:dtype,'', :fname, 0,'application/quote',:uploader,'draft')
+                            RETURNING id
+                        """),
+                        {"title": f"見積書 {quote.quote_number}", "dtype": dt_id,
+                         "fname": quote.quote_number, "uploader": created_by_id}
+                    )
+                    doc_id = result.scalar()
 
-                    # 申請状態に遷移
-                    steps = conn.execute(
-                        "SELECT * FROM approval_steps WHERE flow_id=? ORDER BY step_order",
-                        (flow['id'],)
+                    steps = db.execute(
+                        _sa_text("SELECT id, step_order, approver_id FROM approval_steps WHERE flow_id=:f ORDER BY step_order"),
+                        {"f": flow_id}
                     ).fetchall()
                     if steps:
-                        conn.execute("""
-                            UPDATE documents SET status='in_review', current_step=1, updated_at=? WHERE id=?
-                        """, (_now_str(), doc_id))
-                        conn.execute("""
-                            INSERT INTO approval_logs (document_id, step_order, approver_id, action, comment)
-                            VALUES (?,0,?,'submitted','見積作成により自動申請')
-                        """, (doc_id, created_by_id))
-                        # 最初の承認者に通知
+                        db.execute(
+                            _sa_text("UPDATE documents SET status='in_review', current_step=1, updated_at=:t WHERE id=:i"),
+                            {"t": _now_str(), "i": doc_id}
+                        )
+                        db.execute(
+                            _sa_text("""
+                                INSERT INTO approval_logs (document_id, step_order, approver_id, action, comment)
+                                VALUES (:d,0,:a,'submitted','見積作成により自動申請')
+                            """),
+                            {"d": doc_id, "a": created_by_id}
+                        )
                         first = steps[0]
-                        if first['approver_id']:
-                            conn.execute(
-                                "INSERT INTO notifications (document_id, recipient_id, type) VALUES (?,?,?)",
-                                (doc_id, first['approver_id'], 'approval_request')
+                        if first[2]:  # approver_id
+                            db.execute(
+                                _sa_text("INSERT INTO notifications (document_id, recipient_id, type) VALUES (:d,:r,'approval_request')"),
+                                {"d": doc_id, "r": first[2]}
                             )
-
-                    conn.commit()
-
-                    # quote に approval_doc_id を保存
+                    db.commit()
                     quote.approval_doc_id = doc_id
                     db.commit()
-            conn.close()
         except Exception as e:
             print(f"[warn] 承認フロー自動登録に失敗: {e}")
 
@@ -464,6 +454,6 @@ def search_demo_units(db: Session, q: str = "", product_id: int = None):
         query = query.filter(or_(
             Product.name.ilike(f"%{q}%"),
             DemoUnit.serial_number.ilike(f"%{q}%"),
-            DemoUnit.management_number.ilike(f"%{q}%"),
+            DemoUnit.unit_code.ilike(f"%{q}%"),
         ))
     return query.order_by(DemoUnit.id.desc()).all()
