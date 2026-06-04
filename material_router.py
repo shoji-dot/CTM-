@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Redirect
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, text as _sa_text
-from database import SessionLocal
+from database import SessionLocal, get_db
 from models import (
     Material, MaterialCategory, MaterialTag, MaterialTagRelation,
     MaterialVersion, Favorite
@@ -64,9 +64,6 @@ def _dropbox_get_link(dropbox_path: str) -> str:
 def _is_dropbox_path(path: str) -> bool:
     return path.startswith("dropbox:")
 
-
-def get_db() -> Session:
-    return SessionLocal()
 
 
 def _staff_id(request):

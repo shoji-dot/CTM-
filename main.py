@@ -33,17 +33,25 @@ def _run_migrations():
     from sqlalchemy import text
     is_pg = "postgresql" in str(engine.url)
     id_col = "id SERIAL PRIMARY KEY" if is_pg else "id INTEGER PRIMARY KEY AUTOINCREMENT"
-    with engine.connect() as conn:
-        for stmt in [
+    if is_pg:
+        stmts = [
+            "ALTER TABLE products ADD COLUMN IF NOT EXISTS alert_enabled BOOLEAN NOT NULL DEFAULT TRUE",
+            "ALTER TABLE staffs ADD COLUMN IF NOT EXISTS position VARCHAR(100)",
+            "ALTER TABLE staffs ADD COLUMN IF NOT EXISTS approval_level INTEGER DEFAULT 0",
+        ]
+    else:
+        stmts = [
             "ALTER TABLE products ADD COLUMN alert_enabled BOOLEAN NOT NULL DEFAULT TRUE",
             "ALTER TABLE staffs ADD COLUMN position VARCHAR(100)",
             "ALTER TABLE staffs ADD COLUMN approval_level INTEGER DEFAULT 0",
-        ]:
+        ]
+    with engine.connect() as conn:
+        for stmt in stmts:
             try:
                 conn.execute(text(stmt))
                 conn.commit()
             except Exception:
-                pass  # カラムが既に存在する場合はスキップ
+                pass  # SQLiteはIF NOT EXISTS非対応のためtry/exceptで対応
 
 _run_migrations()
 

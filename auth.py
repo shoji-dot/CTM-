@@ -1,10 +1,11 @@
-﻿from datetime import datetime, timedelta
+﻿import os
+from datetime import datetime, timedelta
 from passlib.context import CryptContext
 from itsdangerous import URLSafeTimedSerializer
 from sqlalchemy.orm import Session
 from models import Staff
 
-SECRET_KEY = "salescore-secret-key-2026"
+SECRET_KEY = os.getenv("SECRET_KEY", "salescore-secret-key-2026")
 SESSION_MAX_AGE = 60 * 60 * 8  # 8時間
 
 pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
