@@ -1,15 +1,15 @@
 import os
-import sqlite3
 from datetime import date, datetime, timedelta
-from pathlib import Path
-from fastapi import APIRouter, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi import APIRouter, Request, Form, HTTPException, Depends
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+from database import get_db
+from models import Repair, Customer, Product, Shipment
 import company_config
 
 TEMPLATES = Jinja2Templates(directory="templates")
 router = APIRouter(prefix="/repairs", tags=["repairs"])
-DB_PATH = os.path.join(os.path.dirname(__file__), "sales_app.db")
 
 COMPANY_INFO = {
     "name": company_config.COMPANY_NAME,
@@ -41,100 +41,75 @@ NEXT_STATUS = {
     "repair_completed":"closed",
 }
 
-def get_db():
-    con = sqlite3.connect(DB_PATH, timeout=30)
-    con.row_factory = sqlite3.Row
-    return con
-
 def _staff(request: Request):
     staff = getattr(request.state, "staff", None)
     if staff is None:
         raise HTTPException(status_code=401)
     return staff
 
-def _gen_repair_number(con):
+def _gen_repair_number(db: Session):
     prefix = f"REP-{datetime.now().strftime('%Y%m')}-"
-    row = con.execute(
-        "SELECT repair_number FROM repairs WHERE repair_number LIKE ? ORDER BY id DESC LIMIT 1",
-        (f"{prefix}%",)
-    ).fetchone()
-    seq = int(row[0].split("-")[-1]) + 1 if row else 1
+    row = db.query(Repair).filter(Repair.repair_number.like(f"{prefix}%")).order_by(Repair.id.desc()).first()
+    seq = int(row.repair_number.split("-")[-1]) + 1 if row else 1
     return f"{prefix}{seq:04d}"
 
 
-# ── 一覧 ─────────────────────────────────────────────────
+# ── 一覧 ──────────────────────────────────────────────────
 @router.get("/", response_class=HTMLResponse)
-async def repair_list(request: Request, status: str = "", q: str = ""):
+async def repair_list(request: Request, status: str = "", q: str = "", db: Session = Depends(get_db)):
     _staff(request)
-    con = get_db()
-    sql = """
-        SELECT r.*,
-               c.name  AS customer_name,
-               eu.name AS end_user_name,
-               p.name  AS product_name
-        FROM repairs r
-        LEFT JOIN customers c  ON c.id = r.customer_id
-        LEFT JOIN customers eu ON eu.id = r.end_user_id
-        LEFT JOIN products  p  ON p.id = r.product_id
-        WHERE 1=1
-    """
-    params = []
+    query = db.query(Repair)
     if status:
-        sql += " AND r.status = ?"
-        params.append(status)
+        query = query.filter(Repair.status == status)
     if q:
-        sql += """ AND (r.repair_number LIKE ? OR c.name LIKE ? OR eu.name LIKE ?
-                        OR p.name LIKE ? OR r.serial_number LIKE ?)"""
+        from sqlalchemy import or_
         like = f"%{q}%"
-        params += [like, like, like, like, like]
-    sql += " ORDER BY r.id DESC"
+        query = query.outerjoin(Repair.customer).outerjoin(Repair.product).filter(or_(
+            Repair.repair_number.ilike(like),
+            Repair.serial_number.ilike(like),
+        ))
+    repairs_raw = query.order_by(Repair.id.desc()).all()
     today = date.today().isoformat()
     repairs = []
-    for r in con.execute(sql, params).fetchall():
-        d = dict(r)
-        d["is_overdue"] = (
-            d.get("step_deadline") and d["step_deadline"] < today
-            and d["status"] != "closed"
-        )
+    for r in repairs_raw:
+        d = {c.name: getattr(r, c.name) for c in r.__table__.columns}
+        d["customer_name"]  = r.customer.name if r.customer else ""
+        d["end_user_name"]  = r.end_user.name if r.end_user else ""
+        d["product_name"]   = r.product.name if r.product else ""
+        dl = d.get("step_deadline")
+        dl_str = dl.isoformat() if dl else None
+        d["step_deadline"]  = dl_str
+        d["is_overdue"] = bool(dl_str and dl_str < today and d["status"] != "closed")
         repairs.append(d)
-    con.close()
     return TEMPLATES.TemplateResponse("repairs/list.html", {
-        "request": request,
-        "repairs": repairs,
-        "status": status,
-        "q": q,
-        "status_labels": STATUS_LABELS,
-        "today": today,
+        "request": request, "repairs": repairs,
+        "status": status, "q": q,
+        "status_labels": STATUS_LABELS, "today": today,
     })
 
 
-# ── 新規受付フォーム ────────────────────────────────────
+# ── 新規受付フォーム ───────────────────────────────────────
 @router.get("/new", response_class=HTMLResponse)
-async def new_repair_form(request: Request):
+async def new_repair_form(request: Request, db: Session = Depends(get_db)):
     _staff(request)
-    con = get_db()
-    customers = [dict(r) for r in con.execute("SELECT id, name FROM customers ORDER BY name").fetchall()]
-    products  = [dict(r) for r in con.execute("SELECT id, name FROM products ORDER BY name").fetchall()]
-    # 修理代替品として使える出荷一覧（種別=repair, 状態=shipped）
-    rep_shipments = [dict(r) for r in con.execute("""
-        SELECT s.id, s.shipment_number, s.serial_number, p.name AS product_name, c.name AS customer_name
-        FROM shipments s
-        JOIN products  p ON p.id = s.product_id
-        JOIN customers c ON c.id = s.customer_id
-        WHERE s.shipment_type = 'repair' AND s.status = 'shipped'
-        ORDER BY s.id DESC
-    """).fetchall()]
-    con.close()
+    customers = db.query(Customer).order_by(Customer.name).all()
+    products  = db.query(Product).order_by(Product.name).all()
+    rep_shipments = db.query(Shipment).filter(
+        Shipment.shipment_type == "repair", Shipment.status == "shipped"
+    ).order_by(Shipment.id.desc()).all()
     return TEMPLATES.TemplateResponse("repairs/form.html", {
         "request": request,
-        "customers": customers,
-        "products": products,
-        "rep_shipments": rep_shipments,
+        "customers": [{"id": c.id, "name": c.name} for c in customers],
+        "products":  [{"id": p.id, "name": p.name} for p in products],
+        "rep_shipments": [{"id": s.id, "shipment_number": s.shipment_number,
+                           "serial_number": s.serial_number,
+                           "product_name": s.product.name if s.product else "",
+                           "customer_name": s.customer.name if s.customer else ""} for s in rep_shipments],
         "today": date.today().isoformat(),
     })
 
 
-# ── 新規受付 POST ──────────────────────────────────────
+# ── 新規受付 POST ──────────────────────────────────────────
 @router.post("/new")
 async def create_repair(
     request: Request,
@@ -147,68 +122,52 @@ async def create_repair(
     received_date: str           = Form(...),
     replacement_shipment_id: str = Form(""),
     notes: str                   = Form(""),
+    db: Session                  = Depends(get_db),
 ):
     staff = _staff(request)
-    con = get_db()
-    num = _gen_repair_number(con)
-    con.execute("""
-        INSERT INTO repairs
-            (repair_number, customer_id, end_user_id, product_id,
-             serial_number, lot_number, fault_description, received_date,
-             replacement_shipment_id, notes, staff_name)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?)
-    """, (
-        num,
-        customer_id,
-        int(end_user_id) if end_user_id else None,
-        product_id,
-        serial_number or None,
-        lot_number or None,
-        fault_description,
-        received_date,
-        int(replacement_shipment_id) if replacement_shipment_id else None,
-        notes or None,
-        staff["name"],
-    ))
-    con.commit()
-    repair_id = con.execute("SELECT id FROM repairs WHERE repair_number=?", (num,)).fetchone()[0]
-    con.close()
-    return RedirectResponse(f"/repairs/{repair_id}", status_code=303)
-
-
-# ── 詳細 ──────────────────────────────────────────────
-@router.get("/{repair_id}", response_class=HTMLResponse)
-async def repair_detail(repair_id: int, request: Request):
-    _staff(request)
-    con = get_db()
-    row = con.execute("""
-        SELECT r.*,
-               c.name  AS customer_name,
-               eu.name AS end_user_name,
-               p.name  AS product_name,
-               s.shipment_number AS rep_shipment_number,
-               sp.name AS rep_product_name
-        FROM repairs r
-        LEFT JOIN customers c  ON c.id = r.customer_id
-        LEFT JOIN customers eu ON eu.id = r.end_user_id
-        LEFT JOIN products  p  ON p.id = r.product_id
-        LEFT JOIN shipments s  ON s.id = r.replacement_shipment_id
-        LEFT JOIN products  sp ON sp.id = s.product_id
-        WHERE r.id = ?
-    """, (repair_id,)).fetchone()
-    if not row:
-        raise HTTPException(404)
-    repair = dict(row)
-    con.close()
-    today = date.today().isoformat()
-    repair["is_overdue"] = (
-        repair.get("step_deadline") and repair["step_deadline"] < today
-        and repair["status"] != "closed"
+    num = _gen_repair_number(db)
+    repair = Repair(
+        repair_number=num,
+        customer_id=customer_id,
+        end_user_id=int(end_user_id) if end_user_id else None,
+        product_id=product_id,
+        serial_number=serial_number or None,
+        lot_number=lot_number or None,
+        fault_description=fault_description,
+        received_date=date.fromisoformat(received_date),
+        replacement_shipment_id=int(replacement_shipment_id) if replacement_shipment_id else None,
+        notes=notes or None,
+        staff_name=staff["name"],
     )
+    db.add(repair)
+    db.commit()
+    db.refresh(repair)
+    return RedirectResponse(f"/repairs/{repair.id}", status_code=303)
+
+
+# ── 詳細 ───────────────────────────────────────────────────
+@router.get("/{repair_id}", response_class=HTMLResponse)
+async def repair_detail(repair_id: int, request: Request, db: Session = Depends(get_db)):
+    _staff(request)
+    r = db.query(Repair).filter(Repair.id == repair_id).first()
+    if not r:
+        raise HTTPException(404)
+    today = date.today().isoformat()
+    dl = r.step_deadline
+    dl_str = dl.isoformat() if dl else None
+    repair = {c.name: getattr(r, c.name) for c in r.__table__.columns}
+    repair["customer_name"]        = r.customer.name if r.customer else ""
+    repair["end_user_name"]        = r.end_user.name if r.end_user else ""
+    repair["product_name"]         = r.product.name if r.product else ""
+    repair["step_deadline"]        = dl_str
+    repair["is_overdue"]           = bool(dl_str and dl_str < today and repair["status"] != "closed")
+    # 代替品出荷情報
+    rep_ship = db.query(Shipment).filter(Shipment.id == r.replacement_shipment_id).first() if r.replacement_shipment_id else None
+    repair["rep_shipment_number"]  = rep_ship.shipment_number if rep_ship else None
+    repair["rep_product_name"]     = rep_ship.product.name if rep_ship and rep_ship.product else None
     next_status = NEXT_STATUS.get(repair["status"])
     return TEMPLATES.TemplateResponse("repairs/detail.html", {
-        "request": request,
-        "repair": repair,
+        "request": request, "repair": repair,
         "status_labels": STATUS_LABELS,
         "next_status": next_status,
         "next_label": STATUS_LABELS.get(next_status, ""),
@@ -216,146 +175,123 @@ async def repair_detail(repair_id: int, request: Request):
     })
 
 
-# ── ステータス更新（汎用） ────────────────────────────
+# ── ステータス更新 ─────────────────────────────────────────
 @router.post("/{repair_id}/advance")
 async def advance_status(
     repair_id: int,
     request: Request,
-    inspection_date: str         = Form(""),
-    inspection_result: str       = Form(""),
-    inspector: str               = Form(""),
-    sent_to_maker_date: str      = Form(""),
-    maker_response: str          = Form(""),
-    maker_response_date: str     = Form(""),
-    maker_quote_amount: str      = Form(""),
-    maker_response_note: str     = Form(""),
-    quote_submitted_date: str    = Form(""),
-    repair_ordered_date: str     = Form(""),
-    repair_completed_date: str   = Form(""),
-    delivery_type: str           = Form(""),
-    delivery_address: str        = Form(""),
+    inspection_date: str           = Form(""),
+    inspection_result: str         = Form(""),
+    inspector: str                 = Form(""),
+    sent_to_maker_date: str        = Form(""),
+    maker_response: str            = Form(""),
+    maker_response_date: str       = Form(""),
+    maker_quote_amount: str        = Form(""),
+    maker_response_note: str       = Form(""),
+    quote_submitted_date: str      = Form(""),
+    repair_ordered_date: str       = Form(""),
+    repair_completed_date: str     = Form(""),
+    delivery_type: str             = Form(""),
+    delivery_address: str          = Form(""),
     replacement_returned_date: str = Form(""),
-    returned_serial_number: str  = Form(""),
-    closed_date: str             = Form(""),
-    notes: str                   = Form(""),
+    returned_serial_number: str    = Form(""),
+    closed_date: str               = Form(""),
+    notes: str                     = Form(""),
+    db: Session                    = Depends(get_db),
 ):
-    staff = _staff(request)
-    con = get_db()
-    row = con.execute("""
-        SELECT r.*, p.id AS pid
-        FROM repairs r
-        LEFT JOIN products p ON p.id = r.product_id
-        WHERE r.id=?
-    """, (repair_id,)).fetchone()
-    if not row:
+    _staff(request)
+    r = db.query(Repair).filter(Repair.id == repair_id).first()
+    if not r:
         raise HTTPException(404)
-    repair = dict(row)
-    current = repair["status"]
-    next_st = NEXT_STATUS.get(current)
+    next_st = NEXT_STATUS.get(r.status)
     if not next_st:
-        con.close()
         return RedirectResponse(f"/repairs/{repair_id}", status_code=303)
 
-    deadline = (date.today() + timedelta(days=14)).isoformat()
-    fields = {"status": next_st, "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "step_deadline": deadline}
-    def _d(v): return v if v else None
+    def _d(v): return date.fromisoformat(v) if v else None
     def _f(v): return float(v) if v else None
 
-    if next_st == "inspecting":
-        fields.update(inspection_date=_d(inspection_date), inspection_result=_d(inspection_result), inspector=_d(inspector))
-    elif next_st == "sent_to_maker":
-        fields["sent_to_maker_date"] = _d(sent_to_maker_date)
-    elif next_st == "maker_responded":
-        fields.update(maker_response=_d(maker_response), maker_response_date=_d(maker_response_date),
-                      maker_quote_amount=_f(maker_quote_amount), maker_response_note=_d(maker_response_note))
-    elif next_st == "quote_submitted":
-        fields["quote_submitted_date"] = _d(quote_submitted_date)
-        # 見積は手動作成（詳細画面のボタンから /quotes/new へ誘導）
-    elif next_st == "repair_ordered":
-        fields["repair_ordered_date"] = _d(repair_ordered_date)
-    elif next_st == "repair_completed":
-        fields.update(repair_completed_date=_d(repair_completed_date),
-                      delivery_type=_d(delivery_type), delivery_address=_d(delivery_address))
-    elif next_st == "closed":
-        fields.update(
-            replacement_returned_date=_d(replacement_returned_date),
-            returned_serial_number=_d(returned_serial_number),
-            closed_date=_d(closed_date),
-        )
-        fields["step_deadline"] = None
-    if notes:
-        fields["notes"] = notes
+    r.status = next_st
+    r.step_deadline = date.today() + timedelta(days=14)
 
-    set_clause = ", ".join(f"{k}=?" for k in fields)
-    con.execute(f"UPDATE repairs SET {set_clause} WHERE id=?", (*fields.values(), repair_id))
-    con.commit()
-    con.close()
+    if next_st == "inspecting":
+        r.inspection_date   = _d(inspection_date)
+        r.inspection_result = inspection_result or None
+        r.inspector         = inspector or None
+    elif next_st == "sent_to_maker":
+        r.sent_to_maker_date = _d(sent_to_maker_date)
+    elif next_st == "maker_responded":
+        r.maker_response      = maker_response or None
+        r.maker_response_date = _d(maker_response_date)
+        r.maker_quote_amount  = _f(maker_quote_amount)
+        r.maker_response_note = maker_response_note or None
+    elif next_st == "quote_submitted":
+        r.quote_submitted_date = _d(quote_submitted_date)
+    elif next_st == "repair_ordered":
+        r.repair_ordered_date = _d(repair_ordered_date)
+    elif next_st == "repair_completed":
+        r.repair_completed_date = _d(repair_completed_date)
+        r.delivery_type         = delivery_type or None
+        r.delivery_address      = delivery_address or None
+    elif next_st == "closed":
+        r.replacement_returned_date = _d(replacement_returned_date)
+        r.returned_serial_number    = returned_serial_number or None
+        r.closed_date               = _d(closed_date)
+        r.step_deadline             = None
+    if notes:
+        r.notes = notes
+
+    db.commit()
     return RedirectResponse(f"/repairs/{repair_id}", status_code=303)
 
 
-# ── 期限変更 ─────────────────────────────────────────
+# ── 期限変更 ───────────────────────────────────────────────
 @router.post("/{repair_id}/set-deadline")
 async def set_deadline(
     repair_id: int,
     request: Request,
     step_deadline: str = Form(...),
+    db: Session        = Depends(get_db),
 ):
     _staff(request)
-    con = get_db()
-    con.execute(
-        "UPDATE repairs SET step_deadline=?, updated_at=? WHERE id=?",
-        (step_deadline or None, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), repair_id)
-    )
-    con.commit()
-    con.close()
+    r = db.query(Repair).filter(Repair.id == repair_id).first()
+    if not r:
+        raise HTTPException(404)
+    r.step_deadline = date.fromisoformat(step_deadline) if step_deadline else None
+    db.commit()
     return RedirectResponse(f"/repairs/{repair_id}", status_code=303)
 
 
-# ── 発注書 印刷ビュー ────────────────────────────────
+# ── 発注書 印刷ビュー ──────────────────────────────────────
 @router.get("/{repair_id}/order-print", response_class=HTMLResponse)
-async def order_print(repair_id: int, request: Request):
+async def order_print(repair_id: int, request: Request, db: Session = Depends(get_db)):
     _staff(request)
-    con = get_db()
-    row = con.execute("""
-        SELECT r.*, c.name AS customer_name, eu.name AS end_user_name, p.name AS product_name
-        FROM repairs r
-        LEFT JOIN customers c  ON c.id = r.customer_id
-        LEFT JOIN customers eu ON eu.id = r.end_user_id
-        LEFT JOIN products  p  ON p.id = r.product_id
-        WHERE r.id = ?
-    """, (repair_id,)).fetchone()
-    if not row:
+    r = db.query(Repair).filter(Repair.id == repair_id).first()
+    if not r:
         raise HTTPException(404)
-    con.close()
+    repair = {c.name: getattr(r, c.name) for c in r.__table__.columns}
+    repair["customer_name"] = r.customer.name if r.customer else ""
+    repair["end_user_name"] = r.end_user.name if r.end_user else ""
+    repair["product_name"]  = r.product.name if r.product else ""
     return TEMPLATES.TemplateResponse("repairs/order_print.html", {
-        "request": request,
-        "repair": dict(row),
-        "company": COMPANY_INFO,
-        "today": date.today().isoformat(),
+        "request": request, "repair": repair,
+        "company": COMPANY_INFO, "today": date.today().isoformat(),
     })
 
 
-# ── 修理明細書 印刷ビュー ─────────────────────────────
+# ── 修理明細書 印刷ビュー ──────────────────────────────────
 @router.get("/{repair_id}/detail-print", response_class=HTMLResponse)
-async def detail_print(repair_id: int, request: Request):
+async def detail_print(repair_id: int, request: Request, db: Session = Depends(get_db)):
     _staff(request)
-    con = get_db()
-    row = con.execute("""
-        SELECT r.*, c.name AS customer_name, eu.name AS end_user_name, p.name AS product_name,
-               s.shipment_number AS rep_shipment_number
-        FROM repairs r
-        LEFT JOIN customers c  ON c.id = r.customer_id
-        LEFT JOIN customers eu ON eu.id = r.end_user_id
-        LEFT JOIN products  p  ON p.id = r.product_id
-        LEFT JOIN shipments s  ON s.id = r.replacement_shipment_id
-        WHERE r.id = ?
-    """, (repair_id,)).fetchone()
-    if not row:
+    r = db.query(Repair).filter(Repair.id == repair_id).first()
+    if not r:
         raise HTTPException(404)
-    con.close()
+    repair = {c.name: getattr(r, c.name) for c in r.__table__.columns}
+    repair["customer_name"] = r.customer.name if r.customer else ""
+    repair["end_user_name"] = r.end_user.name if r.end_user else ""
+    repair["product_name"]  = r.product.name if r.product else ""
+    rep_ship = db.query(Shipment).filter(Shipment.id == r.replacement_shipment_id).first() if r.replacement_shipment_id else None
+    repair["rep_shipment_number"] = rep_ship.shipment_number if rep_ship else None
     return TEMPLATES.TemplateResponse("repairs/detail_print.html", {
-        "request": request,
-        "repair": dict(row),
-        "company": COMPANY_INFO,
-        "today": date.today().isoformat(),
+        "request": request, "repair": repair,
+        "company": COMPANY_INFO, "today": date.today().isoformat(),
     })

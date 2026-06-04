@@ -257,6 +257,48 @@ class DemoLoan(Base):
     end_user  = relationship("Customer", foreign_keys=[end_user_id])
 
 
+class Repair(Base):
+    """修理受付管理"""
+    __tablename__ = "repairs"
+    id                       = Column(Integer, primary_key=True, autoincrement=True)
+    repair_number            = Column(String(50), nullable=False, unique=True)
+    customer_id              = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    end_user_id              = Column(Integer, ForeignKey("customers.id"), nullable=True)
+    product_id               = Column(Integer, ForeignKey("products.id"), nullable=False)
+    serial_number            = Column(String(100), nullable=True)
+    lot_number               = Column(String(100), nullable=True)
+    fault_description        = Column(Text, nullable=False)
+    received_date            = Column(Date, nullable=False)
+    replacement_shipment_id  = Column(Integer, nullable=True)
+    status                   = Column(String(30), nullable=False, default="received")
+    inspection_date          = Column(Date, nullable=True)
+    inspection_result        = Column(Text, nullable=True)
+    inspector                = Column(String(100), nullable=True)
+    sent_to_maker_date       = Column(Date, nullable=True)
+    maker_response           = Column(String(20), nullable=True)
+    maker_response_date      = Column(Date, nullable=True)
+    maker_quote_amount       = Column(Float, nullable=True)
+    maker_response_note      = Column(Text, nullable=True)
+    quote_id                 = Column(Integer, nullable=True)
+    quote_submitted_date     = Column(Date, nullable=True)
+    repair_ordered_date      = Column(Date, nullable=True)
+    repair_completed_date    = Column(Date, nullable=True)
+    delivery_type            = Column(String(20), nullable=True)
+    delivery_address         = Column(Text, nullable=True)
+    replacement_returned_date = Column(Date, nullable=True)
+    returned_serial_number   = Column(String(100), nullable=True)
+    closed_date              = Column(Date, nullable=True)
+    step_deadline            = Column(Date, nullable=True)
+    notes                    = Column(Text, nullable=True)
+    staff_name               = Column(String(100), nullable=True)
+    created_at               = Column(DateTime, default=datetime.now)
+    updated_at               = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    customer  = relationship("Customer", foreign_keys=[customer_id])
+    end_user  = relationship("Customer", foreign_keys=[end_user_id])
+    product   = relationship("Product")
+
+
 class RepairRecord(Base):
     """故障・修理記録 - 故障の内容と修理経緯を追跡"""
     __tablename__ = "repair_records"
