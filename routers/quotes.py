@@ -43,7 +43,7 @@ def _get_approval_context(quote, staff: dict, db: Session) -> dict:
     ctx["doc"] = doc
     if doc['status'] == 'in_review':
         flow = db.execute(
-            _sa_text("SELECT id FROM approval_flows WHERE document_type_id=:t AND is_active=1 LIMIT 1"),
+            _sa_text("SELECT id FROM approval_flows WHERE document_type_id=:t AND is_active=TRUE LIMIT 1"),
             {"t": doc['document_type_id']}
         ).fetchone()
         if flow:
@@ -151,7 +151,7 @@ def accept_quote(
     doc_id = quote.approval_doc_id
     doc = _row(db.execute(_sa_text("SELECT * FROM documents WHERE id=:i"), {"i": doc_id}).fetchone())
     flow = db.execute(
-        _sa_text("SELECT id FROM approval_flows WHERE document_type_id=:t AND is_active=1 LIMIT 1"),
+        _sa_text("SELECT id FROM approval_flows WHERE document_type_id=:t AND is_active=TRUE LIMIT 1"),
         {"t": doc['document_type_id']}
     ).fetchone()
     steps = _rows(db.execute(
@@ -244,3 +244,4 @@ def cancel_approval(
 def delete_quote(quote_id: int, db: Session = Depends(get_db)):
     crud.delete_quote(db, quote_id)
     return RedirectResponse("/quotes", status_code=303)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         

@@ -252,12 +252,12 @@ def create_quote(db: Session, customer_id: int, valid_until: date, notes: str, i
     if created_by_id:
         try:
             dt_row = db.execute(
-                _sa_text("SELECT id FROM document_types WHERE name='見積' AND is_active=1 LIMIT 1")
+                _sa_text("SELECT id FROM document_types WHERE name='見積' AND is_active=TRUE LIMIT 1")
             ).fetchone()
             if dt_row:
                 dt_id = dt_row[0]
                 flow = db.execute(
-                    _sa_text("SELECT id FROM approval_flows WHERE document_type_id=:t AND is_active=1 LIMIT 1"),
+                    _sa_text("SELECT id FROM approval_flows WHERE document_type_id=:t AND is_active=TRUE LIMIT 1"),
                     {"t": dt_id}
                 ).fetchone()
                 if flow:
@@ -457,3 +457,4 @@ def search_demo_units(db: Session, q: str = "", product_id: int = None):
             DemoUnit.unit_code.ilike(f"%{q}%"),
         ))
     return query.order_by(DemoUnit.id.desc()).all()
+                                                                                                    

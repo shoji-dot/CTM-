@@ -55,7 +55,7 @@ class DocumentTypeCreate(BaseModel):
 # ─── ヘルパー ─────────────────────────────────────────
 def get_active_flow(db: Session, document_type_id: int):
     row = db.execute(
-        text("SELECT * FROM approval_flows WHERE document_type_id=:t AND is_active=1 LIMIT 1"),
+        text("SELECT * FROM approval_flows WHERE document_type_id=:t AND is_active=TRUE LIMIT 1"),
         {"t": document_type_id}
     ).fetchone()
     return _row(row) if row else None
@@ -77,7 +77,7 @@ def create_notification(db: Session, document_id: int, recipient_id: int, ntype:
 # ─── ドキュメント種別 ─────────────────────────────────
 @router.get("/document-types")
 def list_document_types(db: Session = Depends(get_db)):
-    rows = db.execute(text("SELECT * FROM document_types WHERE is_active=1")).fetchall()
+    rows = db.execute(text("SELECT * FROM document_types WHERE is_active=TRUE")).fetchall()
     return _rows(rows)
 
 @router.post("/document-types")
@@ -96,7 +96,7 @@ def create_document_type(body: DocumentTypeCreate, db: Session = Depends(get_db)
 
 @router.delete("/document-types/{type_id}")
 def delete_document_type(type_id: int, db: Session = Depends(get_db)):
-    db.execute(text("UPDATE document_types SET is_active=0 WHERE id=:i"), {"i": type_id})
+    db.execute(text("UPDATE document_types SET is_active=FALSE WHERE id=:i"), {"i": type_id})
     db.commit()
     return {"result": "ok"}
 
@@ -164,7 +164,7 @@ def list_documents(
         query += """
             AND d.id IN (
                 SELECT doc.id FROM documents doc
-                JOIN approval_flows af ON af.document_type_id = doc.document_type_id AND af.is_active=1
+                JOIN approval_flows af ON af.document_type_id = doc.document_type_id AND af.is_active=TRUE
                 JOIN approval_steps ast ON ast.flow_id = af.id AND ast.step_order = doc.current_step
                 WHERE (ast.approver_id=:aid OR ast.approver_role=(SELECT role FROM staffs WHERE id=:aid2))
                 AND doc.status='in_review'
@@ -356,7 +356,7 @@ def list_flows(db: Session = Depends(get_db)):
             SELECT af.*, dt.name as type_name
             FROM approval_flows af
             JOIN document_types dt ON af.document_type_id = dt.id
-            WHERE af.is_active=1
+            WHERE af.is_active=TRUE
         """)
     ).fetchall()
     return _rows(rows)
@@ -409,7 +409,7 @@ def delete_step(step_id: int, db: Session = Depends(get_db)):
 
 @router.delete("/flows/{flow_id}")
 def delete_flow(flow_id: int, db: Session = Depends(get_db)):
-    db.execute(text("UPDATE approval_flows SET is_active=0 WHERE id=:i"), {"i": flow_id})
+    db.execute(text("UPDATE approval_flows SET is_active=FALSE WHERE id=:i"), {"i": flow_id})
     db.commit()
     return {"result": "ok"}
 
@@ -454,7 +454,7 @@ def approval_list_page(
         query += """
             AND d.id IN (
                 SELECT doc.id FROM documents doc
-                JOIN approval_flows af ON af.document_type_id = doc.document_type_id AND af.is_active=1
+                JOIN approval_flows af ON af.document_type_id = doc.document_type_id AND af.is_active=TRUE
                 JOIN approval_steps ast ON ast.flow_id = af.id AND ast.step_order = doc.current_step
                 WHERE (ast.approver_id=:aid OR ast.approver_role=(SELECT role FROM staffs WHERE id=:aid2))
                 AND doc.status='in_review'
@@ -476,7 +476,7 @@ def approval_list_page(
     my_rows = db.execute(
         text("""
             SELECT d.id FROM documents d
-            JOIN approval_flows af ON af.document_type_id = d.document_type_id AND af.is_active=1
+            JOIN approval_flows af ON af.document_type_id = d.document_type_id AND af.is_active=TRUE
             JOIN approval_steps ast ON ast.flow_id = af.id AND ast.step_order = d.current_step
             WHERE d.status='in_review'
             AND (ast.approver_id=:aid OR ast.approver_role=(SELECT role FROM staffs WHERE id=:aid2))
@@ -486,7 +486,7 @@ def approval_list_page(
     my_turn_ids = {r[0] for r in my_rows}
     my_pending_count = len(my_turn_ids)
 
-    document_types = _rows(db.execute(text("SELECT * FROM document_types WHERE is_active=1")).fetchall())
+    document_types = _rows(db.execute(text("SELECT * FROM document_types WHERE is_active=TRUE")).fetchall())
 
     return templates_approval.TemplateResponse("approval/list.html", {
         "request": request,
@@ -503,12 +503,12 @@ def approval_list_page(
 
 @router.get("/settings", response_class=HTMLResponse)
 def approval_settings_page(request: Request, db: Session = Depends(get_db)):
-    document_types = _rows(db.execute(text("SELECT * FROM document_types WHERE is_active=1")).fetchall())
+    document_types = _rows(db.execute(text("SELECT * FROM document_types WHERE is_active=TRUE")).fetchall())
     flows_raw = _rows(db.execute(
         text("""
             SELECT af.*, dt.name as type_name
             FROM approval_flows af JOIN document_types dt ON af.document_type_id=dt.id
-            WHERE af.is_active=1
+            WHERE af.is_active=TRUE
         """)
     ).fetchall())
     flows = []
@@ -523,7 +523,7 @@ def approval_settings_page(request: Request, db: Session = Depends(get_db)):
         ).fetchall())
         f['steps'] = steps
         flows.append(f)
-    staffs = _rows(db.execute(text("SELECT id,name,role FROM staffs WHERE is_active=1")).fetchall())
+    staffs = _rows(db.execute(text("SELECT id,name,role FROM staffs WHERE is_active=TRUE")).fetchall())
     return templates_approval.TemplateResponse("approval/settings.html", {
         "request": request,
         "document_types": document_types,
@@ -588,3 +588,4 @@ def approval_detail_page(doc_id: int, request: Request, db: Session = Depends(ge
         "is_my_turn": is_my_turn,
         "current": current,
     })
+                                                                                                                                                                                                                                  

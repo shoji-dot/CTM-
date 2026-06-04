@@ -149,7 +149,7 @@ def add_comment(task_id: int, body: CommentCreate, db: Session = Depends(get_db)
 # ─── UI ──────────────────────────────────────────────
 @router.get("/", response_class=HTMLResponse)
 def task_list_page(request: Request, db: Session = Depends(get_db)):
-    staffs = _rows(db.execute(text("SELECT id,name,role FROM staffs WHERE is_active=1")).fetchall())
+    staffs = _rows(db.execute(text("SELECT id,name,role FROM staffs WHERE is_active=TRUE")).fetchall())
     counts = {}
     for s in ['todo', 'in_progress', 'done', 'cancelled']:
         counts[s] = db.execute(
@@ -186,13 +186,8 @@ def task_detail_page(task_id: int, request: Request, db: Session = Depends(get_d
         """),
         {"i": task_id}
     ).fetchall())
-    staffs = _rows(db.execute(text("SELECT id,name,role FROM staffs WHERE is_active=1")).fetchall())
+    staffs = _rows(db.execute(text("SELECT id,name,role FROM staffs WHERE is_active=TRUE")).fetchall())
 
     return templates.TemplateResponse("tasks/detail.html", {
         "request": request,
-        "task": _row(task_row),
-        "comments": comments,
-        "staffs": staffs,
-        "current": request.state.staff,
-        "now": datetime.now().strftime('%Y-%m-%d'),
-    })
+  

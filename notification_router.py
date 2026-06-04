@@ -60,12 +60,12 @@ async def notification_list(
     sql = "SELECT * FROM notifications WHERE recipient_id=:s"
     params: dict = {"s": staff_id}
     if unread_only:
-        sql += " AND is_sent=0"
+        sql += " AND is_sent=FALSE"
     sql += " ORDER BY created_at DESC LIMIT 100"
 
     notifs = _rows(db.execute(text(sql), params).fetchall())
     unread_count = db.execute(
-        text("SELECT COUNT(*) FROM notifications WHERE recipient_id=:s AND is_sent=0"),
+        text("SELECT COUNT(*) FROM notifications WHERE recipient_id=:s AND is_sent=FALSE"),
         {"s": staff_id},
     ).scalar()
 
@@ -93,7 +93,7 @@ async def recent_notifications(request: Request, db: Session = Depends(get_db)):
         {"s": staff_id},
     ).fetchall())
     unread = db.execute(
-        text("SELECT COUNT(*) FROM notifications WHERE recipient_id=:s AND is_sent=0"),
+        text("SELECT COUNT(*) FROM notifications WHERE recipient_id=:s AND is_sent=FALSE"),
         {"s": staff_id},
     ).scalar()
     return JSONResponse({"notifications": rows, "unread_count": unread})
@@ -103,7 +103,7 @@ async def recent_notifications(request: Request, db: Session = Depends(get_db)):
 async def mark_read(request: Request, notif_id: int, db: Session = Depends(get_db)):
     staff_id = _staff_id(request)
     db.execute(
-        text("UPDATE notifications SET is_sent=1 WHERE id=:i AND recipient_id=:s"),
+        text("UPDATE notifications SET is_sent=TRUE WHERE id=:i AND recipient_id=:s"),
         {"i": notif_id, "s": staff_id},
     )
     db.commit()
@@ -114,8 +114,4 @@ async def mark_read(request: Request, notif_id: int, db: Session = Depends(get_d
 async def mark_all_read(request: Request, db: Session = Depends(get_db)):
     staff_id = _staff_id(request)
     db.execute(
-        text("UPDATE notifications SET is_sent=1 WHERE recipient_id=:s AND is_sent=0"),
-        {"s": staff_id},
-    )
-    db.commit()
-    return JSONResponse({"status": "ok"})
+        text("UPDATE notifications SET is_sent=TRUE WHERE recipient_id=:s AND is_sent

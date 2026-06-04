@@ -123,7 +123,7 @@ def process_pending_notifications():
 
             if send_email(notif['recipient_email'], subject, body):
                 db.execute(
-                    text("UPDATE notifications SET is_sent=1, sent_at=:t WHERE id=:i"),
+                    text("UPDATE notifications SET is_sent=TRUE, sent_at=:t WHERE id=:i"),
                     {"t": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "i": notif['id']}
                 )
                 sent_count += 1
@@ -144,7 +144,7 @@ def send_reminders():
             FROM documents d
             JOIN document_types dt ON d.document_type_id = dt.id
             JOIN staffs up ON d.uploaded_by = up.id
-            JOIN approval_flows af ON af.document_type_id = d.document_type_id AND af.is_active=1
+            JOIN approval_flows af ON af.document_type_id = d.document_type_id AND af.is_active=TRUE
             WHERE d.status = 'in_review'
         """)).fetchall()]
 
@@ -161,14 +161,4 @@ def send_reminders():
 
             db.execute(
                 text("INSERT INTO notifications (document_id, recipient_id, type) VALUES (:d,:r,'reminder')"),
-                {"d": doc['id'], "r": step._mapping['approver_id']}
-            )
-
-        db.commit()
-    finally:
-        db.close()
-
-    process_pending_notifications()
-
-if __name__ == '__main__':
-    process_pending_notifications()
+                {"
