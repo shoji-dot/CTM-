@@ -457,4 +457,3 @@ def search_demo_units(db: Session, q: str = "", product_id: int = None):
             DemoUnit.unit_code.ilike(f"%{q}%"),
         ))
     return query.order_by(DemoUnit.id.desc()).all()
-                                                                                                    
