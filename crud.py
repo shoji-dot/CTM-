@@ -236,7 +236,8 @@ def create_quote(db: Session, customer_id: int, valid_until: date, notes: str, i
     total = 0.0
     for item in items:
         product = db.query(Product).filter(Product.id == item["product_id"]).first()
-        price = product.unit_price if product else 0.0
+        # item に unit_price が明示されていればそちらを優先（修理費用など）
+        price = item.get("unit_price") or (product.unit_price if product else 0.0)
         qty = item["quantity"]
         discount_rate = item.get("discount_rate", 1.0)  
         subtotal = price * qty * discount_rate   
@@ -461,8 +462,8 @@ def search_demo_units(db: Session, q: str = "", product_id: int = None):
         query = query.filter(DemoUnit.product_id == product_id)
     if q:
         query = query.filter(or_(
-            DemoUnit.serial_number.ilike(f"%{q}%"),
-            DemoUnit.unit_code.ilike(f"%{q}%"),
             Product.name.ilike(f"%{q}%"),
+            DemoUnit.serial_number.ilike(f"%{q}%"),
+            DemoUnit.management_number.ilike(f"%{q}%"),
         ))
-    return query.order_by(DemoUnit.unit_code).limit(30).all()
+    return query.order_by(DemoUnit.id.desc()).all()

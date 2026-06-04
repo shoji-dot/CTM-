@@ -6,6 +6,8 @@ from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 import company_config
+from database import SessionLocal
+import crud
 
 TEMPLATES = Jinja2Templates(directory="templates")
 router = APIRouter(prefix="/repairs", tags=["repairs"])
@@ -235,15 +237,22 @@ async def advance_status(
     delivery_type: str           = Form(""),
     delivery_address: str        = Form(""),
     replacement_returned_date: str = Form(""),
+    returned_serial_number: str  = Form(""),
     closed_date: str             = Form(""),
     notes: str                   = Form(""),
 ):
-    _staff(request)
+    staff = _staff(request)
     con = get_db()
-    row = con.execute("SELECT status FROM repairs WHERE id=?", (repair_id,)).fetchone()
+    row = con.execute("""
+        SELECT r.*, p.id AS pid
+        FROM repairs r
+        LEFT JOIN products p ON p.id = r.product_id
+        WHERE r.id=?
+    """, (repair_id,)).fetchone()
     if not row:
         raise HTTPException(404)
-    current = row["status"]
+    repair = dict(row)
+    current = repair["status"]
     next_st = NEXT_STATUS.get(current)
     if not next_st:
         con.close()
@@ -263,13 +272,40 @@ async def advance_status(
                       maker_quote_amount=_f(maker_quote_amount), maker_response_note=_d(maker_response_note))
     elif next_st == "quote_submitted":
         fields["quote_submitted_date"] = _d(quote_submitted_date)
+        # 有償修理の場合のみ見積を自動作成
+        if repair.get("maker_response") == "paid" and repair.get("maker_quote_amount") and not repair.get("quote_id"):
+            db = SessionLocal()
+            try:
+                from datetime import date as _date
+                valid_until = (_date.today() + timedelta(days=30)).isoformat()
+                q = crud.create_quote(
+                    db,
+                    customer_id=repair["customer_id"],
+                    end_user_id=repair.get("end_user_id"),
+                    valid_until=_date.fromisoformat(valid_until),
+                    notes=f"修理費用（修理番号: {repair['repair_number']}）",
+                    items=[{
+                        "product_id": repair["product_id"],
+                        "quantity": 1,
+                        "unit_price": repair["maker_quote_amount"],
+                        "discount_rate": 1.0,
+                    }],
+                    created_by_id=staff.get("id"),
+                )
+                fields["quote_id"] = q.id
+            finally:
+                db.close()
     elif next_st == "repair_ordered":
         fields["repair_ordered_date"] = _d(repair_ordered_date)
     elif next_st == "repair_completed":
         fields.update(repair_completed_date=_d(repair_completed_date),
                       delivery_type=_d(delivery_type), delivery_address=_d(delivery_address))
     elif next_st == "closed":
-        fields.update(replacement_returned_date=_d(replacement_returned_date), closed_date=_d(closed_date))
+        fields.update(
+            replacement_returned_date=_d(replacement_returned_date),
+            returned_serial_number=_d(returned_serial_number),
+            closed_date=_d(closed_date),
+        )
         fields["step_deadline"] = None
     if notes:
         fields["notes"] = notes
