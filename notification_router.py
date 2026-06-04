@@ -114,4 +114,8 @@ async def mark_read(request: Request, notif_id: int, db: Session = Depends(get_d
 async def mark_all_read(request: Request, db: Session = Depends(get_db)):
     staff_id = _staff_id(request)
     db.execute(
-        text("UPDATE notifications SET is_sent=TRUE WHERE recipient_id=:s AND is_sent
+        text("UPDATE notifications SET is_sent=TRUE WHERE recipient_id=:s AND is_sent=FALSE"),
+        {"s": staff_id},
+    )
+    db.commit()
+    return JSONResponse({"status": "ok"})

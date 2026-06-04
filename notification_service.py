@@ -6,7 +6,6 @@ from datetime import datetime
 from sqlalchemy import text
 from database import SessionLocal
 
-# ─── SMTP設定（環境変数推奨） ─────────────────────────
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "your@gmail.com")
@@ -16,56 +15,22 @@ FROM_NAME = "販売管理システム"
 TEMPLATES = {
     "approval_request": {
         "subject": "【承認依頼】{doc_title}",
-        "body": """\
-{name} 様
-
-以下のドキュメントの承認をお願いします。
-
-ドキュメント名: {doc_title}
-申請者: {uploader_name}
-申請日時: {created_at}
-
-システムにログインして承認操作を行ってください。
-"""
+        "body": "{name} 様\n\n以下のドキュメントの承認をお願いします。\n\nドキュメント名: {doc_title}\n申請者: {uploader_name}\n申請日時: {created_at}\n\nシステムにログインして承認操作を行ってください。\n"
     },
     "rejected": {
         "subject": "【差し戻し】{doc_title}",
-        "body": """\
-{name} 様
-
-以下のドキュメントが差し戻されました。
-
-ドキュメント名: {doc_title}
-コメント: {comment}
-
-修正後、再申請してください。
-"""
+        "body": "{name} 様\n\n以下のドキュメントが差し戻されました。\n\nドキュメント名: {doc_title}\nコメント: {comment}\n\n修正後、再申請してください。\n"
     },
     "approved": {
         "subject": "【承認完了】{doc_title}",
-        "body": """\
-{name} 様
-
-以下のドキュメントが承認されました。
-
-ドキュメント名: {doc_title}
-承認完了日時: {approved_at}
-"""
+        "body": "{name} 様\n\n以下のドキュメントが承認されました。\n\nドキュメント名: {doc_title}\n承認完了日時: {approved_at}\n"
     },
     "reminder": {
         "subject": "【リマインド】承認待ちドキュメントがあります",
-        "body": """\
-{name} 様
-
-承認待ちのドキュメントがあります。
-
-ドキュメント名: {doc_title}
-申請日時: {created_at}
-
-システムにログインして承認操作を行ってください。
-"""
+        "body": "{name} 様\n\n承認待ちのドキュメントがあります。\n\nドキュメント名: {doc_title}\n申請日時: {created_at}\n\nシステムにログインして承認操作を行ってください。\n"
     }
 }
+
 
 def send_email(to_email: str, subject: str, body: str) -> bool:
     try:
@@ -74,7 +39,6 @@ def send_email(to_email: str, subject: str, body: str) -> bool:
         msg['To'] = to_email
         msg['Subject'] = subject
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
-
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASS)
@@ -84,11 +48,12 @@ def send_email(to_email: str, subject: str, body: str) -> bool:
         print(f"メール送信エラー: {e}")
         return False
 
+
 def _row(row):
     return dict(row._mapping)
 
+
 def process_pending_notifications():
-    """未送信通知を処理する（定期実行用）"""
     db = SessionLocal()
     try:
         pending = [_row(r) for r in db.execute(text("""
@@ -100,7 +65,7 @@ def process_pending_notifications():
             JOIN documents d ON n.document_id = d.id
             JOIN staffs s ON n.recipient_id = s.id
             JOIN staffs up ON d.uploaded_by = up.id
-            WHERE n.is_sent = 0 AND n.document_id IS NOT NULL
+            WHERE n.is_sent = FALSE AND n.document_id IS NOT NULL
         """)).fetchall()]
 
         sent_count = 0
@@ -110,37 +75,37 @@ def process_pending_notifications():
             tmpl = TEMPLATES.get(notif['type'])
             if not tmpl:
                 continue
-
             subject = tmpl['subject'].format(doc_title=notif['doc_title'])
             body = tmpl['body'].format(
                 name=notif['recipient_name'],
                 doc_title=notif['doc_title'],
-                uploader_name=notif['uploader_name'],
+                uploader_name=notif.get('uploader_name', ''),
                 created_at=notif['doc_created_at'],
-                comment=notif['doc_comment'] or '',
+                comment=notif.get('doc_comment') or '',
                 approved_at=notif['doc_updated_at'],
             )
-
             if send_email(notif['recipient_email'], subject, body):
                 db.execute(
                     text("UPDATE notifications SET is_sent=TRUE, sent_at=:t WHERE id=:i"),
                     {"t": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "i": notif['id']}
                 )
                 sent_count += 1
-
         db.commit()
         print(f"通知送信完了: {sent_count}件")
         return sent_count
+    except Exception as e:
+        db.rollback()
+        print(f"[process_pending_notifications] {e}")
+        return 0
     finally:
         db.close()
 
+
 def send_reminders():
-    """承認待ち通知のリマインド送信"""
     db = SessionLocal()
     try:
         docs = [_row(r) for r in db.execute(text("""
-            SELECT d.*, dt.name as type_name, up.name as uploader_name,
-                   af.id as flow_id
+            SELECT d.*, dt.name as type_name, up.name as uploader_name, af.id as flow_id
             FROM documents d
             JOIN document_types dt ON d.document_type_id = dt.id
             JOIN staffs up ON d.uploaded_by = up.id
@@ -158,7 +123,17 @@ def send_reminders():
 
             if not step or not step._mapping.get('approver_email'):
                 continue
-
-            db.execute(
-                text("INSERT INTO notifications (document_id, recipient_id, type) VALUES (:d,:r,'reminder')"),
-                {"
+            assignee_id = step._mapping.get('approver_id')
+            if not assignee_id:
+                continue
+            try:
+                db.execute(
+                    text("INSERT INTO notifications (document_id, recipient_id, type) VALUES (:d,:r,'reminder')"),
+                    {"d": doc["id"], "r": assignee_id},
+                )
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                print(f"[reminder] {e}")
+    finally:
+        db.close()

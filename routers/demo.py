@@ -521,32 +521,20 @@ def _build_alert_html(staff_name: str, loans: list, today: date) -> str:
         """
 
     return f"""
-    <html>
-    <body style="font-family:'Helvetica Neue',Arial,sans-serif;color:#1f2937;background:#f9fafb">
-      <div style="max-width:640px;margin:32px auto;background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:hidden">
-        <div style="background:#1d4ed8;padding:24px 32px">
-          <h2 style="margin:0;color:#fff;font-size:18px">📦 デモ器 返却期限アラート</h2>
-        </div>
-        <div style="padding:24px 32px">
-          <p style="margin-top:0">{staff_name} 様</p>
-          <p>担当されている以下のデモ器の返却期限が近づいています。<br>お客様への確認をお願いいたします。</p>
-          <table style="width:100%;border-collapse:collapse;font-size:14px">
-            <thead>
-              <tr style="background:#eff6ff;text-align:left">
-                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">管理番号</th>
-                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">商品名</th>
-                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">貸出先</th>
-                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">返却期限</th>
-                <th style="padding:10px 12px;border-bottom:2px solid #dbeafe">状態</th>
-              </tr>
-            </thead>
-            <tbody>{rows}</tbody>
-          </table>
-          <p style="margin-top:24px;font-size:13px;color:#6b7280">
-            ※ このメールは販売管理システムから自動送信されています。
-          </p>
-        </div>
+    <html><body style="font-family:sans-serif;color:#1f2937;background:#f9fafb">
+      <div style="max-width:640px;margin:32px auto;background:#fff;padding:32px">
+        <h2 style="color:#1d4ed8">demo alert</h2>
+        <p>{staff_name}</p>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr>
+            <th>管理番号</th>
+            <th>商品名</th>
+            <th>取引先</th>
+            <th>返却期限</th>
+            <th>状泵</th>
+          </tr></thead>
+          <tbody>{rows}</tbody>
+        </table>
       </div>
-    </body>
-    </html>
+    </body></html>
     """

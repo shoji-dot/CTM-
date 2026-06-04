@@ -149,82 +149,25 @@ async def csv_import(file: UploadFile = File(...), db: Session = Depends(get_db)
                     "jan_code": g(row, "jan_code") or None,
                     "approval_number": g(row, "approval_number") or None,
                     "device_class": CLASS_MAP.get(g(row, "device_class", ""), "") or None,
-                    "sales_role": ROLE_MAP.get(g(row, "sales_role", ""), "") or None,
-                    "model_spec": g(row, "model_spec") or None,
-                    "sterility": STERILITY_MAP.get(g(row, "sterility", ""), "") or None,
-                    "notes": g(row, "notes"),
+                    "sales_role": g(row, "sales_role") or None,
                 })
-                created += 1
+                success_count += 1
             except Exception as e:
-                errors.append(f"{i}行目: {e}")
-        msg = f"{created}件登録しました。"
+                errors.append(f"{i}\u884c\u76ee: {e}")
+
         if errors:
-            msg += " エラー: " + " / ".join(errors[:5])
-        return RedirectResponse(f"/products?csv_msg={msg}", status_code=303)
+            return templates.TemplateResponse("products/bulk_import.html", {
+                "request": request,
+                "errors": errors,
+                "success_count": success_count,
+            })
+        return RedirectResponse("/products", status_code=303)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
-@router.post("/products/new")
-def create_product(
-    name: str = Form(...), category: str = Form("medical"), sku: str = Form(""),
-    unit_price: float = Form(...), unit: str = Form(""), stock_alert_threshold: int = Form(10),
-    alert_enabled: str = Form(None),
-    tracking_type: str = Form("none"), maker: str = Form(""), jan_code: str = Form(""),
-    approval_number: str = Form(""), device_class: str = Form(""), sales_role: str = Form(""),
-    model_spec: str = Form(""), sterility: str = Form(""), notes: str = Form(""),
-    db: Session = Depends(get_db)
-):
-    crud.create_product(db, {
-        "name": name, "category": category, "sku": sku or None, "unit_price": unit_price,
-        "unit": unit, "stock_alert_threshold": stock_alert_threshold,
-        "alert_enabled": alert_enabled == "on",
-        "tracking_type": tracking_type,
-        "maker": maker or None, "jan_code": jan_code or None, "approval_number": approval_number or None,
-        "device_class": device_class or None, "sales_role": sales_role or None,
-        "model_spec": model_spec or None, "sterility": sterility or None, "notes": notes
+    return templates.TemplateResponse("products/bulk_import.html", {
+        "request": request,
+        "errors": [],
+        "success_count": 0,
     })
-    return RedirectResponse("/products", status_code=303)
-
-
-@router.get("/products/{product_id}", response_class=HTMLResponse)
-def detail_product(product_id: int, request: Request, db: Session = Depends(get_db)):
-    product = crud.get_product(db, product_id)
-    histories = crud.get_inventory_history(db, product_id=product_id)
-    return templates.TemplateResponse("products/detail.html", {
-        "request": request, "product": product, "histories": histories
-    })
-
-
-@router.get("/products/{product_id}/edit", response_class=HTMLResponse)
-def edit_product_form(product_id: int, request: Request, db: Session = Depends(get_db)):
-    product = crud.get_product(db, product_id)
-    return templates.TemplateResponse("products/form.html", {"request": request, "product": product})
-
-
-@router.post("/products/{product_id}/edit")
-def update_product(
-    product_id: int, name: str = Form(...), category: str = Form("medical"), sku: str = Form(""),
-    unit_price: float = Form(...), unit: str = Form(""), stock_alert_threshold: int = Form(10),
-    alert_enabled: str = Form(None),
-    tracking_type: str = Form("none"), maker: str = Form(""), jan_code: str = Form(""),
-    approval_number: str = Form(""), device_class: str = Form(""), sales_role: str = Form(""),
-    model_spec: str = Form(""), sterility: str = Form(""), notes: str = Form(""),
-    db: Session = Depends(get_db)
-):
-    crud.update_product(db, product_id, {
-        "name": name, "category": category, "sku": sku or None, "unit_price": unit_price,
-        "unit": unit, "stock_alert_threshold": stock_alert_threshold,
-        "alert_enabled": alert_enabled == "on",
-        "tracking_type": tracking_type,
-        "maker": maker or None, "jan_code": jan_code or None, "approval_number": approval_number or None,
-        "device_class": device_class or None, "sales_role": sales_role or None,
-        "model_spec": model_spec or None, "sterility": sterility or None, "notes": notes
-    })
-    return RedirectResponse(f"/products/{product_id}", status_code=303)
-
-
-@router.post("/products/{product_id}/duplicate")
-def duplicate_product(product_id: int, db: Session = Depends(get_db)):
-    new_product = crud.duplicate_product(db, product_id)
-    return RedirectResponse(f"/products/{new_product.id}/edit", status_code=303)
