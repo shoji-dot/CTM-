@@ -299,6 +299,8 @@ async def add_payment(invoice_id: int, request: Request, db: Session = Depends(g
     paid_total = sum(p.amount for p in invoice.payments) + amount
     if paid_total >= invoice.total_amount:
         invoice.status = "paid"
+    elif paid_total > 0:
+        invoice.status = "partial"
     db.commit()
     return RedirectResponse(f"/invoices/{invoice_id}", status_code=303)
 
