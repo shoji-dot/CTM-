@@ -148,7 +148,31 @@ def detail_sale(sale_id: int, request: Request, db: Session = Depends(get_db)):
 def delete_sale(sale_id: int, db: Session = Depends(get_db)):
     sale = db.query(models.Sale).filter(models.Sale.id == sale_id).first()
     if sale and sale.status == "confirmed":
+        # 関連InvoiceItemを先に取得（影響するInvoice IDを記録）
+        invoice_items = db.query(models.InvoiceItem).filter(models.InvoiceItem.sale_id == sale_id).all()
+        affected_invoice_ids = {item.invoice_id for item in invoice_items}
+        for item in invoice_items:
+            db.delete(item)
+
         db.delete(sale)
+        db.flush()
+
+        # 影響を受けたInvoiceの合計を再計算
+        for invoice_id in affected_invoice_ids:
+            invoice = db.query(models.Invoice).filter(models.Invoice.id == invoice_id).first()
+            if invoice:
+                remaining_items = db.query(models.InvoiceItem).filter(
+                    models.InvoiceItem.invoice_id == invoice_id
+                ).all()
+                remaining_sales = [
+                    db.query(models.Sale).filter(models.Sale.id == item.sale_id).first()
+                    for item in remaining_items
+                ]
+                remaining_sales = [s for s in remaining_sales if s]
+                invoice.subtotal = sum(s.subtotal for s in remaining_sales)
+                invoice.tax_amount = sum(s.tax_amount for s in remaining_sales)
+                invoice.total_amount = invoice.subtotal + invoice.tax_amount
+
         db.commit()
     return RedirectResponse("/sales", status_code=303)
 
@@ -275,12 +299,6 @@ async def add_payment(invoice_id: int, request: Request, db: Session = Depends(g
     paid_total = sum(p.amount for p in invoice.payments) + amount
     if paid_total >= invoice.total_amount:
         invoice.status = "paid"
-        # 売上ステータスも paid に更新
-        for item in invoice.items:
-            item.sale.status = "paid"
-    else:
-        invoice.status = "partial"
-
     db.commit()
     return RedirectResponse(f"/invoices/{invoice_id}", status_code=303)
 
@@ -288,9 +306,7 @@ async def add_payment(invoice_id: int, request: Request, db: Session = Depends(g
 @router.post("/invoices/{invoice_id}/delete")
 def delete_invoice(invoice_id: int, db: Session = Depends(get_db)):
     invoice = db.query(models.Invoice).filter(models.Invoice.id == invoice_id).first()
-    if invoice and invoice.status == "unpaid":
-        for item in invoice.items:
-            item.sale.status = "confirmed"
+    if invoice:
         db.delete(invoice)
         db.commit()
     return RedirectResponse("/invoices", status_code=303)

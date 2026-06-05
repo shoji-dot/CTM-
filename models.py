@@ -172,7 +172,7 @@ class Sale(Base):
     quote = relationship("Quote", foreign_keys=[quote_id])
     customer = relationship("Customer", foreign_keys=[customer_id])
     product = relationship("Product", foreign_keys=[product_id])
-    invoice_items = relationship("InvoiceItem", back_populates="sale")
+    invoice_items = relationship("InvoiceItem", back_populates="sale", cascade="all, delete-orphan")
 
 
 class Invoice(Base):
@@ -414,3 +414,17 @@ class Task(Base):
     due_date    = Column(Date, nullable=True)
     created_at  = Column(DateTime, default=datetime.now)
     updated_at  = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    assignee    = relationship("Staff", foreign_keys=[assignee_id])
+    creator     = relationship("Staff", foreign_keys=[created_by])
+    comments    = relationship("TaskComment", back_populates="task", cascade="all, delete-orphan")
+
+
+class TaskComment(Base):
+    __tablename__ = "task_comments"
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    task_id    = Column(Integer, ForeignKey("tasks.id"), nullable=False)
+    staff_id   = Column(Integer, ForeignKey("staffs.id"), nullable=True)
+    body       = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+    task       = relationship("Task", back_populates="comments")
+    author     = relationship("Staff", foreign_keys=[staff_id])
