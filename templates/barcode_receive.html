@@ -427,66 +427,86 @@ function setNextScanTarget(target) {
   showToast(`次のスキャンは「${target === 'serial' ? 'シリアル番号' : 'ロット番号'}」に入力されます`, 'info');
 }
 
+function showCameraError(msg) {
+  // トースト + オーバーレイ両方に表示（iPhoneでトーストが見えない場合の対策）
+  showToast(msg, 'error');
+  const overlay = document.getElementById('camera-overlay');
+  overlay.style.display = 'flex';
+  overlay.innerHTML = `<p style="color:#f87171;font-size:0.82rem;text-align:center;padding:8px">${msg}</p>`;
+}
+
 async function startCamera() {
+  const overlay = document.getElementById('camera-overlay');
+  overlay.style.display = 'flex';
+  overlay.innerHTML = '<p>📷 カメラを起動中...</p>';
+
+  // Step1: ZXingライブラリ確認
+  if (typeof ZXing === 'undefined' || !ZXing.BrowserMultiFormatReader) {
+    showCameraError('ZXingライブラリの読み込みに失敗しました。ページを再読み込みしてください。');
+    return;
+  }
+
+  // Step2: HTTPS確認
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+    showCameraError('カメラにはHTTPS接続が必要です');
+    return;
+  }
+
+  // Step3: getUserMedia対応確認
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showCameraError('このブラウザはカメラに対応していません。Safari最新版をお使いください。');
+    return;
+  }
+
   try {
-    // iOS Safari はHTTPS必須・facingMode:'environment'で背面カメラを指定
-    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-      showToast('カメラにはHTTPS接続が必要です', 'error'); return;
-    }
-    const hints = new Map();
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-      ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39,
-      ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8,
-      ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.DATA_MATRIX,
-    ]);
+    // hintsはオプション（失敗しても続行）
+    let hints;
+    try {
+      hints = new Map();
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+        ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39,
+        ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8,
+        ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.DATA_MATRIX,
+      ]);
+    } catch(_) { hints = undefined; }
+
     codeReader = new ZXing.BrowserMultiFormatReader(hints);
 
-    // iPhoneを含むスマホは facingMode:'environment'（背面カメラ）で直接起動
-    // PCはデバイス一覧から選択
-    const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
-    let deviceId = undefined;
-    if (!isMobile) {
-      const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
-      // 背面カメラ優先（"back"/"rear"/"environment"を含む名前を探す）
-      const back = devices.find(d => /back|rear|environment/i.test(d.label));
-      deviceId = back ? back.deviceId : (devices[devices.length - 1]?.deviceId);
-    }
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-    const videoEl = document.getElementById('camera-video');
-    // iPhoneでは constraints で背面カメラを強制指定
     if (isMobile) {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { exact: 'environment' } }
-      }).catch(() => navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
-      }));
-      videoEl.srcObject = stream;
-      await videoEl.play();
+      // iPhone/Android: ZXing の decodeFromConstraints を使用
+      // これが最も確実な方法（ZXingが内部でgetUserMediaを呼ぶ）
+      const constraints = { video: { facingMode: 'environment' } };
+      await codeReader.decodeFromConstraints(constraints, 'camera-video', (result, err) => {
+        if (result) handleBarcode(result.getText());
+      });
+    } else {
+      // PC: デバイス一覧から背面/最後のカメラを選択
+      const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+      const back = devices.find(d => /back|rear|environment/i.test(d.label));
+      const deviceId = back ? back.deviceId : devices[devices.length - 1]?.deviceId;
+      await codeReader.decodeFromVideoDevice(deviceId, 'camera-video', (result) => {
+        if (result) handleBarcode(result.getText());
+      });
     }
 
-    videoEl.style.display = 'block';
-    document.getElementById('camera-overlay').style.display = 'none';
+    document.getElementById('camera-video').style.display = 'block';
+    overlay.style.display = 'none';
     document.getElementById('scan-reticle').style.display = 'block';
     document.getElementById('scan-line').style.display = 'block';
     document.getElementById('btn-start-camera').style.display = 'none';
     document.getElementById('btn-stop-camera').style.display = 'flex';
     cameraActive = true;
 
-    if (isMobile) {
-      // iPhoneはvideoをそのままZXingに渡して解析ループ
-      codeReader.decodeFromVideoElement(videoEl, (result, err) => {
-        if (result) handleBarcode(result.getText());
-      });
-    } else {
-      await codeReader.decodeFromVideoDevice(deviceId, 'camera-video', (result) => {
-        if (result) handleBarcode(result.getText());
-      });
-    }
   } catch(e) {
-    let msg = e.message || String(e);
-    if (e.name === 'NotAllowedError') msg = 'カメラへのアクセスが拒否されています。iPhoneの設定→Safari→カメラを「許可」にしてください。';
-    else if (e.name === 'NotFoundError') msg = 'カメラが見つかりません。';
-    showToast('カメラ起動失敗: ' + msg, 'error');
+    let msg = '不明なエラー: ' + (e.message || String(e));
+    if (e.name === 'NotAllowedError')  msg = 'カメラが拒否されています。設定→Safari→カメラ→「許可」に変更してください。';
+    else if (e.name === 'NotFoundError')  msg = 'カメラが見つかりません。';
+    else if (e.name === 'NotReadableError') msg = 'カメラが他のアプリに使用中です。';
+    else if (e.name === 'OverconstrainedError') msg = 'カメラ制約エラー。別のカメラを試します。';
+    showCameraError(msg);
+    if (codeReader) { try { codeReader.reset(); } catch(_){} codeReader = null; }
   }
 }
 
