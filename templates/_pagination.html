@@ -1,0 +1,15 @@
+{% macro render(pager, url_base, params={}) %}
+{% if pager and pager.total_pages > 1 %}
+<div class="pagination">
+  <span class="pagination-info">全{{ pager.total }}件 / {{ pager.page }}/{{ pager.total_pages }}ページ</span>
+  <div class="pagination-btns">
+    {% if pager.has_prev %}
+      <a href="{{ url_base }}?page={{ pager.page - 1 }}{% for k,v in params.items() %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}" class="btn btn-sm btn-ghost">← 前へ</a>
+    {% endif %}
+    {% if pager.has_next %}
+      <a href="{{ url_base }}?page={{ pager.page + 1 }}{% for k,v in params.items() %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}" class="btn btn-sm btn-ghost">次へ →</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endmacro %}

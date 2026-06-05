@@ -19,21 +19,26 @@ company_info = {
     "invoice_no": company_config.COMPANY_INVOICE_NO,
 }
 
-TAX_RATE = 0.10
+from decimal import Decimal, ROUND_DOWN
+TAX_RATE = Decimal("0.10")  # [I6] Decimal型で精度保証
 
 
 def _gen_sale_number(db):
+    # [I3] MAX(id)+1 方式
     today = datetime.now().strftime("%Y%m%d")
     prefix = f"SA-{today}-"
-    count = db.query(models.Sale).filter(models.Sale.sale_number.like(f"{prefix}%")).count()
-    return f"{prefix}{count + 1:03d}"
+    max_id = db.query(models.Sale.id).order_by(models.Sale.id.desc()).first()
+    seq = (max_id[0] + 1) if max_id else 1
+    return f"{prefix}{seq:05d}"
 
 
 def _gen_invoice_number(db):
+    # [I3] MAX(id)+1 方式
     today = datetime.now().strftime("%Y%m%d")
     prefix = f"INV-{today}-"
-    count = db.query(models.Invoice).filter(models.Invoice.invoice_number.like(f"{prefix}%")).count()
-    return f"{prefix}{count + 1:03d}"
+    max_id = db.query(models.Invoice.id).order_by(models.Invoice.id.desc()).first()
+    seq = (max_id[0] + 1) if max_id else 1
+    return f"{prefix}{seq:05d}"
 
 
 # ============================================================
@@ -41,7 +46,9 @@ def _gen_invoice_number(db):
 # ============================================================
 @router.get("/sales", response_class=HTMLResponse)
 def list_sales(request: Request, status: str = "", customer_id: str = "",
-               date_from: str = "", date_to: str = "", db: Session = Depends(get_db)):
+               date_from: str = "", date_to: str = "", page: int = 1,
+               db: Session = Depends(get_db)):
+    # [I4] ページネーション適用
     q = db.query(models.Sale)
     if status:
         q = q.filter(models.Sale.status == status)
@@ -51,11 +58,13 @@ def list_sales(request: Request, status: str = "", customer_id: str = "",
         q = q.filter(models.Sale.sale_date >= date.fromisoformat(date_from))
     if date_to:
         q = q.filter(models.Sale.sale_date <= date.fromisoformat(date_to))
-    sales = q.order_by(models.Sale.id.desc()).all()
+    import crud as _crud
+    pager = _crud.paginate(q.order_by(models.Sale.id.desc()), page=page, per_page=50)
     customers = db.query(models.Customer).order_by(models.Customer.name).all()
-    total = sum(s.total_amount for s in sales)
+    total = sum(s.total_amount for s in pager.items)
     return templates.TemplateResponse("sales/list.html", {
-        "request": request, "sales": sales, "customers": customers,
+        "request": request, "sales": pager.items, "pager": pager,
+        "customers": customers,
         "status": status, "customer_id": customer_id,
         "date_from": date_from, "date_to": date_to, "total": total,
     })
@@ -92,12 +101,26 @@ async def create_sale(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
     staff = request.state.staff
 
-    product_id = int(form["product_id"])
-    quantity = int(form.get("quantity", 1))
-    unit_price = float(form["unit_price"])
+    # [I2] 入力バリデーション
+    from fastapi import HTTPException
+    try:
+        product_id = int(form["product_id"])
+        quantity = int(form.get("quantity", 1))
+        unit_price = Decimal(str(form["unit_price"]))
+    except (ValueError, KeyError) as e:
+        raise HTTPException(422, f"入力値が不正です: {e}")
+    if quantity <= 0:
+        raise HTTPException(422, "数量は1以上を入力してください")
+    if unit_price <= 0:
+        raise HTTPException(422, "単価は0より大きい値を入力してください")
     subtotal = unit_price * quantity
-    tax_amount = round(subtotal * TAX_RATE)
+    # [I6] 消費税は切り捨て（1円未満切捨）でDecimalのまま計算
+    tax_amount = (subtotal * TAX_RATE).quantize(Decimal("1"), rounding=ROUND_DOWN)
     total_amount = subtotal + tax_amount
+    # float変換はDB保存直前のみ
+    subtotal = float(subtotal)
+    tax_amount = float(tax_amount)
+    total_amount = float(total_amount)
 
     shipment_id = int(form["shipment_id"]) if form.get("shipment_id") else None
     quote_id = int(form["quote_id"]) if form.get("quote_id") else None
@@ -145,7 +168,12 @@ def detail_sale(sale_id: int, request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/sales/{sale_id}/delete")
-def delete_sale(sale_id: int, db: Session = Depends(get_db)):
+def delete_sale(sale_id: int, request: Request, db: Session = Depends(get_db)):
+    # [C4] 管理者のみ売上削除可能
+    current = request.state.staff
+    if current.get("role") != "admin":
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=403, content={"detail": "管理者権限が必要です"})
     sale = db.query(models.Sale).filter(models.Sale.id == sale_id).first()
     if sale and sale.status == "confirmed":
         # 関連InvoiceItemを先に取得（影響するInvoice IDを記録）
@@ -227,9 +255,10 @@ async def create_invoice(request: Request, db: Session = Depends(get_db)):
     due_date = date.fromisoformat(due_date_str) if due_date_str else None
 
     sales = db.query(models.Sale).filter(models.Sale.id.in_(sale_ids)).all()
-    subtotal = sum(s.subtotal for s in sales)
-    tax_amount = sum(s.tax_amount for s in sales)
-    total_amount = subtotal + tax_amount
+    # [I6] 請求書集計もDecimalで計算して端数なし
+    subtotal = float(sum(Decimal(str(s.subtotal)) for s in sales))
+    tax_amount = float(sum(Decimal(str(s.tax_amount)) for s in sales))
+    total_amount = float(Decimal(str(subtotal)) + Decimal(str(tax_amount)))
 
     invoice = models.Invoice(
         invoice_number=_gen_invoice_number(db),
@@ -306,7 +335,12 @@ async def add_payment(invoice_id: int, request: Request, db: Session = Depends(g
 
 
 @router.post("/invoices/{invoice_id}/delete")
-def delete_invoice(invoice_id: int, db: Session = Depends(get_db)):
+def delete_invoice(invoice_id: int, request: Request, db: Session = Depends(get_db)):
+    # [C4] 管理者のみ請求書削除可能
+    current = request.state.staff
+    if current.get("role") != "admin":
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=403, content={"detail": "管理者権限が必要です"})
     invoice = db.query(models.Invoice).filter(models.Invoice.id == invoice_id).first()
     if invoice:
         db.delete(invoice)

@@ -106,8 +106,17 @@ class Quote(Base):
     staff_name = Column(String(100), nullable=True)
     approval_doc_id = Column(Integer, nullable=True)
     created_by_id = Column(Integer, ForeignKey("staffs.id"), nullable=True)
+    # [C5] 承認・取消フローで参照されるカラムをモデルに明示定義
+    approved_by_id = Column(Integer, ForeignKey("staffs.id"), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    approval_comment = Column(Text, nullable=True)
+    cancelled_by_id = Column(Integer, ForeignKey("staffs.id"), nullable=True)
+    cancel_comment = Column(Text, nullable=True)
+    cancelled_at = Column(DateTime, nullable=True)
     customer = relationship("Customer", back_populates="quotes", foreign_keys=[customer_id])
     created_by = relationship("Staff", foreign_keys=[created_by_id])
+    approved_by = relationship("Staff", foreign_keys=[approved_by_id])
+    cancelled_by = relationship("Staff", foreign_keys=[cancelled_by_id])
     end_user = relationship("Customer", foreign_keys=[end_user_id])
     items = relationship("QuoteItem", back_populates="quote", cascade="all, delete-orphan")
 

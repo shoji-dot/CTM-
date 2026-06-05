@@ -3,8 +3,32 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
+from collections import defaultdict
 from database import get_db
 from models import Staff
+
+# [I7] ログイン試行制限: {login_id: (失敗回数, 最終失敗時刻)}
+_login_attempts: dict = defaultdict(lambda: {"count": 0, "last_fail": None})
+_MAX_ATTEMPTS = 5
+_LOCK_MINUTES = 5
+
+def _check_login_locked(login_id: str) -> bool:
+    """True=ロック中。ロック期間を過ぎていればカウントをリセットしてFalseを返す。"""
+    rec = _login_attempts[login_id]
+    if rec["count"] >= _MAX_ATTEMPTS and rec["last_fail"]:
+        elapsed = datetime.now() - rec["last_fail"]
+        if elapsed < timedelta(minutes=_LOCK_MINUTES):
+            return True
+        # ロック期間経過 → リセット
+        _login_attempts[login_id] = {"count": 0, "last_fail": None}
+    return False
+
+def _record_fail(login_id: str):
+    _login_attempts[login_id]["count"] += 1
+    _login_attempts[login_id]["last_fail"] = datetime.now()
+
+def _clear_fail(login_id: str):
+    _login_attempts[login_id] = {"count": 0, "last_fail": None}
 from auth import hash_password, verify_password, create_session_token, get_current_staff
 import crud
 
@@ -25,12 +49,28 @@ def login_form(request: Request):
 
 @router.post("/login")
 def login(request: Request, login_id: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+    # [I7] ロック中チェック
+    if _check_login_locked(login_id):
+        return templates.TemplateResponse("auth/login.html", {
+            "request": request,
+            "error": f"ログイン試行が{_MAX_ATTEMPTS}回連続で失敗しました。{_LOCK_MINUTES}分後に再試行してください。"
+        })
     staff = db.query(Staff).filter(Staff.login_id == login_id, Staff.is_active == True).first()
     if not staff or not verify_password(password, staff.password_hash):
-        return templates.TemplateResponse("auth/login.html", {"request": request, "error": "IDまたはパスワードが正しくありません"})
+        _record_fail(login_id)
+        rec = _login_attempts[login_id]
+        remaining = _MAX_ATTEMPTS - rec["count"]
+        msg = "IDまたはパスワードが正しくありません"
+        if remaining <= 2 and remaining > 0:
+            msg += f"（あと{remaining}回失敗するとロックされます）"
+        elif remaining <= 0:
+            msg = f"ログインをロックしました。{_LOCK_MINUTES}分後に再試行してください。"
+        return templates.TemplateResponse("auth/login.html", {"request": request, "error": msg})
+    # 認証成功 → 失敗カウントをリセット
+    _clear_fail(login_id)
     token = create_session_token(staff.id)
     response = RedirectResponse("/", status_code=303)
-    response.set_cookie("session", token, max_age=60*60*8, httponly=True)
+    response.set_cookie("session", token, max_age=60*60*8, httponly=True, samesite="lax")
     return response
 
 

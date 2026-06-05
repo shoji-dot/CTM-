@@ -45,4 +45,6 @@
     </tbody>
   </table>
 </div>
+{% from "_pagination.html" import render as pagination %}
+{{ pagination(pager, "/customers", {"search": search}) }}
 {% endblock %}

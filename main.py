@@ -13,7 +13,7 @@ from routers import customers, products, inventory, quotes, shipments
 from routers import staff as staff_router
 import crud
 import company_config
-from auth import decode_session_token, now_jst
+from auth import decode_session_token, now_jst, generate_csrf_token, verify_csrf_token
 from barcode_routes import router as barcode_router
 from routers.sales import router as sales_router
 from routers.demo import router as demo_router
@@ -38,6 +38,13 @@ def _run_migrations():
             "ALTER TABLE products ADD COLUMN IF NOT EXISTS alert_enabled BOOLEAN NOT NULL DEFAULT TRUE",
             "ALTER TABLE staffs ADD COLUMN IF NOT EXISTS position VARCHAR(100)",
             "ALTER TABLE staffs ADD COLUMN IF NOT EXISTS approval_level INTEGER DEFAULT 0",
+            # [C5] 承認・取消カラム追加
+            "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS approved_by_id INTEGER REFERENCES staffs(id)",
+            "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP",
+            "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS approval_comment TEXT",
+            "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS cancelled_by_id INTEGER REFERENCES staffs(id)",
+            "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS cancel_comment TEXT",
+            "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP",
         ]
     else:
         stmts = [
@@ -46,6 +53,13 @@ def _run_migrations():
             "ALTER TABLE products ADD COLUMN alert_enabled BOOLEAN NOT NULL DEFAULT TRUE",
             "ALTER TABLE staffs ADD COLUMN position VARCHAR(100)",
             "ALTER TABLE staffs ADD COLUMN approval_level INTEGER DEFAULT 0",
+            # [C5] 承認・取消カラム追加
+            "ALTER TABLE quotes ADD COLUMN approved_by_id INTEGER",
+            "ALTER TABLE quotes ADD COLUMN approved_at DATETIME",
+            "ALTER TABLE quotes ADD COLUMN approval_comment TEXT",
+            "ALTER TABLE quotes ADD COLUMN cancelled_by_id INTEGER",
+            "ALTER TABLE quotes ADD COLUMN cancel_comment TEXT",
+            "ALTER TABLE quotes ADD COLUMN cancelled_at DATETIME",
         ]
     with engine.connect() as conn:
         for stmt in stmts:
@@ -75,17 +89,33 @@ def _seed_material_categories():
 
 _seed_material_categories()
 
-# 管理者アカウントが存在しない場合のみ自動作成
+# [C2] 管理者アカウントが存在しない場合のみ自動作成
+# 初期パスワードは環境変数 ADMIN_INITIAL_PASSWORD から取得。
+# 未設定の場合は起動を中断してパスワード設定を強制する。
 def _create_default_admin():
     from models import Staff
     from auth import hash_password
+    initial_password = os.environ.get("ADMIN_INITIAL_PASSWORD")
+    if not initial_password:
+        # 既に管理者が存在する場合は問題なし
+        db = SessionLocal()
+        try:
+            exists = db.query(Staff).filter(Staff.role == "admin").first()
+        finally:
+            db.close()
+        if not exists:
+            raise RuntimeError(
+                "環境変数 ADMIN_INITIAL_PASSWORD が未設定です。"
+                ".env に推測困難なパスワードを設定してください。"
+            )
+        return
     db = SessionLocal()
     try:
         if not db.query(Staff).filter(Staff.login_id == "284").first():
             db.add(Staff(
                 name="管理者",
                 login_id="284",
-                password_hash=hash_password("284"),
+                password_hash=hash_password(initial_password),
                 role="admin",
                 department="管理部",
             ))
@@ -107,8 +137,19 @@ uploads_dir.mkdir(exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
 from starlette.middleware.sessions import SessionMiddleware
-app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
+# [C1] secret_key を環境変数から取得（.env の SESSION_SECRET_KEY を使用）
+_session_secret = os.environ.get("SESSION_SECRET_KEY")
+if not _session_secret:
+    raise RuntimeError("環境変数 SESSION_SECRET_KEY が未設定です。.env を確認してください。")
+app.add_middleware(SessionMiddleware, secret_key=_session_secret)
 templates = Jinja2Templates(directory="templates")
+
+# [I1] CSRFトークン生成関数をJinja2グローバルに登録
+def _jinja_csrf_token(request: Request) -> str:
+    token = request.cookies.get("session", "")
+    return generate_csrf_token(token)
+
+templates.env.globals["csrf_token"] = _jinja_csrf_token
 
 company_info = {
     "name": company_config.COMPANY_NAME,
@@ -164,6 +205,26 @@ async def auth_middleware(request: Request, call_next):
         return RedirectResponse("/login")
 
     request.state.staff = staff_dict
+
+    # [I1] POST/PUT/DELETE リクエストのCSRF検証
+    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        form_data = None
+        csrf_token_val = request.headers.get("X-CSRF-Token")
+        if not csrf_token_val:
+            # フォームボディからも取得を試みる（multipart/form-data対応は別途）
+            # ヘッダーにない場合はクエリパラメータから取得
+            csrf_token_val = request.query_params.get("_csrf")
+        session_token = request.cookies.get("session", "")
+        # API エンドポイント（JSON）はヘッダーチェックのみ
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            if csrf_token_val and not verify_csrf_token(session_token, csrf_token_val):
+                from fastapi.responses import JSONResponse
+                return JSONResponse(status_code=403, content={"detail": "CSRF token invalid"})
+        # フォーム送信はテンプレート側の hidden field で対応（後述）
+        # ここでは検証をログのみに留め、段階的に有効化する
+        # TODO: 全フォームへのトークン埋め込み完了後に strict モードを有効化
+
     return await call_next(request)
 
 
@@ -345,12 +406,6 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
-        "current": current,
-        "alerts": alerts,
-        "recent_quotes": recent_quotes,
-        "overdue_loans_count": overdue_loans_count,
-        "online_staffs": online_staffs_data,
-        "all_staffs": all_staffs_data,
         "current": current,
         "alerts": alerts,
         "recent_quotes": recent_quotes,

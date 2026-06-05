@@ -50,3 +50,26 @@ def update_last_active(staff: Staff, page: str, db: Session):
     staff.last_active_at = now_jst()
     staff.last_active_page = page
     db.commit()
+
+
+# ── [I1] CSRF保護 ──────────────────────────────────────────────────────────────
+import hashlib, hmac, time
+
+def generate_csrf_token(session_token: str) -> str:
+    """セッショントークンと現在時刻(時間単位)からCSRFトークンを生成する。"""
+    ts = str(int(time.time()) // 3600)  # 1時間単位で更新
+    msg = f"{session_token}:{ts}".encode()
+    return hmac.new(SECRET_KEY.encode(), msg, hashlib.sha256).hexdigest()
+
+def verify_csrf_token(session_token: str, csrf_token: str) -> bool:
+    """現在の時間帯 + 直前の時間帯の両方で検証（時間境界をまたぐ場合に対応）。"""
+    if not csrf_token or not session_token:
+        return False
+    now = int(time.time()) // 3600
+    for ts_offset in (0, -1):
+        ts = str(now + ts_offset)
+        msg = f"{session_token}:{ts}".encode()
+        expected = hmac.new(SECRET_KEY.encode(), msg, hashlib.sha256).hexdigest()
+        if hmac.compare_digest(expected, csrf_token):
+            return True
+    return False

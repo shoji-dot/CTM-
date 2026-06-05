@@ -18,6 +18,20 @@ UPLOAD_DIR = Path(__file__).parent / "uploads" / "materials"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt"}
+
+# [I8] マジックバイトによるファイル種別検証（外部ライブラリ不要）
+_MAGIC_SIGNATURES: list = [
+    (b'%PDF',                         {".pdf"}),
+    (b'PK' + b'\x03\x04',            {".docx", ".xlsx", ".pptx"}),
+    (bytes([0xD0, 0xCF, 0x11, 0xE0]), {".doc", ".xls", ".ppt"}),
+]
+
+def _validate_file_magic(content: bytes, suffix: str) -> bool:
+    """ファイルの先頭バイトが拡張子と一致するか確認する。"""
+    for magic, allowed_suffixes in _MAGIC_SIGNATURES:
+        if content[:len(magic)] == magic:
+            return suffix in allowed_suffixes
+    return False
 MAX_FILE_SIZE_MB   = 50
 DROPBOX_TOKEN      = os.getenv("DROPBOX_ACCESS_TOKEN", "")
 DROPBOX_FOLDER     = "/CTM_materials"
@@ -160,6 +174,10 @@ async def upload_material(
             content = await f.read()
             if len(content) > MAX_FILE_SIZE_MB * 1024 * 1024:
                 results.append({"file": f.filename, "status": "skipped", "reason": "サイズ超過"})
+                continue
+            # [I8] マジックバイト検証（拡張子偽装を検出）
+            if not _validate_file_magic(content, suffix):
+                results.append({"file": f.filename, "status": "skipped", "reason": "ファイル形式が拡張子と一致しません"})
                 continue
 
             unique_name = f"{uuid.uuid4().hex}{suffix}"

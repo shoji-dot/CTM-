@@ -1,4 +1,4 @@
-﻿import io
+import io
 import csv
 from fastapi import APIRouter, Depends, Request, Form, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
@@ -13,10 +13,17 @@ templates = Jinja2Templates(directory="templates")
 
 
 @router.get("/customers", response_class=HTMLResponse)
-def list_customers(request: Request, search: str = "", category: str = "", db: Session = Depends(get_db)):
-    customers = crud.get_customers(db, search=search, category=category)
+def list_customers(request: Request, search: str = "", category: str = "",
+                   page: int = 1, db: Session = Depends(get_db)):
+    # [I4] ページネーション適用
+    from sqlalchemy.orm import Session as _S
+    q = db.query(crud.Customer)
+    if search: q = q.filter(crud.Customer.name.contains(search))
+    if category: q = q.filter(crud.Customer.category == category)
+    q = q.order_by(crud.Customer.id.desc())
+    pager = crud.paginate(q, page=page, per_page=50)
     return templates.TemplateResponse("customers/list.html", {
-        "request": request, "customers": customers,
+        "request": request, "customers": pager.items, "pager": pager,
         "search": search, "category": category
     })
 
@@ -147,6 +154,13 @@ def update_customer(
 
 
 @router.post("/customers/{customer_id}/delete")
-def delete_customer(customer_id: int, db: Session = Depends(get_db)):
-    crud.delete_customer(db, customer_id)
+def delete_customer(customer_id: int, request: Request, db: Session = Depends(get_db)):
+    # [I10] HTTPException を受け取ってエラーメッセージ付きリダイレクト
+    from fastapi import HTTPException
+    from urllib.parse import quote as urlquote
+    try:
+        crud.delete_customer(db, customer_id)
+    except HTTPException as e:
+        msg = urlquote(e.detail)
+        return RedirectResponse(f"/customers?error={msg}", status_code=303)
     return RedirectResponse("/customers", status_code=303)

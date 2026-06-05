@@ -133,6 +133,10 @@ async def register_disposal(request: Request, db: Session = Depends(get_db)):
         full_note += f" / 備考：{note}"
     staff = getattr(request.state, "staff", None)
     staff_name = staff["name"] if staff else None
-    crud.move_inventory(db, product_id, "out", quantity,
-                        reason="廃棄", note=full_note, staff_name=staff_name)
+    staff_name = staff["name"] if staff else None
+    crud.move_inventory(
+        db, product_id, "out", quantity,
+        reason=f"廃棄：{reason_label}", note=full_note, staff_name=staff_name,
+        allow_negative=True,  # [I5] 廃棄は在庫不足でも記録を許可
+    )
     return RedirectResponse("/inventory/disposal?done=1", status_code=303)

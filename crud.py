@@ -1,5 +1,45 @@
 from datetime import datetime, date
+from fastapi import HTTPException
 from sqlalchemy import or_
+
+# ── [I4] ページネーションユーティリティ ──────────────────────────────────────
+from dataclasses import dataclass
+
+@dataclass
+class Paginator:
+    items: list
+    page: int
+    per_page: int
+    total: int
+
+    @property
+    def total_pages(self) -> int:
+        return max(1, (self.total + self.per_page - 1) // self.per_page)
+
+    @property
+    def has_prev(self) -> bool:
+        return self.page > 1
+
+    @property
+    def has_next(self) -> bool:
+        return self.page < self.total_pages
+
+    @property
+    def prev_page(self) -> int:
+        return self.page - 1
+
+    @property
+    def next_page(self) -> int:
+        return self.page + 1
+
+
+def paginate(query, page: int = 1, per_page: int = 50) -> Paginator:
+    """SQLAlchemyクエリにページネーションを適用して Paginator を返す。"""
+    page = max(1, page)
+    total = query.count()
+    items = query.offset((page - 1) * per_page).limit(per_page).all()
+    return Paginator(items=items, page=page, per_page=per_page, total=total)
+
 from sqlalchemy.orm import Session, aliased, joinedload
 from models import Customer, Product, Inventory, InventoryHistory, Quote, QuoteItem, Shipment, DemoUnit
 from sqlalchemy import text as _sa_text
@@ -39,10 +79,19 @@ def update_customer(db: Session, customer_id: int, data: dict):
     return obj
 
 def delete_customer(db: Session, customer_id: int):
+    # [I10] 関連データが存在する場合は削除を拒否
     obj = db.query(Customer).filter(Customer.id == customer_id).first()
-    if obj:
-        db.delete(obj)
-        db.commit()
+    if not obj:
+        return None
+    quote_count = db.query(Quote).filter(Quote.customer_id == customer_id).count()
+    if quote_count > 0:
+        raise HTTPException(400, f"この顧客には見積が{quote_count}件あるため削除できません。先に見積を削除してください。")
+    from models import Sale
+    sale_count = db.query(Sale).filter(Sale.customer_id == customer_id).count()
+    if sale_count > 0:
+        raise HTTPException(400, f"この顧客には売上が{sale_count}件あるため削除できません。")
+    db.delete(obj)
+    db.commit()
     return obj
 
 
@@ -56,6 +105,18 @@ def get_products(db: Session, search: str = "", category: str = "", maker: str =
     if category:
         q = q.filter(Product.category == category)
     return q.order_by(Product.id.desc()).all()
+
+def get_products_query(db: Session, search: str = "", category: str = "", maker: str = ""):
+    """get_products と同じフィルタ条件でクエリオブジェクトを返す（ページネーション用）"""
+    q = db.query(Product)
+    if search:
+        q = q.filter(Product.name.contains(search))
+    if maker:
+        q = q.filter(Product.maker.contains(maker))
+    if category:
+        q = q.filter(Product.category == category)
+    return q.order_by(Product.id.desc())
+
 
 def get_product(db: Session, product_id: int):
     return db.query(Product).filter(Product.id == product_id).first()
@@ -110,10 +171,22 @@ def update_product(db: Session, product_id: int, data: dict):
     return obj
 
 def delete_product(db: Session, product_id: int):
+    # [I10] 在庫・見積明細・売上が存在する場合は削除を拒否
     obj = db.query(Product).filter(Product.id == product_id).first()
-    if obj:
-        db.delete(obj)
-        db.commit()
+    if not obj:
+        return None
+    inv = db.query(Inventory).filter(Inventory.product_id == product_id).first()
+    if inv and inv.current_stock > 0:
+        raise HTTPException(400, f"在庫が{inv.current_stock}個あるため削除できません。在庫を0にしてから削除してください。")
+    qi_count = db.query(QuoteItem).filter(QuoteItem.product_id == product_id).count()
+    if qi_count > 0:
+        raise HTTPException(400, f"この商品は{qi_count}件の見積明細で使用中のため削除できません。")
+    from models import Sale
+    sale_count = db.query(Sale).filter(Sale.product_id == product_id).count()
+    if sale_count > 0:
+        raise HTTPException(400, f"この商品には売上が{sale_count}件あるため削除できません。")
+    db.delete(obj)
+    db.commit()
     return obj
 
 
@@ -128,13 +201,21 @@ def get_alerts(db: Session):
 def move_inventory(db, product_id, movement_type, quantity,
                    reason="", note="", related_quote_id=None,
                    serial_number=None, lot_number=None, expiry_date=None,
-                   staff_name=None):
+                   staff_name=None, allow_negative=False):
+    """在庫移動。出庫時に在庫不足の場合は ValueError を送出する。
+    allow_negative=True を指定した場合のみ在庫不足でも続行（廃棄等の特殊用途）。
+    """
     inv = db.query(Inventory).filter(Inventory.product_id == product_id).first()
     if not inv:
         return None
     if movement_type == "in":
         inv.current_stock += quantity
     else:
+        # [I5] 在庫マイナス防止: 不足時は ValueError を送出
+        if not allow_negative and inv.current_stock < quantity:
+            raise ValueError(
+                f"在庫不足です（現在庫: {inv.current_stock}, 要求数: {quantity}）"
+            )
         inv.current_stock = max(0, inv.current_stock - quantity)
     inv.updated_at = datetime.now()
     history = InventoryHistory(
@@ -183,10 +264,12 @@ def get_inventory_history_filtered(db, product_id=None, movement_type=None, date
 
 # ── Quotes ─────────────────────────────────────────────────
 def _gen_quote_number(db: Session):
+    # [I3] MAX(id)+1 方式でrace conditionを解消
     today = datetime.now().strftime("%Y%m%d")
     prefix = f"Q-{today}-"
-    count = db.query(Quote).filter(Quote.quote_number.like(f"{prefix}%")).count()
-    return f"{prefix}{count + 1:03d}"
+    max_id = db.query(Quote.id).order_by(Quote.id.desc()).first()
+    seq = (max_id[0] + 1) if max_id else 1
+    return f"{prefix}{seq:05d}"
 
 
 
@@ -212,6 +295,27 @@ def get_quotes(db: Session, status: str = "", customer: str = "", end_user: str 
     )
 
     return q.order_by(Quote.id.desc()).distinct().all()
+
+def get_quotes_query(db: Session, status: str = "", customer: str = "", end_user: str = "", product: str = ""):
+    """get_quotes と同じフィルタ条件でクエリオブジェクトを返す（ページネーション用）"""
+    q = db.query(Quote).join(Quote.customer)
+    if status:
+        q = q.filter(Quote.status == status)
+    if customer:
+        q = q.filter(Customer.name.contains(customer))
+    if end_user:
+        EndUser = aliased(Customer)
+        q = q.join(EndUser, Quote.end_user_id == EndUser.id)
+        q = q.filter(EndUser.name.contains(end_user))
+    if product:
+        q = q.join(Quote.items).join(QuoteItem.product)
+        q = q.filter(Product.name.contains(product))
+    q = q.options(
+        joinedload(Quote.end_user),
+        joinedload(Quote.items).joinedload(QuoteItem.product),
+    )
+    return q.order_by(Quote.id.desc()).distinct()
+
 def get_quote(db: Session, quote_id: int):
     return db.query(Quote).filter(Quote.id == quote_id).first()
 
@@ -323,10 +427,12 @@ def delete_quote(db: Session, quote_id: int):
 
 # ── Shipments ──────────────────────────────────────────────
 def _gen_shipment_number(db: Session):
+    # [I3] MAX(id)+1 方式
     today = datetime.now().strftime("%Y%m%d")
     prefix = f"SH-{today}-"
-    count = db.query(Shipment).filter(Shipment.shipment_number.like(f"{prefix}%")).count()
-    return f"{prefix}{count + 1:03d}"
+    max_id = db.query(Shipment.id).order_by(Shipment.id.desc()).first()
+    seq = (max_id[0] + 1) if max_id else 1
+    return f"{prefix}{seq:05d}"
 
 def get_shipments(db: Session, status: str = "", shipment_type: str = "",
                   q_text: str = "", serial: str = "", lot: str = ""):
@@ -454,15 +560,4 @@ def validate_inventory_item(db: Session, product_id: int,
 # ── デモ器検索（デモ貸出・修理代替品用）─────────────────────
 def search_demo_units(db: Session, q: str = "", product_id: int = None):
     """デモ器台帳を型番・管理番号・シリアル番号で検索"""
-    query = db.query(DemoUnit).join(
-        Product, DemoUnit.product_id == Product.id
-    )
-    if product_id:
-        query = query.filter(DemoUnit.product_id == product_id)
-    if q:
-        query = query.filter(or_(
-            Product.name.ilike(f"%{q}%"),
-            DemoUnit.serial_number.ilike(f"%{q}%"),
-            DemoUnit.unit_code.ilike(f"%{q}%"),
-        ))
-    return query.order_by(DemoUnit.id.desc()).all()
+ 

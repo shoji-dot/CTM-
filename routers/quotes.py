@@ -73,11 +73,16 @@ def list_quotes(
     customer: str = "",
     end_user: str = "",
     product: str = "",
+    page: int = 1,
 ):
-    quotes = crud.get_quotes(db, status=status, customer=customer, end_user=end_user, product=product)
+    pager = crud.paginate(
+        crud.get_quotes_query(db, status=status, customer=customer, end_user=end_user, product=product),
+        page=page,
+    )
     return templates.TemplateResponse("quotes/list.html", {
         "request": request,
-        "quotes": quotes,
+        "quotes": pager.items,
+        "pager": pager,
         "status": status,
         "customer": customer,
         "end_user": end_user,
@@ -92,8 +97,13 @@ def new_quote_form(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/quotes/new")
 async def create_quote(request: Request, db: Session = Depends(get_db)):
+    from fastapi import HTTPException
     form_data = await request.form()
-    customer_id = int(form_data["customer_id"])
+    # [I2] 入力バリデーション
+    try:
+        customer_id = int(form_data["customer_id"])
+    except (ValueError, KeyError):
+        raise HTTPException(422, "顧客IDが不正です")
     end_user_id_str = form_data.get("end_user_id", "")
     end_user_id = int(end_user_id_str) if end_user_id_str else None
     valid_until_str = form_data.get("valid_until", "")
@@ -102,11 +112,22 @@ async def create_quote(request: Request, db: Session = Depends(get_db)):
     product_ids = form_data.getlist("product_id[]")
     quantities = form_data.getlist("quantity[]")
     discount_rates = form_data.getlist("discount_rate[]")
-    items = [
-        {"product_id": int(pid), "quantity": int(qty), "discount_rate": float(dr) / 100.0}
-        for pid, qty, dr in zip(product_ids, quantities, discount_rates)
-        if pid and qty
-    ]
+    if not product_ids or not any(pid for pid in product_ids):
+        raise HTTPException(422, "明細が1件も入力されていません")
+    items = []
+    for pid, qty, dr in zip(product_ids, quantities, discount_rates):
+        if not pid or not qty:
+            continue
+        try:
+            qty_int = int(qty)
+            dr_float = float(dr) / 100.0
+        except ValueError:
+            raise HTTPException(422, "数量・割引率は数値で入力してください")
+        if qty_int <= 0:
+            raise HTTPException(422, "数量は1以上を入力してください")
+        if not (0.0 <= dr_float <= 1.0):
+            raise HTTPException(422, "割引率は0〜100の範囲で入力してください")
+        items.append({"product_id": int(pid), "quantity": qty_int, "discount_rate": dr_float})
     staff = request.state.staff
     crud.create_quote(
         db, customer_id=customer_id, end_user_id=end_user_id,
@@ -128,7 +149,17 @@ def detail_quote(quote_id: int, request: Request, db: Session = Depends(get_db))
     })
 
 @router.post("/quotes/{quote_id}/status")
-def change_status(quote_id: int, status: str = Form(...), db: Session = Depends(get_db)):
+def change_status(quote_id: int, request: Request, status: str = Form(...), db: Session = Depends(get_db)):
+    # [C4] ステータス変更はホワイトリスト制御 + 管理者のみ accepted/cancelled に変更可
+    ALLOWED_STATUSES = {"draft", "sent", "accepted", "rejected", "cancelled"}
+    if status not in ALLOWED_STATUSES:
+        from fastapi import HTTPException
+        raise HTTPException(400, f"不正なステータスです: {status}")
+    current = request.state.staff
+    admin_only_statuses = {"accepted", "cancelled"}
+    if status in admin_only_statuses and current.get("role") != "admin":
+        from fastapi import HTTPException
+        raise HTTPException(403, "このステータス変更には管理者権限が必要です")
     crud.update_quote_status(db, quote_id, status)
     return RedirectResponse(f"/quotes/{quote_id}", status_code=303)
 
@@ -241,6 +272,11 @@ def cancel_approval(
 
 
 @router.post("/quotes/{quote_id}/delete")
-def delete_quote(quote_id: int, db: Session = Depends(get_db)):
+def delete_quote(quote_id: int, request: Request, db: Session = Depends(get_db)):
+    # [C4] 管理者のみ見積削除可能
+    current = request.state.staff
+    if current.get("role") != "admin":
+        from fastapi import HTTPException
+        raise HTTPException(403, "管理者権限が必要です")
     crud.delete_quote(db, quote_id)
     return RedirectResponse("/quotes", status_code=303)

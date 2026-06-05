@@ -84,6 +84,13 @@ def duplicate_product(product_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/products/{product_id}/delete")
-def delete_product(product_id: int, db: Session = Depends(get_db)):
-    crud.delete_product(db, product_id)
+def delete_product(product_id: int, request: Request, db: Session = Depends(get_db)):
+    # [I10] 削除エラーをクエリパラメータ経由で表示
+    from fastapi import HTTPException
+    from urllib.parse import quote as urlquote
+    try:
+        crud.delete_product(db, product_id)
+    except HTTPException as e:
+        msg = urlquote(e.detail)
+        return RedirectResponse(f"/products?error={msg}", status_code=303)
     return RedirectResponse("/products", status_code=303)
