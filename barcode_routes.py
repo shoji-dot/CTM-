@@ -196,4 +196,34 @@ async def barcode_ship(request: Request, db: Session = Depends(get_db)):
         body = await request.json()
         product_id  = int(body["product_id"])
         ship_type   = body.get("ship_type", "sale")
-        quantity    = int(body["quant
+        quantity    = int(body["quantity"])
+        serial_no   = body.get("serial_no")
+        lot_no      = body.get("lot_no")
+        customer_id = body.get("customer_id")
+        memo        = body.get("memo")
+
+        product = db.query(models.Product).filter(
+            models.Product.id == product_id
+        ).first()
+        if not product:
+            return JSONResponse({"success": False, "error": "商品が見つかりません"}, status_code=404)
+
+        # 在庫減算（[I5] 不足時はValueError）
+        try:
+            import crud
+            crud.move_inventory(
+                db, product_id, "out", quantity,
+                reason=f"バーコード出荷({ship_type})",
+                note=memo or "",
+                serial_number=serial_no,
+                lot_number=lot_no,
+                staff_name=staff["name"] if staff else None,
+            )
+        except ValueError as ve:
+            return JSONResponse({"success": False, "error": str(ve)}, status_code=400)
+
+        return JSONResponse({"success": True})
+
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
