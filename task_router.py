@@ -2,14 +2,13 @@ from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from database import get_db
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
-templates = Jinja2Templates(directory="templates")
+from templates_config import templates as templates
 
 
 def _row(row):

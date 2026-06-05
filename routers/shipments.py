@@ -1,14 +1,13 @@
-﻿from datetime import date
+from datetime import date
 from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from database import get_db
 import crud
 import company_config
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+from templates_config import templates
 
 SHIPMENT_TYPES = {
     "sale": "販売",

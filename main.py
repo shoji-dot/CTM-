@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Request, Depends, Body
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 import sys, os, pathlib
@@ -142,14 +141,7 @@ _session_secret = os.environ.get("SESSION_SECRET_KEY")
 if not _session_secret:
     raise RuntimeError("環境変数 SESSION_SECRET_KEY が未設定です。.env を確認してください。")
 app.add_middleware(SessionMiddleware, secret_key=_session_secret)
-templates = Jinja2Templates(directory="templates")
-
-# [I1] CSRFトークン生成関数をJinja2グローバルに登録
-def _jinja_csrf_token(request: Request) -> str:
-    token = request.cookies.get("session", "")
-    return generate_csrf_token(token)
-
-templates.env.globals["csrf_token"] = _jinja_csrf_token
+from templates_config import templates  # [I1] csrf_token登録済み
 
 company_info = {
     "name": company_config.COMPANY_NAME,

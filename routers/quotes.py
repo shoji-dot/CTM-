@@ -2,7 +2,6 @@ from datetime import date, datetime as _dt
 from decimal import Decimal, ROUND_DOWN
 from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import text as _sa_text
 from database import get_db
@@ -12,7 +11,7 @@ import company_config
 TAX_RATE = Decimal("0.10")
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+from templates_config import templates
 
 company_info = {
     "name": company_config.COMPANY_NAME,

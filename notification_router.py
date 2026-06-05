@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from database import get_db
 
-TEMPLATES = Jinja2Templates(directory="templates")
+from templates_config import templates as TEMPLATES
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 NOTIF_TYPES = {

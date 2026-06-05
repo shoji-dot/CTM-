@@ -2,13 +2,12 @@ import csv
 import io
 from fastapi import APIRouter, Depends, Request, Form, File, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from database import get_db
 import crud
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+from templates_config import templates
 
 
 @router.get("/products", response_class=HTMLResponse)

@@ -1,14 +1,13 @@
 from datetime import date, datetime
 from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from database import get_db
 import models
 import company_config
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+from templates_config import templates
 
 company_info = {
     "name": company_config.COMPANY_NAME,

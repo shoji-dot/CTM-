@@ -2,13 +2,12 @@ import os
 from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Repair, Customer, Product, Shipment
 import company_config
 
-TEMPLATES = Jinja2Templates(directory="templates")
+from templates_config import templates as TEMPLATES
 router = APIRouter(prefix="/repairs", tags=["repairs"])
 
 COMPANY_INFO = {

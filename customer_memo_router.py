@@ -5,12 +5,11 @@ customer_memo_router.py
 from datetime import datetime
 from fastapi import APIRouter, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from database import get_db
 
-TEMPLATES = Jinja2Templates(directory="templates")
+from templates_config import templates as TEMPLATES
 router = APIRouter(prefix="/customer-memos", tags=["customer_memos"])
 
 
@@ -107,6 +106,4 @@ async def memo_list_json(request: Request, q: str = "", db: Session = Depends(ge
         sql += " AND (hospital LIKE :q1 OR doctor_name LIKE :q2 OR memo LIKE :q3)"
         like = f"%{q}%"
         params = {"q1": like, "q2": like, "q3": like}
-    sql += " ORDER BY updated_at DESC LIMIT 20"
-    rows = _rows(db.execute(text(sql), params).fetchall())
-    return JSONResponse(rows)
+ 

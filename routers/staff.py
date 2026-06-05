@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, Request, Form, Cookie
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -33,7 +32,7 @@ from auth import hash_password, verify_password, create_session_token, get_curre
 import crud
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+from templates_config import templates
 
 
 def get_staff_or_redirect(request: Request, db: Session):

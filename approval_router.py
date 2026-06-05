@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, Request
 from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -15,7 +14,7 @@ router = APIRouter(prefix="/approval", tags=["approval"])
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), 'uploads', 'documents')
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-templates_approval = Jinja2Templates(directory="templates")
+from templates_config import templates as templates_approval
 
 
 def _row(row):

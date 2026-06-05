@@ -4,7 +4,6 @@ routers/demo.py  -  デモ器台帳・貸出・修理管理
 from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Depends, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from collections import defaultdict
@@ -18,7 +17,7 @@ def send_email(to_list: list[str], subject: str, html_body: str) -> bool:
     return _send_email(to_list, subject, subject, html_body=html_body)
 
 router = APIRouter(prefix="/demo", tags=["demo"])
-templates = Jinja2Templates(directory="templates")
+from templates_config import templates
 
 
 # ──────────────────────────────────────────────

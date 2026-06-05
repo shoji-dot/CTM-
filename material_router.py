@@ -2,7 +2,6 @@ import os, uuid, mimetypes
 from pathlib import Path
 from fastapi import APIRouter, Request, Form, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, text as _sa_text
 from database import SessionLocal, get_db
@@ -11,7 +10,7 @@ from models import (
     MaterialVersion, Favorite
 )
 
-TEMPLATES = Jinja2Templates(directory="templates")
+from templates_config import templates as TEMPLATES
 router    = APIRouter(prefix="/materials", tags=["materials"])
 
 UPLOAD_DIR = Path(__file__).parent / "uploads" / "materials"
