@@ -505,14 +505,15 @@ async function startCamera() {
     wrapper.id = 'camera-view-wrapper';
 
     html5QrCode = new Html5Qrcode('camera-view-wrapper', { verbose: false });
-    const config = {
-      fps: 10,
-      qrbox: { width: 300, height: 150 },
-      aspectRatio: 1.777
+    const config = { fps: 10 };
+    const cameraConstraints = {
+      facingMode: 'environment',
+      width: { ideal: 1920 },
+      height: { ideal: 1080 }
     };
 
     await html5QrCode.start(
-      { facingMode: 'environment' },
+      cameraConstraints,
       config,
       (decodedText) => { handleBarcode(decodedText); }
     );
