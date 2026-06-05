@@ -13,7 +13,7 @@ from routers import customers, products, inventory, quotes, shipments
 from routers import staff as staff_router
 import crud
 import company_config
-from auth import decode_session_token
+from auth import decode_session_token, now_jst
 from barcode_routes import router as barcode_router
 from routers.sales import router as sales_router
 from routers.demo import router as demo_router
@@ -154,7 +154,7 @@ async def auth_middleware(request: Request, call_next):
                         "is_active": bool(staff.is_active),
                         "last_active_at": staff.last_active_at,
                     }
-                    staff.last_active_at = datetime.now()
+                    staff.last_active_at = now_jst()
                     staff.last_active_page = path
                     db.commit()
             finally:
@@ -245,10 +245,10 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         .all()
     )
     overdue_loans_count = len(overdue_loans)
-    threshold = datetime.now() - timedelta(minutes=5)
+    threshold = now_jst() - timedelta(minutes=5)
     all_staffs = db.query(Staff).filter(Staff.is_active == True).all()
     online_staffs = [s for s in all_staffs if s.last_active_at and s.last_active_at >= threshold]
-    now = datetime.now()
+    now = now_jst()
 
     all_staffs_data = [{
         "id": s.id, "name": s.name, "department": s.department,

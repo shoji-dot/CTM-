@@ -1,5 +1,9 @@
 import os
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+def now_jst():
+    return datetime.now(ZoneInfo("Asia/Tokyo")).replace(tzinfo=None)
 from passlib.context import CryptContext
 from itsdangerous import URLSafeTimedSerializer
 from sqlalchemy.orm import Session
@@ -43,6 +47,6 @@ def get_current_staff(token: str, db: Session):
 
 
 def update_last_active(staff: Staff, page: str, db: Session):
-    staff.last_active_at = datetime.now()
+    staff.last_active_at = now_jst()
     staff.last_active_page = page
     db.commit()
