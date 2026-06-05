@@ -34,6 +34,7 @@ def _run_migrations():
     if is_pg:
         stmts = [
             "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS approval_doc_id INTEGER",
+            "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS created_by_id INTEGER REFERENCES staffs(id)",
             "ALTER TABLE products ADD COLUMN IF NOT EXISTS alert_enabled BOOLEAN NOT NULL DEFAULT TRUE",
             "ALTER TABLE staffs ADD COLUMN IF NOT EXISTS position VARCHAR(100)",
             "ALTER TABLE staffs ADD COLUMN IF NOT EXISTS approval_level INTEGER DEFAULT 0",
@@ -41,6 +42,7 @@ def _run_migrations():
     else:
         stmts = [
             "ALTER TABLE quotes ADD COLUMN approval_doc_id INTEGER",
+            "ALTER TABLE quotes ADD COLUMN created_by_id INTEGER",
             "ALTER TABLE products ADD COLUMN alert_enabled BOOLEAN NOT NULL DEFAULT TRUE",
             "ALTER TABLE staffs ADD COLUMN position VARCHAR(100)",
             "ALTER TABLE staffs ADD COLUMN approval_level INTEGER DEFAULT 0",
@@ -349,7 +351,6 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "overdue_loans_count": overdue_loans_count,
         "online_staffs": online_staffs_data,
         "all_staffs": all_staffs_data,
-        "now": now,
         "current": current,
         "alerts": alerts,
         "recent_quotes": recent_quotes,

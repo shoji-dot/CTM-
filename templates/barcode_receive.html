@@ -429,6 +429,10 @@ function setNextScanTarget(target) {
 
 async function startCamera() {
   try {
+    // iOS Safari はHTTPS必須・facingMode:'environment'で背面カメラを指定
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      showToast('カメラにはHTTPS接続が必要です', 'error'); return;
+    }
     const hints = new Map();
     hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
       ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39,
@@ -436,24 +440,65 @@ async function startCamera() {
       ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.DATA_MATRIX,
     ]);
     codeReader = new ZXing.BrowserMultiFormatReader(hints);
-    const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
-    const deviceId = devices.length > 1 ? devices[1].deviceId : devices[0]?.deviceId;
-    document.getElementById('camera-video').style.display = 'block';
+
+    // iPhoneを含むスマホは facingMode:'environment'（背面カメラ）で直接起動
+    // PCはデバイス一覧から選択
+    const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
+    let deviceId = undefined;
+    if (!isMobile) {
+      const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+      // 背面カメラ優先（"back"/"rear"/"environment"を含む名前を探す）
+      const back = devices.find(d => /back|rear|environment/i.test(d.label));
+      deviceId = back ? back.deviceId : (devices[devices.length - 1]?.deviceId);
+    }
+
+    const videoEl = document.getElementById('camera-video');
+    // iPhoneでは constraints で背面カメラを強制指定
+    if (isMobile) {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { exact: 'environment' } }
+      }).catch(() => navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      }));
+      videoEl.srcObject = stream;
+      await videoEl.play();
+    }
+
+    videoEl.style.display = 'block';
     document.getElementById('camera-overlay').style.display = 'none';
     document.getElementById('scan-reticle').style.display = 'block';
     document.getElementById('scan-line').style.display = 'block';
     document.getElementById('btn-start-camera').style.display = 'none';
     document.getElementById('btn-stop-camera').style.display = 'flex';
     cameraActive = true;
-    await codeReader.decodeFromVideoDevice(deviceId, 'camera-video', (result) => {
-      if (result) handleBarcode(result.getText());
-    });
-  } catch(e) { showToast('カメラ起動失敗: ' + e.message, 'error'); }
+
+    if (isMobile) {
+      // iPhoneはvideoをそのままZXingに渡して解析ループ
+      codeReader.decodeFromVideoElement(videoEl, (result, err) => {
+        if (result) handleBarcode(result.getText());
+      });
+    } else {
+      await codeReader.decodeFromVideoDevice(deviceId, 'camera-video', (result) => {
+        if (result) handleBarcode(result.getText());
+      });
+    }
+  } catch(e) {
+    let msg = e.message || String(e);
+    if (e.name === 'NotAllowedError') msg = 'カメラへのアクセスが拒否されています。iPhoneの設定→Safari→カメラを「許可」にしてください。';
+    else if (e.name === 'NotFoundError') msg = 'カメラが見つかりません。';
+    showToast('カメラ起動失敗: ' + msg, 'error');
+  }
 }
 
 function stopCamera() {
   if (codeReader) { codeReader.reset(); codeReader = null; }
-  document.getElementById('camera-video').style.display = 'none';
+  // iPhoneのsrcObjectストリームも停止
+  const videoEl = document.getElementById('camera-video');
+  if (videoEl.srcObject) {
+    videoEl.srcObject.getTracks().forEach(t => t.stop());
+    videoEl.srcObject = null;
+  }
+  videoEl.style.display = 'none';
   document.getElementById('camera-overlay').style.display = 'flex';
   document.getElementById('scan-reticle').style.display = 'none';
   document.getElementById('scan-line').style.display = 'none';
