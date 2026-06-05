@@ -37,25 +37,81 @@ def barcode_ship_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
+def parse_gs1_128(raw: str) -> dict:
+    """GS1-128バーコードをパースしてGTIN・ロット番号等を抽出する"""
+    result = {"gtin": None, "lot": None, "serial": None, "candidates": []}
+    # FNC1文字 (0x1D) またはカッコ形式の両方に対応
+    # 例: \x1d0104580799900201\x1d1012501
+    # 例: (01)04580799900201(10)12501
+    text = raw.replace('\x1d', '').replace('\x1e', '')
+    # カッコ形式を正規化
+    import re
+    bracket = re.sub(r'\((\d{2})\)', r'\1', text)  # (01) → 01
+    # AIパース（固定長AI）
+    ai_lengths = {'00': 18, '01': 14, '02': 14, '10': None, '11': 6, '17': 6,
+                  '20': 2, '21': None, '30': None}
+    pos = 0
+    while pos < len(bracket):
+        ai = bracket[pos:pos+2]
+        if ai in ai_lengths:
+            length = ai_lengths[ai]
+            pos += 2
+            if length:
+                val = bracket[pos:pos+length]
+                pos += length
+            else:
+                # 可変長: 次のAIか末尾まで
+                end = len(bracket)
+                for next_ai in ai_lengths:
+                    idx = bracket.find(next_ai, pos)
+                    if idx > pos:
+                        end = min(end, idx)
+                val = bracket[pos:end]
+                pos = end
+            if ai == '01':
+                result['gtin'] = val
+            elif ai == '10':
+                result['lot'] = val
+            elif ai == '21':
+                result['serial'] = val
+            result['candidates'].append(val)
+        else:
+            pos += 1
+    return result
+
+
 @router.get("/api/search")
 def barcode_search(code: str, request: Request, db: Session = Depends(get_db)):
     code = code.strip()
 
-    # SKUで検索
-    product = db.query(models.Product).filter(
-        models.Product.sku == code
-    ).first()
+    # GS1-128かどうか判定（FNC1文字含む or 数字+長い文字列）
+    search_codes = [code]
+    if '\x1d' in code or '\x1e' in code or (len(code) > 15 and code[:2].isdigit()):
+        parsed = parse_gs1_128(code)
+        for v in [parsed['gtin'], parsed['lot'], parsed['serial']] + parsed['candidates']:
+            if v and v not in search_codes:
+                search_codes.append(v)
+
+    # SKUで検索（複数候補を順に試す）
+    product = None
+    for c in search_codes:
+        product = db.query(models.Product).filter(models.Product.sku == c).first()
+        if product:
+            break
 
     # 見つからなければシリアル番号・ロット番号で検索
     if not product:
-        history = db.query(models.InventoryHistory).filter(
-            (models.InventoryHistory.serial_number == code) |
-            (models.InventoryHistory.lot_number == code)
-        ).first()
-        if history:
-            product = db.query(models.Product).filter(
-                models.Product.id == history.product_id
+        for c in search_codes:
+            history = db.query(models.InventoryHistory).filter(
+                (models.InventoryHistory.serial_number == c) |
+                (models.InventoryHistory.lot_number == c)
             ).first()
+            if history:
+                product = db.query(models.Product).filter(
+                    models.Product.id == history.product_id
+                ).first()
+                if product:
+                    break
 
     if not product:
         return JSONResponse({"found": False})
