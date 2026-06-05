@@ -2,7 +2,7 @@
 {% block title %}バーコードスキャン出荷登録 - SalesCore{% endblock %}
 
 {% block head_extra %}
-<script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+<script src="/static/js/html5-qrcode.min.js"></script>
 <style>
   :root {
     --scan-orange: #f57c00;
@@ -448,7 +448,7 @@
 
 {% block scripts %}
 <script>
-let codeReader = null, cameraActive = false, scanTarget = 'product', currentProduct = null;
+let html5QrCode = null, cameraActive = false, scanTarget = 'product', currentProduct = null;
 const sessionHistory = [];
 const SHIP_TYPE_LABELS = { sale: '販売', demo: 'デモ貸出', sample: 'サンプル', repair: '修理代替品' };
 
@@ -478,35 +478,66 @@ function setNextScanTarget(target) {
 }
 
 async function startCamera() {
+  const overlay = document.getElementById('camera-overlay');
+  overlay.style.display = 'flex';
+  overlay.innerHTML = '<p>📷 カメラを起動中...</p>';
+  document.getElementById('btn-start-camera').style.display = 'none';
+
+  if (typeof Html5Qrcode === 'undefined') {
+    showToast('ライブラリ読み込みエラー。ページを再読み込みしてください。', 'error');
+    document.getElementById('btn-start-camera').style.display = 'flex';
+    return;
+  }
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+    showToast('カメラにはHTTPS接続が必要です', 'error');
+    document.getElementById('btn-start-camera').style.display = 'flex';
+    return;
+  }
+
   try {
-    const hints = new Map();
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-      ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39,
-      ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8,
-      ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.DATA_MATRIX,
-    ]);
-    codeReader = new ZXing.BrowserMultiFormatReader(hints);
-    const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
-    const deviceId = devices.length > 1 ? devices[1].deviceId : devices[0]?.deviceId;
-    document.getElementById('camera-video').style.display = 'block';
-    document.getElementById('camera-overlay').style.display = 'none';
-    document.getElementById('scan-reticle').style.display = 'block';
-    document.getElementById('scan-line').style.display = 'block';
-    document.getElementById('btn-start-camera').style.display = 'none';
+    document.getElementById('camera-video').style.display = 'none';
+    const wrapper = document.getElementById('camera-view-wrapper');
+    wrapper.innerHTML = '';
+    wrapper.id = 'camera-view-wrapper';
+
+    html5QrCode = new Html5Qrcode('camera-view-wrapper');
+    const config = { fps: 10, qrbox: { width: 220, height: 120 }, aspectRatio: 1.333 };
+
+    await html5QrCode.start(
+      { facingMode: 'environment' },
+      config,
+      (decodedText) => { handleBarcode(decodedText); }
+    );
+
+    overlay.style.display = 'none';
+    document.getElementById('scan-reticle').style.display = 'none';
+    document.getElementById('scan-line').style.display = 'none';
     document.getElementById('btn-stop-camera').style.display = 'flex';
     cameraActive = true;
-    await codeReader.decodeFromVideoDevice(deviceId, 'camera-video', (result) => {
-      if (result) handleBarcode(result.getText());
-    });
-  } catch(e) { showToast('カメラ起動失敗: ' + e.message, 'error'); }
+
+  } catch(e) {
+    let msg = 'カメラ起動失敗: ' + (e.message || String(e));
+    if (e.name === 'NotAllowedError') msg = 'カメラが拒否されています。設定→Safari→カメラ→「許可」に変更してください。';
+    else if (e.name === 'NotFoundError') msg = 'カメラが見つかりません。';
+    showToast(msg, 'error');
+    overlay.style.display = 'flex';
+    overlay.innerHTML = '<p>📷 カメラを起動してください</p>';
+    document.getElementById('btn-start-camera').style.display = 'flex';
+    if (html5QrCode) { try { await html5QrCode.stop(); } catch(_){} html5QrCode = null; }
+  }
 }
 
-function stopCamera() {
-  if (codeReader) { codeReader.reset(); codeReader = null; }
-  document.getElementById('camera-video').style.display = 'none';
-  document.getElementById('camera-overlay').style.display = 'flex';
-  document.getElementById('scan-reticle').style.display = 'none';
-  document.getElementById('scan-line').style.display = 'none';
+async function stopCamera() {
+  if (html5QrCode && cameraActive) {
+    try { await html5QrCode.stop(); } catch(_) {}
+    html5QrCode = null;
+  }
+  const wrapper = document.getElementById('camera-view-wrapper');
+  wrapper.innerHTML = `
+    <video id="camera-video" autoplay playsinline style="display:none"></video>
+    <div class="camera-overlay" id="camera-overlay" style="display:flex"><p>📷 カメラを起動してください</p></div>
+    <div class="scan-reticle" id="scan-reticle" style="display:none"><div class="scan-line" id="scan-line"></div></div>
+  `;
   document.getElementById('btn-start-camera').style.display = 'flex';
   document.getElementById('btn-stop-camera').style.display = 'none';
   cameraActive = false;
