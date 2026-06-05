@@ -448,8 +448,7 @@
 
 {% block scripts %}
 <script>
-let cameraStream = null, cameraActive = false, scanTarget = 'product', currentProduct = null;
-let scanAnimFrame = null, barcodeDetector = null, scanCanvas = null, scanCtx = null;
+let html5QrCode = null, cameraActive = false, scanTarget = 'product', currentProduct = null;
 const sessionHistory = [];
 const SHIP_TYPE_LABELS = { sale: '販売', demo: 'デモ貸出', sample: 'サンプル', repair: '修理代替品' };
 
@@ -494,56 +493,33 @@ async function startCamera() {
     document.getElementById('btn-start-camera').style.display = 'flex';
     return;
   }
-  if (!('BarcodeDetector' in window)) {
-    showToast('このブラウザはバーコード検出非対応です。iOS 17以上のSafariをお使いください。', 'error');
+  if (typeof Html5Qrcode === 'undefined') {
+    showToast('ライブラリ読み込みエラー。ページを再読み込みしてください。', 'error');
     document.getElementById('btn-start-camera').style.display = 'flex';
     return;
   }
 
   try {
-    const supportedFormats = await BarcodeDetector.getSupportedFormats();
-    const wantFormats = ['code_128','code_39','ean_13','ean_8','upc_a','upc_e','qr_code','data_matrix','itf','pdf417'];
-    const useFormats = wantFormats.filter(f => supportedFormats.includes(f));
-    barcodeDetector = new BarcodeDetector({ formats: useFormats.length ? useFormats : supportedFormats });
+    const wrapper = document.getElementById('camera-view-wrapper');
+    wrapper.innerHTML = '';
+    wrapper.id = 'camera-view-wrapper';
 
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-    });
+    html5QrCode = new Html5Qrcode('camera-view-wrapper', { verbose: false });
+    const config = {
+      fps: 10,
+      qrbox: { width: 300, height: 150 },
+      aspectRatio: 1.777
+    };
 
-    const video = document.getElementById('camera-video');
-    video.srcObject = cameraStream;
-    video.style.display = 'block';
-    await video.play();
+    await html5QrCode.start(
+      { facingMode: 'environment' },
+      config,
+      (decodedText) => { handleBarcode(decodedText); }
+    );
 
     overlay.style.display = 'none';
     document.getElementById('btn-stop-camera').style.display = 'flex';
     cameraActive = true;
-
-    scanCanvas = document.createElement('canvas');
-    scanCtx = scanCanvas.getContext('2d');
-    let lastCode = '', lastTime = 0;
-
-    async function scanFrame() {
-      if (!cameraActive) return;
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        scanCanvas.width = video.videoWidth;
-        scanCanvas.height = video.videoHeight;
-        scanCtx.drawImage(video, 0, 0);
-        try {
-          const results = await barcodeDetector.detect(scanCanvas);
-          if (results.length > 0) {
-            const code = results[0].rawValue;
-            const now = Date.now();
-            if (code !== lastCode || now - lastTime > 2000) {
-              lastCode = code; lastTime = now;
-              handleBarcode(code);
-            }
-          }
-        } catch(_) {}
-      }
-      scanAnimFrame = requestAnimationFrame(scanFrame);
-    }
-    scanFrame();
 
   } catch(e) {
     let msg = 'カメラ起動失敗: ' + (e.message || String(e));
@@ -553,18 +529,18 @@ async function startCamera() {
     overlay.style.display = 'flex';
     overlay.innerHTML = '<p>📷 カメラを起動してください</p>';
     document.getElementById('btn-start-camera').style.display = 'flex';
-    if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+    if (html5QrCode) { try { await html5QrCode.stop(); } catch(_){} html5QrCode = null; }
   }
 }
 
 async function stopCamera() {
   cameraActive = false;
-  if (scanAnimFrame) { cancelAnimationFrame(scanAnimFrame); scanAnimFrame = null; }
-  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
-  const video = document.getElementById('camera-video');
-  if (video) { video.srcObject = null; video.style.display = 'none'; }
-  const overlay = document.getElementById('camera-overlay');
-  if (overlay) { overlay.style.display = 'flex'; overlay.innerHTML = '<p>📷 カメラを起動してください</p>'; }
+  if (html5QrCode) { try { await html5QrCode.stop(); } catch(_){} html5QrCode = null; }
+  const wrapper = document.getElementById('camera-view-wrapper');
+  if (wrapper) wrapper.innerHTML = `
+    <video id="camera-video" autoplay playsinline style="display:none;width:100%;height:100%;object-fit:cover"></video>
+    <div class="camera-overlay" id="camera-overlay"><p>📷 カメラを起動してください</p></div>
+    <div class="scan-reticle" id="scan-reticle" style="display:none"><div class="scan-line" id="scan-line"></div></div>`;
   document.getElementById('btn-start-camera').style.display = 'flex';
   document.getElementById('btn-stop-camera').style.display = 'none';
 }
