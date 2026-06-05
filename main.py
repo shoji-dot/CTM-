@@ -28,19 +28,19 @@ from sqlalchemy import text as _sa_text
 
 models.Base.metadata.create_all(bind=engine)
 
-# カラム追加マイグレーション（既存DB対応）
+# 起動時マイグレーション（列追加・既存は無視）
 def _run_migrations():
-    from sqlalchemy import text
     is_pg = "postgresql" in str(engine.url)
-    id_col = "id SERIAL PRIMARY KEY" if is_pg else "id INTEGER PRIMARY KEY AUTOINCREMENT"
     if is_pg:
         stmts = [
+            "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS approval_doc_id INTEGER",
             "ALTER TABLE products ADD COLUMN IF NOT EXISTS alert_enabled BOOLEAN NOT NULL DEFAULT TRUE",
             "ALTER TABLE staffs ADD COLUMN IF NOT EXISTS position VARCHAR(100)",
             "ALTER TABLE staffs ADD COLUMN IF NOT EXISTS approval_level INTEGER DEFAULT 0",
         ]
     else:
         stmts = [
+            "ALTER TABLE quotes ADD COLUMN approval_doc_id INTEGER",
             "ALTER TABLE products ADD COLUMN alert_enabled BOOLEAN NOT NULL DEFAULT TRUE",
             "ALTER TABLE staffs ADD COLUMN position VARCHAR(100)",
             "ALTER TABLE staffs ADD COLUMN approval_level INTEGER DEFAULT 0",
@@ -48,10 +48,10 @@ def _run_migrations():
     with engine.connect() as conn:
         for stmt in stmts:
             try:
-                conn.execute(text(stmt))
+                conn.execute(_sa_text(stmt))
                 conn.commit()
             except Exception:
-                pass  # SQLiteはIF NOT EXISTS非対応のためtry/exceptで対応
+                pass
 
 _run_migrations()
 
@@ -343,6 +343,13 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
+        "current": current,
+        "alerts": alerts,
+        "recent_quotes": recent_quotes,
+        "overdue_loans_count": overdue_loans_count,
+        "online_staffs": online_staffs_data,
+        "all_staffs": all_staffs_data,
+        "now": now,
         "current": current,
         "alerts": alerts,
         "recent_quotes": recent_quotes,
