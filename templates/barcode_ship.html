@@ -500,18 +500,15 @@ async function startCamera() {
     wrapper.innerHTML = '';
     wrapper.id = 'camera-view-wrapper';
 
-    const formats = [
-      Html5QrcodeSupportedFormats.CODE_128,
-      Html5QrcodeSupportedFormats.CODE_39,
-      Html5QrcodeSupportedFormats.EAN_13,
-      Html5QrcodeSupportedFormats.EAN_8,
-      Html5QrcodeSupportedFormats.UPC_A,
-      Html5QrcodeSupportedFormats.UPC_E,
-      Html5QrcodeSupportedFormats.QR_CODE,
-      Html5QrcodeSupportedFormats.DATA_MATRIX,
-    ];
+    // CODE_128=5, CODE_39=3, EAN_13=9, EAN_8=10, UPC_A=14, UPC_E=15, QR_CODE=0, DATA_MATRIX=6, ITF=8
+    const formats = [0, 3, 5, 6, 8, 9, 10, 14, 15];
     html5QrCode = new Html5Qrcode('camera-view-wrapper', { formatsToSupport: formats, verbose: false });
-    const config = { fps: 15, qrbox: { width: 280, height: 100 }, aspectRatio: 1.777 };
+    const config = {
+      fps: 15,
+      qrbox: { width: 300, height: 150 },
+      aspectRatio: 1.777,
+      experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+    };
 
     await html5QrCode.start(
       { facingMode: 'environment' },
