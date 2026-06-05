@@ -175,3 +175,19 @@ async def csv_import(file: UploadFile = File(...), db: Session = Depends(get_db)
         "errors": [],
         "success_count": 0,
     })
+
+
+@router.post("/products/{product_id}/delete")
+def delete_product(product_id: int, request: Request, db: Session = Depends(get_db)):
+    # [I10] 整合性チェックはcrud側で実施、エラーはリダイレクトで返却
+    from fastapi import HTTPException
+    from urllib.parse import quote as urlquote
+    staff = request.state.staff
+    if not staff or staff.get("role") not in ("admin", "manager"):
+        return RedirectResponse("/products?error=権限がありません", status_code=303)
+    try:
+        crud.delete_product(db, product_id)
+    except HTTPException as e:
+        msg = urlquote(e.detail)
+        return RedirectResponse(f"/products?error={msg}", status_code=303)
+    return RedirectResponse("/products", status_code=303)

@@ -1,4 +1,5 @@
 from datetime import date, datetime as _dt
+from decimal import Decimal, ROUND_DOWN
 from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -7,6 +8,8 @@ from sqlalchemy import text as _sa_text
 from database import get_db
 import crud
 import company_config
+
+TAX_RATE = Decimal("0.10")
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -141,11 +144,17 @@ def detail_quote(quote_id: int, request: Request, db: Session = Depends(get_db))
     quote = crud.get_quote(db, quote_id)
     staff = request.state.staff
     approval_ctx = _get_approval_context(quote, staff, db)
+    # [I6] 消費税をDecimalで切り捨て計算
+    subtotal_d = Decimal(str(quote.total_amount))
+    tax_amount_d = (subtotal_d * TAX_RATE).quantize(Decimal("1"), rounding=ROUND_DOWN)
+    grand_total_d = subtotal_d + tax_amount_d
     return templates.TemplateResponse("quotes/detail.html", {
         "request": request,
         "quote": quote,
         "company": company_info,
         "approval_ctx": approval_ctx,
+        "tax_amount": int(tax_amount_d),
+        "grand_total": int(grand_total_d),
     })
 
 @router.post("/quotes/{quote_id}/status")
@@ -273,10 +282,8 @@ def cancel_approval(
 
 @router.post("/quotes/{quote_id}/delete")
 def delete_quote(quote_id: int, request: Request, db: Session = Depends(get_db)):
-    # [C4] 管理者のみ見積削除可能
-    current = request.state.staff
-    if current.get("role") != "admin":
-        from fastapi import HTTPException
-        raise HTTPException(403, "管理者権限が必要です")
+    staff = request.state.staff
+    if not staff or staff.get("role") not in ("admin", "manager"):
+        return RedirectResponse(f"/quotes/{quote_id}?error=no_permission", status_code=303)
     crud.delete_quote(db, quote_id)
     return RedirectResponse("/quotes", status_code=303)

@@ -103,8 +103,14 @@ async def move_inventory(request: Request, db: Session = Depends(get_db)):
     note = form_data.get("note") or ""
     staff = getattr(request.state, "staff", None)
     staff_name = staff["name"] if staff else None
-    crud.move_inventory(db, product_id, movement_type, quantity,
-                        reason=reason, note=note, staff_name=staff_name)
+    try:
+        crud.move_inventory(db, product_id, movement_type, quantity,
+                            reason=reason, note=note, staff_name=staff_name)
+    except ValueError as e:
+        products = crud.get_products(db)
+        return templates.TemplateResponse("inventory/move.html", {
+            "request": request, "products": products, "error": str(e)
+        })
     return RedirectResponse("/inventory", status_code=303)
 
 

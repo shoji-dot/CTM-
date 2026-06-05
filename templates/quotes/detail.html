@@ -137,11 +137,11 @@
           </tr>
           <tr class="total-row">
             <td colspan="4" class="text-right fw-bold">消費税（10%）</td>
-            <td class="text-right fw-bold">¥{{ "{:,.0f}".format(quote.total_amount * 0.1) }}</td>
+            <td class="text-right fw-bold">¥{{ "{:,.0f}".format(tax_amount) }}</td>
           </tr>
           <tr class="total-row">
             <td colspan="4" class="text-right fw-bold">合計（税込）</td>
-            <td class="text-right fw-bold text-lg" style="color:var(--accent)">¥{{ "{:,.0f}".format(quote.total_amount * 1.1) }}</td>
+            <td class="text-right fw-bold text-lg" style="color:var(--accent)">¥{{ "{:,.0f}".format(grand_total) }}</td>
           </tr>
         </tfoot>
       </table>
