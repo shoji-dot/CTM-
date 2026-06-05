@@ -152,7 +152,7 @@ async def auth_middleware(request: Request, call_next):
                         "is_active": bool(staff.is_active),
                         "last_active_at": staff.last_active_at,
                     }
-                    staff.last_active_at = datetime.utcnow() + timedelta(hours=9)
+                    staff.last_active_at = datetime.now()
                     staff.last_active_page = path
                     db.commit()
             finally:
@@ -243,10 +243,10 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         .all()
     )
     overdue_loans_count = len(overdue_loans)
-    threshold = datetime.utcnow() + timedelta(hours=9) - timedelta(minutes=5)
+    threshold = datetime.now() - timedelta(minutes=5)
     all_staffs = db.query(Staff).filter(Staff.is_active == True).all()
     online_staffs = [s for s in all_staffs if s.last_active_at and s.last_active_at >= threshold]
-    now = datetime.utcnow() + timedelta(hours=9)
+    now = datetime.now()
 
     all_staffs_data = [{
         "id": s.id, "name": s.name, "department": s.department,

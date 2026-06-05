@@ -1,4 +1,4 @@
-import os, uuid, mimetypes, httpx, asyncio
+import os, uuid, mimetypes
 from pathlib import Path
 from fastapi import APIRouter, Request, Form, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
@@ -19,8 +19,6 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt"}
 MAX_FILE_SIZE_MB   = 50
-ANTHROPIC_API_KEY  = os.getenv("ANTHROPIC_API_KEY", "")
-ANTHROPIC_MODEL    = "claude-sonnet-4-20250514"
 DROPBOX_TOKEN      = os.getenv("DROPBOX_ACCESS_TOKEN", "")
 DROPBOX_FOLDER     = "/CTM_materials"
 
@@ -73,53 +71,6 @@ def _staff_id(request):
     return staff["id"]
 
 
-async def generate_ai_summary(file_path, file_name, file_type):
-    if not ANTHROPIC_API_KEY:
-        return ""
-    if file_type == ".pdf":
-        try:
-            import base64
-            b64 = base64.b64encode(file_path.read_bytes()).decode()
-            payload = {
-                "model": ANTHROPIC_MODEL,
-                "max_tokens": 512,
-                "messages": [{"role": "user", "content": [
-                    {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": b64}},
-                    {"type": "text", "text": "この文書の内容を日本語で3〜5文に要約してください。箇条書きは使わず連続した文章で。"}
-                ]}]
-            }
-        except Exception:
-            payload = None
-    else:
-        payload = None
-
-    if payload is None:
-        payload = {
-            "model": ANTHROPIC_MODEL,
-            "max_tokens": 256,
-            "messages": [{"role": "user", "content": f"ファイル名: {file_name}\nこのファイル名から推測される資料の内容を日本語2〜3文で説明してください。"}]
-        }
-
-    try:
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-                json=payload,
-            )
-            data = resp.json()
-            return "\n".join(b["text"] for b in data.get("content", []) if b.get("type") == "text").strip()
-    except Exception as e:
-        print(f"[AI Summary] error: {e}")
-        return ""
-
-
-async def _safe_summary(file_path, file_name, file_type):
-    try:
-        return await asyncio.wait_for(generate_ai_summary(file_path, file_name, file_type), timeout=30.0)
-    except Exception:
-        return ""
-
 
 @router.get("/", response_class=HTMLResponse)
 async def material_list(request: Request, q: str = "", category_id: int = 0, tag: str = "", fav_only: int = 0):
@@ -145,7 +96,7 @@ async def material_list(request: Request, q: str = "", category_id: int = 0, tag
         if q:
             like = f"%{q}%"
             query = query.filter(
-                or_(Material.title.ilike(like), Material.description.ilike(like), Material.ai_summary.ilike(like))
+                or_(Material.title.ilike(like), Material.description.ilike(like))
             )
         if category_id:
             query = query.filter(Material.category_id == category_id)
@@ -215,8 +166,7 @@ async def upload_material(
             dest = UPLOAD_DIR / unique_name
             dest.write_bytes(content)
             display_title = title or Path(f.filename).stem
-            ai_summary = await _safe_summary(dest, f.filename, suffix)
-
+            
             # Dropbox upload
             if DROPBOX_TOKEN:
                 file_path_str = _dropbox_upload(content, unique_name)
@@ -233,7 +183,6 @@ async def upload_material(
                 file_name=f.filename,
                 file_type=suffix,
                 file_size=len(content),
-                ai_summary=ai_summary,
                 uploaded_by=staff_id,
             )
             db.add(material)
@@ -253,7 +202,6 @@ async def upload_material(
                 file_path=file_path_str,
                 file_name=f.filename,
                 file_size=len(content),
-                ai_summary=ai_summary,
                 uploaded_by=staff_id,
                 note="初版",
             ))
@@ -283,7 +231,6 @@ async def update_material_version(request: Request, material_id: int, note: str 
         unique_name = f"{uuid.uuid4().hex}{suffix}"
         dest = UPLOAD_DIR / unique_name
         dest.write_bytes(content)
-        ai_summary = await _safe_summary(dest, file.filename, suffix)
         new_ver = material.version + 1
 
         if DROPBOX_TOKEN:
@@ -305,7 +252,6 @@ async def update_material_version(request: Request, material_id: int, note: str 
             file_path=rel_path,
             file_name=file.filename,
             file_size=len(content),
-            ai_summary=ai_summary,
             uploaded_by=staff_id,
             note=note,
         ))
@@ -536,7 +482,6 @@ async def import_from_approval(request: Request, document_id: int, category_id: 
         src = Path(__file__).parent / doc["file_path"]
         dest = UPLOAD_DIR / f"{uuid.uuid4().hex}{suffix}"
         dest.write_bytes(src.read_bytes())
-        ai_summary = await _safe_summary(dest, doc["file_name"], suffix)
         rel_path = str(dest.relative_to(Path(__file__).parent))
         file_size = src.stat().st_size
 
@@ -556,7 +501,6 @@ async def import_from_approval(request: Request, document_id: int, category_id: 
                 file_path=rel_path,
                 file_name=doc["file_name"],
                 file_size=file_size,
-                ai_summary=ai_summary,
                 uploaded_by=staff_id,
                 note="承認済み更新",
             ))
@@ -568,7 +512,6 @@ async def import_from_approval(request: Request, document_id: int, category_id: 
                 file_name=doc["file_name"],
                 file_type=suffix,
                 file_size=file_size,
-                ai_summary=ai_summary,
                 uploaded_by=staff_id,
                 from_approval=document_id,
             )
@@ -580,7 +523,6 @@ async def import_from_approval(request: Request, document_id: int, category_id: 
                 file_path=rel_path,
                 file_name=doc["file_name"],
                 file_size=file_size,
-                ai_summary=ai_summary,
                 uploaded_by=staff_id,
                 note="承認済み取込",
             ))

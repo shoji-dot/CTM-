@@ -32,13 +32,19 @@ TEMPLATES = {
 }
 
 
-def send_email(to_email: str, subject: str, body: str) -> bool:
+def send_email(to_email: str, subject: str, body: str, html_body: str = None) -> bool:
+    """メール送信。html_body指定時はHTML形式で送信。to_emailはstr or list[str]。"""
     try:
-        msg = MIMEMultipart()
+        recipients = to_email if isinstance(to_email, list) else [to_email]
+        msg = MIMEMultipart("alternative")
         msg['From'] = f"{FROM_NAME} <{SMTP_USER}>"
-        msg['To'] = to_email
+        msg['To'] = ", ".join(recipients)
         msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+        if html_body:
+            msg.attach(MIMEText(body, 'plain', 'utf-8'))
+            msg.attach(MIMEText(html_body, 'html', 'utf-8'))
+        else:
+            msg.attach(MIMEText(body, 'plain', 'utf-8'))
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASS)

@@ -104,8 +104,9 @@ class Quote(Base):
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
     staff_name = Column(String(100), nullable=True)
-    customer = relationship("Customer", back_populates="quotes", foreign_keys=[customer_id])  # ← foreign_keys追加
-    end_user = relationship("Customer", foreign_keys=[end_user_id])  
+    approval_doc_id = Column(Integer, nullable=True)
+    customer = relationship("Customer", back_populates="quotes", foreign_keys=[customer_id])
+    end_user = relationship("Customer", foreign_keys=[end_user_id])
     items = relationship("QuoteItem", back_populates="quote", cascade="all, delete-orphan")
 
 

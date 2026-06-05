@@ -372,6 +372,15 @@ def update_shipment(db: Session, shipment_id: int, data: dict):
     obj = db.query(Shipment).filter(Shipment.id == shipment_id).first()
     if not obj:
         return None
+    # 数量変更時は在庫差分を再計算
+    old_qty = obj.quantity
+    new_qty = data.get("quantity", old_qty)
+    if new_qty != old_qty and obj.status == "shipped":
+        diff = new_qty - old_qty
+        if diff > 0:
+            move_inventory(db, obj.product_id, "out", diff, reason="出荷数量修正")
+        else:
+            move_inventory(db, obj.product_id, "in", abs(diff), reason="出荷数量修正")
     for k, v in data.items():
         setattr(obj, k, v)
     db.commit()
