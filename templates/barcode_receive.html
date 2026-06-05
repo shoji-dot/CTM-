@@ -262,11 +262,12 @@
     <div class="scan-panel">
       <div class="scan-panel-header"><h2>バーコード読み取り</h2></div>
       <div class="scan-mode-tabs">
-        <button class="mode-tab active" id="tab-camera" onclick="switchMode('camera')">📷 カメラスキャン</button>
+        <button class="mode-tab active" id="tab-camera" onclick="switchMode('camera')">📷 ライブカメラ</button>
+        <button class="mode-tab" id="tab-photo" onclick="switchMode('photo')">🖼 写真撮影</button>
         <button class="mode-tab" id="tab-usb" onclick="switchMode('usb')">🖥 USBスキャナー</button>
       </div>
 
-      <!-- カメラモード -->
+      <!-- ライブカメラモード -->
       <div class="camera-section" id="camera-section">
         <div id="camera-view-wrapper">
           <video id="camera-video" autoplay playsinline></video>
@@ -279,6 +280,20 @@
         </div>
         <button id="btn-start-camera" onclick="startCamera()">📷 カメラを起動</button>
         <button id="btn-stop-camera" onclick="stopCamera()">⏹ カメラを停止</button>
+      </div>
+
+      <!-- 写真撮影モード（GS1-128等の高密度バーコード向け） -->
+      <div class="photo-section" id="photo-section" style="display:none">
+        <div style="padding:16px;text-align:center">
+          <p style="font-size:0.85rem;color:var(--text-sub);margin-bottom:12px">
+            📸 GS1-128等の密なバーコードに有効。<br>バーコードに近づいて撮影してください。
+          </p>
+          <label for="photo-input" style="display:inline-block;background:var(--scan-blue);color:#fff;padding:12px 24px;border-radius:8px;cursor:pointer;font-weight:600">
+            📷 バーコードを撮影
+          </label>
+          <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none" onchange="scanPhoto(event)">
+          <div id="photo-preview" style="margin-top:12px"></div>
+        </div>
       </div>
 
       <!-- USBスキャナーモード -->
@@ -411,14 +426,45 @@ let html5QrCode = null, cameraActive = false, scanTarget = 'product', currentPro
 const sessionHistory = [];
 
 function switchMode(mode) {
-  const isCamera = mode === 'camera';
-  document.getElementById('tab-camera').classList.toggle('active', isCamera);
-  document.getElementById('tab-usb').classList.toggle('active', !isCamera);
-  document.getElementById('camera-section').style.display = isCamera ? 'block' : 'none';
-  document.getElementById('usb-section').style.display = isCamera ? 'none' : 'block';
-  if (!isCamera) {
-    if (cameraActive) stopCamera();
-    setTimeout(() => document.getElementById('usb-input').focus(), 100);
+  ['camera','photo','usb'].forEach(m => {
+    const tab = document.getElementById('tab-' + m);
+    const sec = document.getElementById(m === 'camera' ? 'camera-section' : m === 'photo' ? 'photo-section' : 'usb-section');
+    if (tab) tab.classList.toggle('active', m === mode);
+    if (sec) sec.style.display = m === mode ? 'block' : 'none';
+  });
+  if (mode !== 'camera' && cameraActive) stopCamera();
+  if (mode === 'usb') setTimeout(() => document.getElementById('usb-input').focus(), 100);
+}
+
+async function scanPhoto(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const preview = document.getElementById('photo-preview');
+  preview.innerHTML = '<p style="color:var(--text-sub);font-size:0.85rem">🔍 読み取り中...</p>';
+
+  // 画像プレビュー表示
+  const url = URL.createObjectURL(file);
+  preview.innerHTML = `<img src="${url}" style="max-width:100%;border-radius:6px;margin-bottom:8px"><p style="color:var(--text-sub);font-size:0.85rem">🔍 読み取り中...</p>`;
+
+  try {
+    if (typeof Html5Qrcode === 'undefined') throw new Error('ライブラリ未読み込み');
+    const scanner = new Html5Qrcode('photo-preview-tmp');
+    // 一時要素を使ってscanFile
+    const tmpDiv = document.createElement('div');
+    tmpDiv.id = 'photo-preview-tmp';
+    tmpDiv.style.display = 'none';
+    document.body.appendChild(tmpDiv);
+    const tmpScanner = new Html5Qrcode('photo-preview-tmp');
+    const result = await tmpScanner.scanFile(file, false);
+    document.body.removeChild(tmpDiv);
+    preview.innerHTML = `<img src="${url}" style="max-width:100%;border-radius:6px">`;
+    handleBarcode(result);
+  } catch(e) {
+    const tmpDiv = document.getElementById('photo-preview-tmp');
+    if (tmpDiv) document.body.removeChild(tmpDiv);
+    preview.innerHTML = `<img src="${url}" style="max-width:100%;border-radius:6px"><p style="color:#f87171;font-size:0.85rem;margin-top:8px">❌ 読み取れませんでした。バーコードに近づいて再撮影してください。</p>`;
+    // 再撮影できるようにinputをリセット
+    event.target.value = '';
   }
 }
 
