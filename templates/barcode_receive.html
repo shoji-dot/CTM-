@@ -2,7 +2,7 @@
 {% block title %}バーコードスキャン入荷登録 - SalesCore{% endblock %}
 
 {% block head_extra %}
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
 <style>
   :root {
     --scan-green: #00c896;
@@ -463,16 +463,16 @@ async function startCamera() {
     // 既存のvideoタグは非表示のまま使わない
     document.getElementById('camera-video').style.display = 'none';
 
+    // html5-qrcodeはコンテナdivの中身を自分で描画するので一旦空にする
+    const wrapper = document.getElementById('camera-view-wrapper');
+    wrapper.innerHTML = '';
+    wrapper.id = 'camera-view-wrapper'; // IDを維持
+
     html5QrCode = new Html5Qrcode('camera-view-wrapper');
-    const config = {
-      fps: 10,
-      qrbox: { width: 220, height: 120 },
-      aspectRatio: 1.333,
-      supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-    };
+    const config = { fps: 10, qrbox: { width: 220, height: 120 }, aspectRatio: 1.333 };
 
     await html5QrCode.start(
-      { facingMode: 'environment' },  // 背面カメラ
+      { facingMode: 'environment' },
       config,
       (decodedText) => { handleBarcode(decodedText); }
     );
