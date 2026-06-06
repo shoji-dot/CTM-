@@ -78,6 +78,11 @@
     {% endif %}
 
     <!-- 入金登録フォーム -->
+    {% if error_msg %}
+    <div style="background:#fdecea;border:1px solid #f5c6cb;padding:10px 16px;border-radius:8px;margin-top:12px;font-size:0.85rem;color:#c62828">
+      ⚠️ {{ error_msg }}
+    </div>
+    {% endif %}
     {% if invoice.status != 'paid' %}
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid #dde3ea">
       <div style="font-size:0.85rem;font-weight:700;margin-bottom:12px">💳 入金・消込み登録</div>

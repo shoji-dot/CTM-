@@ -195,6 +195,10 @@ def delete_product(db: Session, product_id: int):
     sale_count = db.query(Sale).filter(Sale.product_id == product_id).count()
     if sale_count > 0:
         raise HTTPException(400, f"この商品には売上が{sale_count}件あるため削除できません。")
+    # [I8] 出荷履歴チェック
+    ship_count = db.query(Shipment).filter(Shipment.product_id == product_id).count()
+    if ship_count > 0:
+        raise HTTPException(400, f"この商品には出荷記録が{ship_count}件あるため削除できません。")
     db.delete(obj)
     db.commit()
     return obj

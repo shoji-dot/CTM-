@@ -296,9 +296,17 @@ def detail_invoice(invoice_id: int, request: Request, db: Session = Depends(get_
     paid_total = sum(p.amount for p in invoice.payments)
     remaining = invoice.total_amount - paid_total
     today = date.today().isoformat()
+    error_map = {
+        "amount_zero": "入金額は1円以上で入力してください。",
+        "amount_exceeded": "入金額が残高を超えています。",
+        "invalid_amount": "入金額が不正です。",
+    }
+    error_key = request.query_params.get("error", "")
+    error_msg = error_map.get(error_key, "")
     return templates.TemplateResponse("sales/invoice_detail.html", {
         "request": request, "invoice": invoice, "company": company_info,
         "paid_total": paid_total, "remaining": remaining, "today": today,
+        "error_msg": error_msg,
     })
 
 
@@ -311,7 +319,19 @@ async def add_payment(invoice_id: int, request: Request, db: Session = Depends(g
     staff = request.state.staff
 
     invoice = db.query(models.Invoice).filter(models.Invoice.id == invoice_id).first()
-    amount = float(form["amount"])
+
+    try:
+        amount = float(form["amount"])
+    except (ValueError, TypeError):
+        return RedirectResponse(f"/invoices/{invoice_id}?error=invalid_amount", status_code=303)
+
+    # [I2] 入金額バリデーション
+    if amount <= 0:
+        return RedirectResponse(f"/invoices/{invoice_id}?error=amount_zero", status_code=303)
+    paid_so_far = sum(p.amount for p in invoice.payments)
+    remaining = float(invoice.total_amount) - paid_so_far
+    if amount > remaining:
+        return RedirectResponse(f"/invoices/{invoice_id}?error=amount_exceeded", status_code=303)
 
     payment = models.Payment(
         invoice_id=invoice_id,
@@ -324,8 +344,8 @@ async def add_payment(invoice_id: int, request: Request, db: Session = Depends(g
     db.add(payment)
 
     # 消込みステータス更新
-    paid_total = sum(p.amount for p in invoice.payments) + amount
-    if paid_total >= invoice.total_amount:
+    paid_total = paid_so_far + amount
+    if paid_total >= float(invoice.total_amount):
         invoice.status = "paid"
     elif paid_total > 0:
         invoice.status = "partial"
