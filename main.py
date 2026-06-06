@@ -76,7 +76,6 @@ def _run_alembic():
         from alembic import command
         from alembic.config import Config
         ini_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "alembic.ini")
-        print(f"[alembic] ini_path={ini_path}, exists={os.path.exists(ini_path)}")
         cfg = Config(ini_path)
         command.upgrade(cfg, "head")
         print("[alembic] upgrade head: OK")
