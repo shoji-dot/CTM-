@@ -176,6 +176,54 @@ async def csv_import(file: UploadFile = File(...), db: Session = Depends(get_db)
     })
 
 
+@router.get("/products/{product_id}", response_class=HTMLResponse)
+def show_product(product_id: int, request: Request, db: Session = Depends(get_db)):
+    from fastapi import HTTPException
+    product = crud.get_product(db, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="商品が見つかりません")
+    return RedirectResponse(f"/products/{product_id}/edit", status_code=302)
+
+
+@router.get("/products/{product_id}/edit", response_class=HTMLResponse)
+def edit_product_form(product_id: int, request: Request, db: Session = Depends(get_db)):
+    from fastapi import HTTPException
+    product = crud.get_product(db, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="商品が見つかりません")
+    return templates.TemplateResponse("products/form.html", {"request": request, "product": product})
+
+
+@router.post("/products/{product_id}/edit")
+def edit_product(
+    product_id: int, request: Request, db: Session = Depends(get_db),
+    name: str = Form(...), category: str = Form("medical"),
+    sku: str = Form(""), unit_price: float = Form(...), unit: str = Form(""),
+    tracking_type: str = Form("none"), stock_alert_threshold: int = Form(10),
+    alert_enabled: str = Form(None), maker: str = Form(""),
+    jan_code: str = Form(""), approval_number: str = Form(""),
+    device_class: str = Form(""), sales_role: str = Form(""),
+    model_spec: str = Form(""), sterility: str = Form(""), notes: str = Form(""),
+):
+    from fastapi import HTTPException
+    product = crud.get_product(db, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="商品が見つかりません")
+    crud.update_product(db, product_id, {
+        "name": name, "category": category,
+        "sku": sku or None, "unit_price": unit_price, "unit": unit,
+        "tracking_type": tracking_type,
+        "stock_alert_threshold": stock_alert_threshold,
+        "alert_enabled": alert_enabled == "on",
+        "maker": maker or None, "jan_code": jan_code or None,
+        "approval_number": approval_number or None,
+        "device_class": device_class or None, "sales_role": sales_role or None,
+        "model_spec": model_spec or None, "sterility": sterility or None,
+        "notes": notes or None,
+    })
+    return RedirectResponse("/products", status_code=303)
+
+
 @router.post("/products/{product_id}/delete")
 def delete_product(product_id: int, request: Request, db: Session = Depends(get_db)):
     # [I10] 整合性チェックはcrud側で実施、エラーはリダイレクトで返却
