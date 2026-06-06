@@ -17,10 +17,9 @@ def get_current_staff(request: Request):
 @router.get("/receive", response_class=HTMLResponse)
 def barcode_receive_page(request: Request, db: Session = Depends(get_db)):
     staff = get_current_staff(request)
-    return templates.TemplateResponse("barcode_receive.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "barcode_receive.html", {
         "current_user": staff,
-        "today": date.today().isoformat(),
+        "today": date.today().isoformat()
     })
 
 
@@ -28,11 +27,10 @@ def barcode_receive_page(request: Request, db: Session = Depends(get_db)):
 def barcode_ship_page(request: Request, db: Session = Depends(get_db)):
     staff = get_current_staff(request)
     customers = db.query(models.Customer).order_by(models.Customer.name).all()
-    return templates.TemplateResponse("barcode_ship.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "barcode_ship.html", {
         "current_user": staff,
         "customers": customers,
-        "today": date.today().isoformat(),
+        "today": date.today().isoformat()
     })
 
 

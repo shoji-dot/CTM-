@@ -146,6 +146,57 @@ class TestInvoiceDeleteRestoresSaleStatus:
         assert db.query(models.Sale).filter_by(id=sale.id).first().status == "invoiced"
 
 
+class TestProductEdit:
+    """商品編集ルート (GET/POST /products/{id}/edit)"""
+
+    def test_edit_form_accessible(self, auth_client, db, sample_product):
+        c, _ = auth_client
+        resp = c.get(f"/products/{sample_product.id}/edit")
+        assert resp.status_code == 200
+        assert sample_product.name.encode() in resp.content
+
+    def test_edit_form_404_for_missing(self, auth_client):
+        c, _ = auth_client
+        resp = c.get("/products/99999/edit")
+        assert resp.status_code == 404
+
+    def test_edit_post_updates_product(self, auth_client, db, sample_product):
+        c, _ = auth_client
+        resp = c.post(
+            f"/products/{sample_product.id}/edit",
+            data={
+                "name": "更新済み商品名",
+                "category": "medical",
+                "sku": "",
+                "unit_price": "99000",
+                "unit": "台",
+                "tracking_type": "serial",
+                "stock_alert_threshold": "5",
+                "alert_enabled": "on",
+                "maker": "",
+                "jan_code": "",
+                "approval_number": "",
+                "device_class": "",
+                "sales_role": "",
+                "model_spec": "",
+                "sterility": "",
+                "notes": "",
+            },
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+        db.expire_all()
+        updated = db.query(models.Product).filter_by(id=sample_product.id).first()
+        assert updated.name == "更新済み商品名"
+        assert updated.unit_price == 99000
+
+    def test_redirect_from_product_detail(self, auth_client, db, sample_product):
+        c, _ = auth_client
+        resp = c.get(f"/products/{sample_product.id}", follow_redirects=False)
+        assert resp.status_code == 302
+        assert f"/products/{sample_product.id}/edit" in resp.headers.get("location", "")
+
+
 class TestCustomerCreate:
     def test_create_redirects(self, auth_client):
         c, _ = auth_client

@@ -159,11 +159,10 @@ def task_list_page(request: Request, db: Session = Depends(get_db)):
         counts[s] = db.execute(
             text("SELECT COUNT(*) FROM tasks WHERE status=:s"), {"s": s}
         ).scalar()
-    return templates.TemplateResponse("tasks/list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "tasks/list.html", {
         "staffs": staffs,
         "counts": counts,
-        "current": request.state.staff,
+        "current": request.state.staff
     })
 
 
@@ -192,10 +191,9 @@ def task_detail_page(task_id: int, request: Request, db: Session = Depends(get_d
     ).fetchall())
     staffs = _rows(db.execute(text("SELECT id,name,role FROM staffs WHERE is_active=TRUE")).fetchall())
 
-    return templates.TemplateResponse("tasks/detail.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "tasks/detail.html", {
         "task": dict(task_row._mapping),
         "comments": comments,
         "staffs": staffs,
-        "current": request.state.staff,
+        "current": request.state.staff
     })

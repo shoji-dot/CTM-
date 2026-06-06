@@ -16,15 +16,15 @@ def list_products(request: Request, search: str = "", maker: str = "", category:
         crud.get_products_query(db, search=search, maker=maker, category=category),
         page=page,
     )
-    return templates.TemplateResponse("products/list.html", {
-        "request": request, "products": pager.items, "pager": pager,
+    return templates.TemplateResponse(request, "products/list.html", {
+        "products": pager.items, "pager": pager,
         "search": search, "maker": maker, "category": category
     })
 
 
 @router.get("/products/new", response_class=HTMLResponse)
 def new_product_form(request: Request):
-    return templates.TemplateResponse("products/form.html", {"request": request, "product": None})
+    return templates.TemplateResponse(request, "products/form.html", {"product": None})
 
 
 @router.get("/products/csv-template")
@@ -159,8 +159,7 @@ async def csv_import(file: UploadFile = File(...), db: Session = Depends(get_db)
                 errors.append(f"{i}\u884c\u76ee: {e}")
 
         if errors:
-            return templates.TemplateResponse("products/bulk_import.html", {
-                "request": request,
+            return templates.TemplateResponse(request, "products/bulk_import.html", {
                 "errors": errors,
                 "success_count": success_count,
             })
@@ -169,8 +168,7 @@ async def csv_import(file: UploadFile = File(...), db: Session = Depends(get_db)
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
-    return templates.TemplateResponse("products/bulk_import.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "products/bulk_import.html", {
         "errors": [],
         "success_count": 0,
     })
@@ -191,7 +189,7 @@ def edit_product_form(product_id: int, request: Request, db: Session = Depends(g
     product = crud.get_product(db, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="商品が見つかりません")
-    return templates.TemplateResponse("products/form.html", {"request": request, "product": product})
+    return templates.TemplateResponse(request, "products/form.html", {"product": product})
 
 
 @router.post("/products/{product_id}/edit")

@@ -22,8 +22,8 @@ def list_inventory(request: Request, db: Session = Depends(get_db)):
     inventory = crud.get_inventory_list(db)
     alerts = crud.get_alerts(db)
     alert_ids = {a.product_id for a in alerts}
-    return templates.TemplateResponse("inventory/list.html", {
-        "request": request, "inventory": inventory, "alert_ids": alert_ids
+    return templates.TemplateResponse(request, "inventory/list.html", {
+        "inventory": inventory, "alert_ids": alert_ids
     })
 
 
@@ -46,8 +46,7 @@ def history(request: Request,
         customer=customer,
     )
     products = crud.get_products(db)
-    return templates.TemplateResponse("inventory/history.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "inventory/history.html", {
         "histories": histories,
         "products": products,
         "product_id": product_id,
@@ -55,7 +54,7 @@ def history(request: Request,
         "date_from": date_from,
         "date_to": date_to,
         "staff_name": staff_name,
-        "customer": customer,
+        "customer": customer
     })
 
 
@@ -63,8 +62,8 @@ def history(request: Request,
 def receive_form(request: Request, db: Session = Depends(get_db)):
     products = crud.get_products(db)
     today = date.today().isoformat()
-    return templates.TemplateResponse("inventory/receive.html", {
-        "request": request, "products": products, "today": today,
+    return templates.TemplateResponse(request, "inventory/receive.html", {
+        "products": products, "today": today
     })
 
 
@@ -107,18 +106,18 @@ async def move_inventory(request: Request, db: Session = Depends(get_db)):
                             reason=reason, note=note, staff_name=staff_name)
     except ValueError as e:
         products = crud.get_products(db)
-        return templates.TemplateResponse("inventory/move.html", {
-            "request": request, "products": products, "error": str(e)
-        })
+        return templates.TemplateResponse(request, "inventory/move.html", {
+        "products": products, "error": str(e)
+    })
     return RedirectResponse("/inventory", status_code=303)
 
 
 @router.get("/inventory/disposal", response_class=HTMLResponse)
 def disposal_form(request: Request, db: Session = Depends(get_db)):
     products = crud.get_products(db)
-    return templates.TemplateResponse("inventory/disposal.html", {
-        "request": request, "products": products,
-        "disposal_reasons": DISPOSAL_REASONS,
+    return templates.TemplateResponse(request, "inventory/disposal.html", {
+        "products": products,
+        "disposal_reasons": DISPOSAL_REASONS
     })
 
 

@@ -31,11 +31,11 @@ def list_shipments(request: Request, status: str = "", shipment_type: str = "",
                    db: Session = Depends(get_db)):
     shipments = crud.get_shipments(db, status=status, shipment_type=shipment_type,
                                    q_text=q, serial=serial, lot=lot)
-    return templates.TemplateResponse("shipments/list.html", {
-        "request": request, "shipments": shipments,
+    return templates.TemplateResponse(request, "shipments/list.html", {
+        "shipments": shipments,
         "status": status, "shipment_type": shipment_type,
         "q": q, "serial": serial, "lot": lot,
-        "shipment_types": SHIPMENT_TYPES,
+        "shipment_types": SHIPMENT_TYPES
     })
 
 @router.get("/api/inventory-items", response_class=JSONResponse)
@@ -77,10 +77,10 @@ def new_shipment_form(request: Request, error: str = "", db: Session = Depends(g
     customers = crud.get_customers(db)
     products = crud.get_products(db)
     today = date.today().isoformat()
-    return templates.TemplateResponse("shipments/form.html", {
-        "request": request, "customers": customers, "products": products,
+    return templates.TemplateResponse(request, "shipments/form.html", {
+        "customers": customers, "products": products,
         "shipment_types": SHIPMENT_TYPES, "today": today, "shipment": None,
-        "error": error,
+        "error": error
     })
 
 @router.post("/shipments/new")
@@ -140,11 +140,11 @@ def edit_shipment_form(shipment_id: int, request: Request, db: Session = Depends
     customers = crud.get_customers(db)
     products = crud.get_products(db)
     today = date.today().isoformat()
-    return templates.TemplateResponse("shipments/form.html", {
-        "request": request, "shipment": shipment,
+    return templates.TemplateResponse(request, "shipments/form.html", {
+        "shipment": shipment,
         "customers": customers, "products": products,
         "shipment_types": SHIPMENT_TYPES, "today": today,
-        "error": "",
+        "error": ""
     })
 
 @router.post("/shipments/{shipment_id}/edit")
@@ -170,10 +170,10 @@ async def update_shipment(shipment_id: int, request: Request, db: Session = Depe
 def detail_shipment(shipment_id: int, request: Request, db: Session = Depends(get_db)):
     shipment = crud.get_shipment(db, shipment_id)
     today = date.today().isoformat()
-    return templates.TemplateResponse("shipments/detail.html", {
-        "request": request, "shipment": shipment,
+    return templates.TemplateResponse(request, "shipments/detail.html", {
+        "shipment": shipment,
         "shipment_types": SHIPMENT_TYPES, "today": today,
-        "company": company_info,
+        "company": company_info
     })
 
 @router.post("/shipments/{shipment_id}/return")

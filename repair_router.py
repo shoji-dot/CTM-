@@ -80,10 +80,10 @@ async def repair_list(request: Request, status: str = "", q: str = "", db: Sessi
         d["step_deadline"]  = dl_str
         d["is_overdue"] = bool(dl_str and dl_str < today and d["status"] != "closed")
         repairs.append(d)
-    return TEMPLATES.TemplateResponse("repairs/list.html", {
-        "request": request, "repairs": repairs,
+    return TEMPLATES.TemplateResponse(request, "repairs/list.html", {
+        "repairs": repairs,
         "status": status, "q": q,
-        "status_labels": STATUS_LABELS, "today": today,
+        "status_labels": STATUS_LABELS, "today": today
     })
 
 
@@ -96,15 +96,14 @@ async def new_repair_form(request: Request, db: Session = Depends(get_db)):
     rep_shipments = db.query(Shipment).filter(
         Shipment.shipment_type == "repair", Shipment.status == "shipped"
     ).order_by(Shipment.id.desc()).all()
-    return TEMPLATES.TemplateResponse("repairs/form.html", {
-        "request": request,
+    return TEMPLATES.TemplateResponse(request, "repairs/form.html", {
         "customers": [{"id": c.id, "name": c.name} for c in customers],
         "products":  [{"id": p.id, "name": p.name} for p in products],
         "rep_shipments": [{"id": s.id, "shipment_number": s.shipment_number,
                            "serial_number": s.serial_number,
                            "product_name": s.product.name if s.product else "",
                            "customer_name": s.customer.name if s.customer else ""} for s in rep_shipments],
-        "today": date.today().isoformat(),
+        "today": date.today().isoformat()
     })
 
 
@@ -165,12 +164,12 @@ async def repair_detail(repair_id: int, request: Request, db: Session = Depends(
     repair["rep_shipment_number"]  = rep_ship.shipment_number if rep_ship else None
     repair["rep_product_name"]     = rep_ship.product.name if rep_ship and rep_ship.product else None
     next_status = NEXT_STATUS.get(repair["status"])
-    return TEMPLATES.TemplateResponse("repairs/detail.html", {
-        "request": request, "repair": repair,
+    return TEMPLATES.TemplateResponse(request, "repairs/detail.html", {
+        "repair": repair,
         "status_labels": STATUS_LABELS,
         "next_status": next_status,
         "next_label": STATUS_LABELS.get(next_status, ""),
-        "today": today,
+        "today": today
     })
 
 
@@ -271,9 +270,9 @@ async def order_print(repair_id: int, request: Request, db: Session = Depends(ge
     repair["customer_name"] = r.customer.name if r.customer else ""
     repair["end_user_name"] = r.end_user.name if r.end_user else ""
     repair["product_name"]  = r.product.name if r.product else ""
-    return TEMPLATES.TemplateResponse("repairs/order_print.html", {
-        "request": request, "repair": repair,
-        "company": COMPANY_INFO, "today": date.today().isoformat(),
+    return TEMPLATES.TemplateResponse(request, "repairs/order_print.html", {
+        "repair": repair,
+        "company": COMPANY_INFO, "today": date.today().isoformat()
     })
 
 
@@ -290,7 +289,7 @@ async def detail_print(repair_id: int, request: Request, db: Session = Depends(g
     repair["product_name"]  = r.product.name if r.product else ""
     rep_ship = db.query(Shipment).filter(Shipment.id == r.replacement_shipment_id).first() if r.replacement_shipment_id else None
     repair["rep_shipment_number"] = rep_ship.shipment_number if rep_ship else None
-    return TEMPLATES.TemplateResponse("repairs/detail_print.html", {
-        "request": request, "repair": repair,
-        "company": COMPANY_INFO, "today": date.today().isoformat(),
+    return TEMPLATES.TemplateResponse(request, "repairs/detail_print.html", {
+        "repair": repair,
+        "company": COMPANY_INFO, "today": date.today().isoformat()
     })

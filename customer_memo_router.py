@@ -42,9 +42,7 @@ async def memo_list(request: Request, q: str = "", db: Session = Depends(get_db)
         params = {"q1": like, "q2": like, "q3": like}
     sql += " ORDER BY cm.updated_at DESC"
     memos = _rows(db.execute(text(sql), params).fetchall())
-    return TEMPLATES.TemplateResponse(
-        "customer_memos/list.html",
-        {"request": request, "memos": memos, "q": q},
+    return TEMPLATES.TemplateResponse(request, "customer_memos/list.html", {"memos": memos, "q": q},
     )
 
 

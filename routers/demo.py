@@ -108,8 +108,7 @@ def demo_list(request: Request, db: Session = Depends(get_db),
 
     counts = get_alert_counts(db)
 
-    return templates.TemplateResponse("demo/list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "demo/list.html", {
         "units": units,
         "alert_loans": alert_loans,
         "alert_shipments": alert_shipments,
@@ -117,7 +116,7 @@ def demo_list(request: Request, db: Session = Depends(get_db),
         "soon": soon,
         "status_filter": status,
         "q": q,
-        **counts,
+        **counts
     })
 
 
@@ -128,8 +127,8 @@ def demo_list(request: Request, db: Session = Depends(get_db),
 @router.get("/new", response_class=HTMLResponse)
 def demo_new(request: Request, db: Session = Depends(get_db)):
     products = db.query(Product).order_by(Product.name).all()
-    return templates.TemplateResponse("demo/form.html", {
-        "request": request, "unit": None, "products": products
+    return templates.TemplateResponse(request, "demo/form.html", {
+        "unit": None, "products": products
     })
 
 
@@ -182,8 +181,8 @@ def demo_edit(unit_id: int, request: Request, db: Session = Depends(get_db)):
     if not unit:
         raise HTTPException(404)
     products = db.query(Product).order_by(Product.name).all()
-    return templates.TemplateResponse("demo/form.html", {
-        "request": request, "unit": unit, "products": products
+    return templates.TemplateResponse(request, "demo/form.html", {
+        "unit": unit, "products": products
     })
 
 
@@ -225,11 +224,10 @@ def demo_detail(unit_id: int, request: Request, db: Session = Depends(get_db)):
     active_loan = next(
         (l for l in unit.loans if l.status in ("on_loan", "overdue")), None
     )
-    return templates.TemplateResponse("demo/detail.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "demo/detail.html", {
         "unit": unit,
         "today": today,
-        "active_loan": active_loan,
+        "active_loan": active_loan
     })
 
 
@@ -247,9 +245,9 @@ def loan_new(unit_id: int, request: Request, db: Session = Depends(get_db)):
     customers = db.query(Customer).order_by(Customer.name).all()
     today = date.today()
     default_due = today + timedelta(days=14)
-    return templates.TemplateResponse("demo/loan_form.html", {
-        "request": request, "unit": unit, "customers": customers,
-        "today": today, "default_due": default_due,
+    return templates.TemplateResponse(request, "demo/loan_form.html", {
+        "unit": unit, "customers": customers,
+        "today": today, "default_due": default_due
     })
 
 
@@ -326,9 +324,9 @@ def repair_new(unit_id: int, request: Request, db: Session = Depends(get_db)):
     unit = db.query(DemoUnit).filter(DemoUnit.id == unit_id).first()
     if not unit:
         raise HTTPException(404)
-    return templates.TemplateResponse("demo/repair_form.html", {
-        "request": request, "unit": unit, "repair": None,
-        "today": date.today(),
+    return templates.TemplateResponse(request, "demo/repair_form.html", {
+        "unit": unit, "repair": None,
+        "today": date.today()
     })
 
 
@@ -374,9 +372,9 @@ def repair_edit(unit_id: int, repair_id: int, request: Request,
     repair = db.query(RepairRecord).filter(RepairRecord.id == repair_id).first()
     if not unit or not repair:
         raise HTTPException(404)
-    return templates.TemplateResponse("demo/repair_form.html", {
-        "request": request, "unit": unit, "repair": repair,
-        "today": date.today(),
+    return templates.TemplateResponse(request, "demo/repair_form.html", {
+        "unit": unit, "repair": repair,
+        "today": date.today()
     })
 
 

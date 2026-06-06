@@ -60,7 +60,7 @@ def create_customer(
 
 @router.get("/customers/import", response_class=HTMLResponse)
 def import_form(request: Request):
-    return templates.TemplateResponse("customers/import.html", {"request": request, "results": None})
+    return templates.TemplateResponse(request, "customers/import.html", {"results": None})
 
 
 @router.get("/customers/template")
@@ -109,7 +109,7 @@ async def import_customers(request: Request, file: UploadFile = File(...), db: S
     except Exception as e:
         results["errors"].append(f"ファイル読込エラー：{str(e)}")
 
-    return templates.TemplateResponse("customers/import.html", {"request": request, "results": results})
+    return templates.TemplateResponse(request, "customers/import.html", {"results": results})
 
 
 @router.get("/customers/{customer_id}", response_class=HTMLResponse)

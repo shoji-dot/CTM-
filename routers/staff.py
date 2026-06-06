@@ -43,15 +43,14 @@ def get_staff_or_redirect(request: Request, db: Session):
 
 @router.get("/login", response_class=HTMLResponse)
 def login_form(request: Request):
-    return templates.TemplateResponse("auth/login.html", {"request": request, "error": None})
+    return templates.TemplateResponse(request, "auth/login.html", {"error": None})
 
 
 @router.post("/login")
 def login(request: Request, login_id: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     # [I7] ロック中チェック
     if _check_login_locked(login_id):
-        return templates.TemplateResponse("auth/login.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "auth/login.html", {
             "error": f"ログイン試行が{_MAX_ATTEMPTS}回連続で失敗しました。{_LOCK_MINUTES}分後に再試行してください。"
         })
     staff = db.query(Staff).filter(Staff.login_id == login_id, Staff.is_active == True).first()
@@ -64,7 +63,7 @@ def login(request: Request, login_id: str = Form(...), password: str = Form(...)
             msg += f"（あと{remaining}回失敗するとロックされます）"
         elif remaining <= 0:
             msg = f"ログインをロックしました。{_LOCK_MINUTES}分後に再試行してください。"
-        return templates.TemplateResponse("auth/login.html", {"request": request, "error": msg})
+        return templates.TemplateResponse(request, "auth/login.html", {"error": msg})
     # 認証成功 → 失敗カウントをリセット
     _clear_fail(login_id)
     token = create_session_token(staff.id)
@@ -89,8 +88,8 @@ def list_staff(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/", status_code=303)
     staffs = db.query(Staff).order_by(Staff.id).all()
     now = datetime.now()
-    return templates.TemplateResponse("staff/list.html", {
-        "request": request, "staffs": staffs, "current": current, "now": now
+    return templates.TemplateResponse(request, "staff/list.html", {
+        "staffs": staffs, "current": current, "now": now
     })
 
 
@@ -99,7 +98,7 @@ def new_staff_form(request: Request, db: Session = Depends(get_db)):
     current = get_staff_or_redirect(request, db)
     if not current or current.role != "admin":
         return RedirectResponse("/", status_code=303)
-    return templates.TemplateResponse("staff/form.html", {"request": request, "staff": None, "current": current})
+    return templates.TemplateResponse(request, "staff/form.html", {"staff": None, "current": current})
 
 
 @router.post("/staff/new")
@@ -135,7 +134,7 @@ def edit_staff_form(staff_id: int, request: Request, db: Session = Depends(get_d
     if not current or current.role != "admin":
         return RedirectResponse("/", status_code=303)
     staff = db.query(Staff).filter(Staff.id == staff_id).first()
-    return templates.TemplateResponse("staff/form.html", {"request": request, "staff": staff, "current": current})
+    return templates.TemplateResponse(request, "staff/form.html", {"staff": staff, "current": current})
 
 
 @router.post("/staff/{staff_id}/edit")

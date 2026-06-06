@@ -410,8 +410,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         {"today": today.isoformat()}
     ).scalar()
 
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "dashboard.html", {
         "current": current,
         "alerts": alerts,
         "recent_quotes": recent_quotes,

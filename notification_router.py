@@ -68,11 +68,8 @@ async def notification_list(
         {"s": staff_id},
     ).scalar()
 
-    return TEMPLATES.TemplateResponse(
-        "notifications/list.html",
-        {
-            "request": request,
-            "notifs": notifs,
+    return TEMPLATES.TemplateResponse(request, "notifications/list.html", {
+        "notifs": notifs,
             "unread_count": unread_count,
             "unread_only": unread_only,
             "notif_labels": NOTIF_TYPES,
@@ -95,7 +92,8 @@ async def recent_notifications(request: Request, db: Session = Depends(get_db)):
         text("SELECT COUNT(*) FROM notifications WHERE recipient_id=:s AND is_sent=FALSE"),
         {"s": staff_id},
     ).scalar()
-    return JSONResponse({"notifications": rows, "unread_count": unread})
+    return JSONResponse({"notifications": rows, "unread_count": unread
+    })
 
 
 @router.post("/{notif_id}/read")

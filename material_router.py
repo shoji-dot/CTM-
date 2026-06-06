@@ -146,9 +146,9 @@ async def material_list(request: Request, q: str = "", category_id: int = 0, tag
     finally:
         db.close()
 
-    return TEMPLATES.TemplateResponse("materials/list.html", {
-        "request": request, "materials": materials, "categories": categories,
-        "tags": tags, "q": q, "category_id": category_id, "tag": tag, "fav_only": fav_only,
+    return TEMPLATES.TemplateResponse(request, "materials/list.html", {
+        "materials": materials, "categories": categories,
+        "tags": tags, "q": q, "category_id": category_id, "tag": tag, "fav_only": fav_only
     })
 
 

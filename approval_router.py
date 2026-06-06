@@ -487,8 +487,7 @@ def approval_list_page(
 
     document_types = _rows(db.execute(text("SELECT * FROM document_types WHERE is_active=TRUE")).fetchall())
 
-    return templates_approval.TemplateResponse("approval/list.html", {
-        "request": request,
+    return templates_approval.TemplateResponse(request, "approval/list.html", {
         "documents": documents,
         "document_types": document_types,
         "status": status,
@@ -496,7 +495,7 @@ def approval_list_page(
         "in_review_count": in_review_count,
         "my_pending_count": my_pending_count,
         "my_turn_ids": my_turn_ids,
-        "current": current,
+        "current": current
     })
 
 
@@ -523,12 +522,11 @@ def approval_settings_page(request: Request, db: Session = Depends(get_db)):
         f['steps'] = steps
         flows.append(f)
     staffs = _rows(db.execute(text("SELECT id,name,role FROM staffs WHERE is_active=TRUE")).fetchall())
-    return templates_approval.TemplateResponse("approval/settings.html", {
-        "request": request,
+    return templates_approval.TemplateResponse(request, "approval/settings.html", {
         "document_types": document_types,
         "flows": flows,
         "staffs": staffs,
-        "current": request.state.staff,
+        "current": request.state.staff
     })
 
 
@@ -579,11 +577,10 @@ def approval_detail_page(doc_id: int, request: Request, db: Session = Depends(ge
                 cur_step.get('approver_role') == current.get('role')
             )
 
-    return templates_approval.TemplateResponse("approval/detail.html", {
-        "request": request,
+    return templates_approval.TemplateResponse(request, "approval/detail.html", {
         "doc": doc,
         "logs": logs,
         "steps": steps,
         "is_my_turn": is_my_turn,
-        "current": current,
+        "current": current
     })

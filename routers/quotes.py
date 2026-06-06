@@ -95,7 +95,7 @@ def list_quotes(
 def new_quote_form(request: Request, db: Session = Depends(get_db)):
     customers = crud.get_customers(db)
     products = crud.get_products(db)
-    return templates.TemplateResponse("quotes/form.html", {"request": request, "customers": customers, "products": products})
+    return templates.TemplateResponse(request, "quotes/form.html", {"customers": customers, "products": products})
 
 @router.post("/quotes/new")
 async def create_quote(request: Request, db: Session = Depends(get_db)):

@@ -61,8 +61,8 @@ def list_sales(request: Request, status: str = "", customer_id: str = "",
     pager = _crud.paginate(q.order_by(models.Sale.id.desc()), page=page, per_page=50)
     customers = db.query(models.Customer).order_by(models.Customer.name).all()
     total = sum(s.total_amount for s in pager.items)
-    return templates.TemplateResponse("sales/list.html", {
-        "request": request, "sales": pager.items, "pager": pager,
+    return templates.TemplateResponse(request, "sales/list.html", {
+        "sales": pager.items, "pager": pager,
         "customers": customers,
         "status": status, "customer_id": customer_id,
         "date_from": date_from, "date_to": date_to, "total": total,
@@ -88,8 +88,8 @@ def new_sale_form(request: Request, shipment_id: str = "", quote_id: str = "",
     customers = db.query(models.Customer).order_by(models.Customer.name).all()
     products = db.query(models.Product).order_by(models.Product.name).all()
     today = date.today().isoformat()
-    return templates.TemplateResponse("sales/form.html", {
-        "request": request, "shipment": shipment, "quote": quote,
+    return templates.TemplateResponse(request, "sales/form.html", {
+        "shipment": shipment, "quote": quote,
         "customers": customers, "products": products,
         "today": today, "tax_rate": int(TAX_RATE * 100),
     })
@@ -161,8 +161,8 @@ async def create_sale(request: Request, db: Session = Depends(get_db)):
 @router.get("/sales/{sale_id}", response_class=HTMLResponse)
 def detail_sale(sale_id: int, request: Request, db: Session = Depends(get_db)):
     sale = db.query(models.Sale).filter(models.Sale.id == sale_id).first()
-    return templates.TemplateResponse("sales/detail.html", {
-        "request": request, "sale": sale, "company": company_info,
+    return templates.TemplateResponse(request, "sales/detail.html", {
+        "sale": sale, "company": company_info,
     })
 
 
@@ -217,8 +217,8 @@ def list_invoices(request: Request, status: str = "", customer_id: str = "",
         q = q.filter(models.Invoice.customer_id == int(customer_id))
     invoices = q.order_by(models.Invoice.id.desc()).all()
     customers = db.query(models.Customer).order_by(models.Customer.name).all()
-    return templates.TemplateResponse("sales/invoices.html", {
-        "request": request, "invoices": invoices,
+    return templates.TemplateResponse(request, "sales/invoices.html", {
+        "invoices": invoices,
         "customers": customers, "status": status, "customer_id": customer_id,
     })
 
@@ -235,8 +235,8 @@ def new_invoice_form(request: Request, customer_id: str = "", db: Session = Depe
         q = q.filter(models.Sale.customer_id == int(customer_id))
     pending_sales = q.order_by(models.Sale.sale_date).all()
     today = date.today().isoformat()
-    return templates.TemplateResponse("sales/invoice_form.html", {
-        "request": request, "customers": customers,
+    return templates.TemplateResponse(request, "sales/invoice_form.html", {
+        "customers": customers,
         "pending_sales": pending_sales, "today": today,
         "selected_customer_id": int(customer_id) if customer_id else None,
     })
@@ -303,8 +303,8 @@ def detail_invoice(invoice_id: int, request: Request, db: Session = Depends(get_
     }
     error_key = request.query_params.get("error", "")
     error_msg = error_map.get(error_key, "")
-    return templates.TemplateResponse("sales/invoice_detail.html", {
-        "request": request, "invoice": invoice, "company": company_info,
+    return templates.TemplateResponse(request, "sales/invoice_detail.html", {
+        "invoice": invoice, "company": company_info,
         "paid_total": paid_total, "remaining": remaining, "today": today,
         "error_msg": error_msg,
     })
