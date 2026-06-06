@@ -21,8 +21,8 @@ def list_customers(request: Request, search: str = "", category: str = "",
     if category: q = q.filter(crud.Customer.category == category)
     q = q.order_by(crud.Customer.id.desc())
     pager = crud.paginate(q, page=page, per_page=50)
-    return templates.TemplateResponse("customers/list.html", {
-        "request": request, "customers": pager.items, "pager": pager,
+    return templates.TemplateResponse(request, "customers/list.html", {
+        "customers": pager.items, "pager": pager,
         "search": search, "category": category
     })
 
@@ -30,8 +30,8 @@ def list_customers(request: Request, search: str = "", category: str = "",
 @router.get("/customers/new", response_class=HTMLResponse)
 def new_customer_form(request: Request, db: Session = Depends(get_db)):
     staffs = db.query(Staff).filter(Staff.is_active == True).order_by(Staff.name).all()
-    return templates.TemplateResponse("customers/form.html", {
-        "request": request, "customer": None, "staffs": staffs
+    return templates.TemplateResponse(request, "customers/form.html", {
+        "customer": None, "staffs": staffs
     })
 
 
@@ -115,8 +115,8 @@ async def import_customers(request: Request, file: UploadFile = File(...), db: S
 @router.get("/customers/{customer_id}", response_class=HTMLResponse)
 def detail_customer(customer_id: int, request: Request, db: Session = Depends(get_db)):
     customer = crud.get_customer(db, customer_id)
-    return templates.TemplateResponse("customers/detail.html", {
-        "request": request, "customer": customer
+    return templates.TemplateResponse(request, "customers/detail.html", {
+        "customer": customer
     })
 
 
@@ -124,8 +124,8 @@ def detail_customer(customer_id: int, request: Request, db: Session = Depends(ge
 def edit_customer_form(customer_id: int, request: Request, db: Session = Depends(get_db)):
     customer = crud.get_customer(db, customer_id)
     staffs = db.query(Staff).filter(Staff.is_active == True).order_by(Staff.name).all()
-    return templates.TemplateResponse("customers/form.html", {
-        "request": request, "customer": customer, "staffs": staffs
+    return templates.TemplateResponse(request, "customers/form.html", {
+        "customer": customer, "staffs": staffs
     })
 
 
