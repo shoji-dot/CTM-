@@ -342,6 +342,12 @@ def delete_invoice(invoice_id: int, request: Request, db: Session = Depends(get_
         return JSONResponse(status_code=403, content={"detail": "管理者権限が必要です"})
     invoice = db.query(models.Invoice).filter(models.Invoice.id == invoice_id).first()
     if invoice:
+        # [C7] 紐づく Sale.status を "confirmed" に戻して再請求可能にする
+        sale_ids = [item.sale_id for item in invoice.items]
+        if sale_ids:
+            db.query(models.Sale).filter(models.Sale.id.in_(sale_ids)).update(
+                {"status": "confirmed"}, synchronize_session=False
+            )
         db.delete(invoice)
         db.commit()
     return RedirectResponse("/invoices", status_code=303)

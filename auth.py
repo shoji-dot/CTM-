@@ -9,7 +9,10 @@ from itsdangerous import URLSafeTimedSerializer
 from sqlalchemy.orm import Session
 from models import Staff
 
-SECRET_KEY = os.getenv("SECRET_KEY", "salescore-secret-key-2026")
+# [C1] SECRET_KEY は必須環境変数。未設定時は起動を停止する。
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("環境変数 SECRET_KEY が未設定です。.env を確認してください。")
 SESSION_MAX_AGE = 60 * 60 * 8  # 8時間
 
 pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")

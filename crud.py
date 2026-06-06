@@ -86,10 +86,20 @@ def delete_customer(db: Session, customer_id: int):
     quote_count = db.query(Quote).filter(Quote.customer_id == customer_id).count()
     if quote_count > 0:
         raise HTTPException(400, f"この顧客には見積が{quote_count}件あるため削除できません。先に見積を削除してください。")
-    from models import Sale
+    from models import Sale, Repair, DemoLoan
     sale_count = db.query(Sale).filter(Sale.customer_id == customer_id).count()
     if sale_count > 0:
         raise HTTPException(400, f"この顧客には売上が{sale_count}件あるため削除できません。")
+    # [C5] 出荷・修理・デモ貸出の存在チェック
+    ship_count = db.query(Shipment).filter(Shipment.customer_id == customer_id).count()
+    if ship_count > 0:
+        raise HTTPException(400, f"この顧客には出荷記録が{ship_count}件あるため削除できません。")
+    repair_count = db.query(Repair).filter(Repair.customer_id == customer_id).count()
+    if repair_count > 0:
+        raise HTTPException(400, f"この顧客には修理受付が{repair_count}件あるため削除できません。")
+    demo_count = db.query(DemoLoan).filter(DemoLoan.customer_id == customer_id).count()
+    if demo_count > 0:
+        raise HTTPException(400, f"この顧客にはデモ貸出が{demo_count}件あるため削除できません。")
     db.delete(obj)
     db.commit()
     return obj
@@ -419,9 +429,15 @@ def update_quote_status(db: Session, quote_id: int, status: str):
 
 def delete_quote(db: Session, quote_id: int):
     obj = db.query(Quote).filter(Quote.id == quote_id).first()
-    if obj:
-        db.delete(obj)
-        db.commit()
+    if not obj:
+        return None
+    # [C6] 売上が紐づく見積は削除不可
+    from models import Sale
+    sale_count = db.query(Sale).filter(Sale.quote_id == quote_id).count()
+    if sale_count > 0:
+        raise HTTPException(400, f"この見積には売上が{sale_count}件紐づいているため削除できません。")
+    db.delete(obj)
+    db.commit()
     return obj
 
 

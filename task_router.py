@@ -96,18 +96,23 @@ def create_task(body: TaskCreate, request: Request, db: Session = Depends(get_db
 
 @router.patch("/api/{task_id}")
 def update_task(task_id: int, body: TaskUpdate, db: Session = Depends(get_db)):
-    row = db.execute(text("SELECT id FROM tasks WHERE id=:i"), {"i": task_id}).fetchone()
-    if not row:
+    # [C4] 動的SQLを廃止し ORM で更新
+    from models import Task
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
         raise HTTPException(404, "タスクが見つかりません")
 
     fields = {k: v for k, v in body.model_dump().items() if v is not None}
     if not fields:
         return {"result": "no change"}
 
-    fields['updated_at'] = now()
-    set_clause = ", ".join(f"{k}=:{k}" for k in fields)
-    fields['task_id'] = task_id
-    db.execute(text(f"UPDATE tasks SET {set_clause} WHERE id=:task_id"), fields)
+    # ホワイトリストで許可カラムのみ更新
+    ALLOWED_FIELDS = {"title", "description", "status", "priority", "assignee_id", "due_date"}
+    for k, v in fields.items():
+        if k in ALLOWED_FIELDS:
+            setattr(task, k, v)
+    from datetime import datetime as _dt
+    task.updated_at = _dt.now()
     db.commit()
     return {"result": "ok"}
 
