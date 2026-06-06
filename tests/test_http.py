@@ -65,7 +65,6 @@ class TestAuthGuard:
         resp = c.get("/customers")
         assert resp.status_code == 200
 
-    @pytest.mark.xfail(reason="products/list.html has a Jinja2 syntax error (endfor missing)")
     def test_authenticated_product_list(self, auth_client):
         c, _ = auth_client
         resp = c.get("/products")

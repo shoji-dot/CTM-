@@ -1,7 +1,5 @@
-﻿{% extends "base.html" %}
-{% block title %}商品管理{% from "_pagination.html" import render as pagination %}
-{{ pagination(pager, "/products", {"search": search, "maker": maker, "category": category}) }}
-{% endblock %}
+{% extends "base.html" %}
+{% block title %}商品管理{% endblock %}
 {% block content %}
 <div class="page-header">
   <h1 class="page-title">商品管理</h1>
@@ -58,4 +56,25 @@ function submitCsv(input) {
       {% set stock = p.inventory.current_stock if p.inventory else 0 %}
       {% set is_alert = p.alert_enabled and stock <= p.stock_alert_threshold %}
       <tr class="{{ 'alert-row' if is_alert else '' }}">
- 
+        <td>{{ p.sku or '' }}</td>
+        <td>
+          <a href="/products/{{ p.id }}">{{ p.name }}</a>
+          {% if is_alert %}<span class="badge badge-danger" style="font-size:11px;margin-left:4px">在庫不足</span>{% endif %}
+        </td>
+        <td>{{ p.maker or '' }}</td>
+        <td>{{ p.category }}</td>
+        <td style="text-align:right">¥{{ '{:,.0f}'.format(p.unit_price) }}</td>
+        <td>{{ p.unit or '' }}</td>
+        <td style="text-align:right{% if is_alert %};color:#dc2626;font-weight:600{% endif %}">{{ stock }}</td>
+        <td style="text-align:right">{{ p.stock_alert_threshold }}</td>
+        <td><a href="/products/{{ p.id }}/edit" class="btn btn-sm btn-ghost">編集</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="empty">商品が登録されていません</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% from "_pagination.html" import render as pagination %}
+{{ pagination(pager, "/products", {"search": search, "maker": maker, "category": category}) }}
+{% endblock %}
