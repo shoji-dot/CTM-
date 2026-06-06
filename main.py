@@ -70,6 +70,19 @@ def _run_migrations():
 
 _run_migrations()
 
+# Alembicマイグレーション（__file__基準でalembic.iniを解決）
+def _run_alembic():
+    try:
+        from alembic import command
+        from alembic.config import Config
+        cfg = Config(os.path.join(os.path.dirname(os.path.abspath(__file__)), "alembic.ini"))
+        command.upgrade(cfg, "head")
+        print("[alembic] upgrade head: OK")
+    except Exception as e:
+        print(f"[alembic] migration skipped: {e}")
+
+_run_alembic()
+
 # デフォルトカテゴリの初期投入（空の場合のみ）
 def _seed_material_categories():
     from models import MaterialCategory
