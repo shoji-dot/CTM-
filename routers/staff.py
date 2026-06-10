@@ -28,7 +28,7 @@ def _record_fail(login_id: str):
 
 def _clear_fail(login_id: str):
     _login_attempts[login_id] = {"count": 0, "last_fail": None}
-from auth import hash_password, verify_password, create_session_token, get_current_staff
+from auth import hash_password, verify_password, create_session_token, get_current_staff, now_jst
 import crud
 
 router = APIRouter()
@@ -87,7 +87,7 @@ def list_staff(request: Request, db: Session = Depends(get_db)):
     if current.role != "admin":
         return RedirectResponse("/", status_code=303)
     staffs = db.query(Staff).order_by(Staff.id).all()
-    now = datetime.now()
+    now = now_jst()
     return templates.TemplateResponse(request, "staff/list.html", {
         "staffs": staffs, "current": current, "now": now
     })
