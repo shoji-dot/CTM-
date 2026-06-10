@@ -77,6 +77,7 @@
     </tbody>
   </table>
 </div>
-{% from "_pagination.html" import render as pagination %}
-{{ pagination(pager, "/quotes", {"status": status, "customer": customer, "end_user": end_user, "product": product}) }}
+{% set pagination = pager %}
+{% set _extra_params = "status=" ~ status ~ "&customer=" ~ customer ~ "&end_user=" ~ end_user ~ "&product=" ~ product ~ "&my=" ~ my %}
+{% include "_pagination.html" %}
 {% endblock %}

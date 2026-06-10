@@ -75,6 +75,7 @@ function submitCsv(input) {
     </tbody>
   </table>
 </div>
-{% from "_pagination.html" import render as pagination %}
-{{ pagination(pager, "/products", {"search": search, "maker": maker, "category": category}) }}
+{% set pagination = pager %}
+{% set _extra_params = "search=" ~ search ~ "&maker=" ~ maker ~ "&category=" ~ category %}
+{% include "_pagination.html" %}
 {% endblock %}
