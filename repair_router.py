@@ -61,8 +61,9 @@ def _gen_repair_number(db: Session):
 
 # ── 一覧 ──────────────────────────────────────────────────
 @router.get("/", response_class=HTMLResponse)
-async def repair_list(request: Request, status: str = "", q: str = "", db: Session = Depends(get_db)):
+async def repair_list(request: Request, status: str = "", q: str = "", page: int = 1, db: Session = Depends(get_db)):
     _staff(request)
+    from crud import paginate
     query = db.query(Repair).options(
         joinedload(Repair.customer),
         joinedload(Repair.end_user),
@@ -77,10 +78,11 @@ async def repair_list(request: Request, status: str = "", q: str = "", db: Sessi
             Repair.repair_number.ilike(like),
             Repair.serial_number.ilike(like),
         ))
-    repairs_raw = query.order_by(Repair.id.desc()).all()
+    query = query.order_by(Repair.id.desc())
+    pagination = paginate(query, page=page, per_page=50)
     today = date.today().isoformat()
     repairs = []
-    for r in repairs_raw:
+    for r in pagination.items:
         d = {c.name: getattr(r, c.name) for c in r.__table__.columns}
         d["customer_name"]  = r.customer.name if r.customer else ""
         d["end_user_name"]  = r.end_user.name if r.end_user else ""
@@ -92,6 +94,7 @@ async def repair_list(request: Request, status: str = "", q: str = "", db: Sessi
         repairs.append(d)
     return TEMPLATES.TemplateResponse(request, "repairs/list.html", {
         "repairs": repairs,
+        "pagination": pagination,
         "status": status, "q": q,
         "status_labels": STATUS_LABELS, "today": today
     })

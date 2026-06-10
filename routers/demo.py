@@ -78,7 +78,8 @@ def get_alert_counts(db: Session) -> dict:
 
 @router.get("/", response_class=HTMLResponse)
 def demo_list(request: Request, db: Session = Depends(get_db),
-              status: str = "", q: str = ""):
+              status: str = "", q: str = "", page: int = 1):
+    from crud import paginate
     _update_loan_statuses(db)
 
     query = db.query(DemoUnit)
@@ -90,7 +91,9 @@ def demo_list(request: Request, db: Session = Depends(get_db),
                 DemoUnit.serial_number.contains(q),
                 Product.name.contains(q))
         )
-    units = query.order_by(DemoUnit.id.desc()).all()
+    query = query.order_by(DemoUnit.id.desc())
+    pagination = paginate(query, page=page, per_page=50)
+    units = pagination.items
 
     today = date.today()
     soon = today + timedelta(days=7)
@@ -110,6 +113,7 @@ def demo_list(request: Request, db: Session = Depends(get_db),
 
     return templates.TemplateResponse(request, "demo/list.html", {
         "units": units,
+        "pagination": pagination,
         "alert_loans": alert_loans,
         "alert_shipments": alert_shipments,
         "today": today,

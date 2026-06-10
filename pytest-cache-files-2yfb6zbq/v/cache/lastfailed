@@ -1,0 +1,7 @@
+{
+  "tests/test_crud.py::TestCustomerDeleteIntegrity::test_block_delete_with_shipment": true,
+  "tests/test_crud.py::TestCustomerDeleteIntegrity::test_block_delete_with_repair": true,
+  "tests/test_crud.py::TestProductDeleteIntegrity::test_block_delete_with_quote_item": true,
+  "tests/test_http.py::TestLogin::test_login_success_redirects": true,
+  "tests/test_http.py::TestAuthGuard::test_unauthenticated_redirects_to_login": true
+}

@@ -1,15 +1,22 @@
-{% macro render(pager, url_base, params={}) %}
-{% if pager and pager.total_pages > 1 %}
-<div class="pagination">
-  <span class="pagination-info">全{{ pager.total }}件 / {{ pager.page }}/{{ pager.total_pages }}ページ</span>
-  <div class="pagination-btns">
-    {% if pager.has_prev %}
-      <a href="{{ url_base }}?page={{ pager.page - 1 }}{% for k,v in params.items() %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}" class="btn btn-sm btn-ghost">← 前へ</a>
-    {% endif %}
-    {% if pager.has_next %}
-      <a href="{{ url_base }}?page={{ pager.page + 1 }}{% for k,v in params.items() %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}" class="btn btn-sm btn-ghost">次へ →</a>
-    {% endif %}
-  </div>
-</div>
+{# 使い方: {% set _extra_params = "status=on_loan&q=abc" %} {% include "_pagination.html" %} #}
+{% if pagination.total_pages > 1 %}
+<nav class="d-flex justify-content-between align-items-center mt-3 px-1">
+  <small class="text-muted">
+    全 {{ pagination.total }} 件中
+    {{ (pagination.page - 1) * pagination.per_page + 1 }}–{{ [pagination.page * pagination.per_page, pagination.total] | min }} 件表示
+  </small>
+  <ul class="pagination pagination-sm mb-0">
+    <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
+      <a class="page-link" href="?page={{ pagination.prev_page }}{% if _extra_params %}&{{ _extra_params }}{% endif %}">‹</a>
+    </li>
+    {% for p in range([1, pagination.page - 2]|max, [pagination.total_pages + 1, pagination.page + 3]|min) %}
+    <li class="page-item {{ 'active' if p == pagination.page }}">
+      <a class="page-link" href="?page={{ p }}{% if _extra_params %}&{{ _extra_params }}{% endif %}">{{ p }}</a>
+    </li>
+    {% endfor %}
+    <li class="page-item {{ 'disabled' if not pagination.has_next }}">
+      <a class="page-link" href="?page={{ pagination.next_page }}{% if _extra_params %}&{{ _extra_params }}{% endif %}">›</a>
+    </li>
+  </ul>
+</nav>
 {% endif %}
-{% endmacro %}

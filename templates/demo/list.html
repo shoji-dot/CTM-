@@ -254,6 +254,8 @@ async function uploadCsv(input) {
           {% endfor %}
         </tbody>
       </table>
+      {% set _extra_params = "status=" ~ status_filter ~ "&q=" ~ q %}
+      {% include "_pagination.html" %}
     </div>
   </div>
 

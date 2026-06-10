@@ -60,5 +60,7 @@
       {% endfor %}
     </tbody>
   </table>
+  {% set _extra_params = "status=" ~ status ~ "&q=" ~ q %}
+  {% include "_pagination.html" %}
 </div>
 {% endblock %}

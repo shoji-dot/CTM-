@@ -275,7 +275,7 @@ def get_inventory_history_filtered(db, product_id=None, movement_type=None, date
             (InventoryHistory.reason.ilike(f"%{customer}%")) |
             (InventoryHistory.note.ilike(f"%{customer}%"))
         )
-    return q.order_by(InventoryHistory.moved_at.desc()).all()
+    return q.order_by(InventoryHistory.moved_at.desc())
 
 
 # ── Quotes ─────────────────────────────────────────────────

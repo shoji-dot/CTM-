@@ -35,8 +35,9 @@ def history(request: Request,
             date_to: str = "",
             staff_name: str = "",
             customer: str = "",
+            page: int = 1,
             db: Session = Depends(get_db)):
-    histories = crud.get_inventory_history_filtered(
+    query = crud.get_inventory_history_filtered(
         db,
         product_id=int(product_id) if product_id else None,
         movement_type=movement_type,
@@ -45,9 +46,11 @@ def history(request: Request,
         staff_name=staff_name,
         customer=customer,
     )
+    pagination = crud.paginate(query, page=page, per_page=50)
     products = crud.get_products(db)
     return templates.TemplateResponse(request, "inventory/history.html", {
-        "histories": histories,
+        "histories": pagination.items,
+        "pagination": pagination,
         "products": products,
         "product_id": product_id,
         "movement_type": movement_type,
