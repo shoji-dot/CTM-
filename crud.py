@@ -584,7 +584,21 @@ def validate_inventory_item(db: Session, product_id: int,
 # ── デモ器検索（デモ貸出・修理代替品用）─────────────────────
 def search_demo_units(db: Session, q: str = "", product_id: int = None):
     """デモ器台帳を型番・管理番号・シリアル番号で検索"""
- 
+    from models import DemoUnit
+    from sqlalchemy.orm import joinedload
+    query = db.query(DemoUnit).options(joinedload(DemoUnit.product)).filter(
+        DemoUnit.status != "retired"
+    )
+    if product_id:
+        query = query.filter(DemoUnit.product_id == product_id)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            (DemoUnit.unit_code.ilike(like)) |
+            (DemoUnit.serial_number.ilike(like))
+        )
+    return query.order_by(DemoUnit.unit_code).all()
+
 
 def get_expiry_alerts(db: Session, days: int = 30):
     """使用期限がdays日以内 or 期限切れの入庫ロットを返す（在庫あり商品のみ）"""
