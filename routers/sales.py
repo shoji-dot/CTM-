@@ -1,3 +1,4 @@
+from auth import now_jst
 from datetime import date, datetime
 from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -24,7 +25,7 @@ TAX_RATE = Decimal("0.10")  # [I6] Decimal型で精度保証
 
 def _gen_sale_number(db):
     # [I3] MAX(id)+1 方式
-    today = datetime.now().strftime("%Y%m%d")
+    today = now_jst().strftime("%Y%m%d")
     prefix = f"SA-{today}-"
     max_id = db.query(models.Sale.id).order_by(models.Sale.id.desc()).first()
     seq = (max_id[0] + 1) if max_id else 1
@@ -33,7 +34,7 @@ def _gen_sale_number(db):
 
 def _gen_invoice_number(db):
     # [I3] MAX(id)+1 方式
-    today = datetime.now().strftime("%Y%m%d")
+    today = now_jst().strftime("%Y%m%d")
     prefix = f"INV-{today}-"
     max_id = db.query(models.Invoice.id).order_by(models.Invoice.id.desc()).first()
     seq = (max_id[0] + 1) if max_id else 1

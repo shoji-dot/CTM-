@@ -1,4 +1,5 @@
 import os
+from auth import now_jst
 from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -52,7 +53,7 @@ def _require_manager(staff: dict):
         raise HTTPException(status_code=403, detail="この操作には管理者権限が必要です")
 
 def _gen_repair_number(db: Session):
-    prefix = f"REP-{datetime.now().strftime('%Y%m')}-"
+    prefix = f"REP-{now_jst().strftime('%Y%m')}-"
     row = db.query(Repair).filter(Repair.repair_number.like(f"{prefix}%")).order_by(Repair.id.desc()).first()
     seq = int(row.repair_number.split("-")[-1]) + 1 if row else 1
     return f"{prefix}{seq:04d}"

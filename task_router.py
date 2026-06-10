@@ -1,3 +1,4 @@
+from auth import now_jst
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Request, Depends
@@ -27,7 +28,7 @@ def _rows(rows):
     return [_row(r) for r in rows]
 
 def now():
-    return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    return now_jst().strftime('%Y-%m-%d %H:%M:%S')
 
 
 # ─── Pydantic ─────────────────────────────────────────

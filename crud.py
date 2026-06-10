@@ -1,3 +1,4 @@
+from auth import now_jst
 from datetime import datetime, date
 from fastapi import HTTPException
 from sqlalchemy import or_
@@ -45,7 +46,7 @@ from models import Customer, Product, Inventory, InventoryHistory, Quote, QuoteI
 from sqlalchemy import text as _sa_text
 
 def _now_str():
-    return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    return now_jst().strftime('%Y-%m-%d %H:%M:%S')
 
 
 
@@ -232,7 +233,7 @@ def move_inventory(db, product_id, movement_type, quantity,
                 f"在庫不足です（現在庫: {inv.current_stock}, 要求数: {quantity}）"
             )
         inv.current_stock = max(0, inv.current_stock - quantity)
-    inv.updated_at = datetime.now()
+    inv.updated_at = now_jst()
     history = InventoryHistory(
         product_id=product_id,
         movement_type=movement_type,
@@ -280,7 +281,7 @@ def get_inventory_history_filtered(db, product_id=None, movement_type=None, date
 # ── Quotes ─────────────────────────────────────────────────
 def _gen_quote_number(db: Session):
     # [I3] MAX(id)+1 方式でrace conditionを解消
-    today = datetime.now().strftime("%Y%m%d")
+    today = now_jst().strftime("%Y%m%d")
     prefix = f"Q-{today}-"
     max_id = db.query(Quote.id).order_by(Quote.id.desc()).first()
     seq = (max_id[0] + 1) if max_id else 1
@@ -449,7 +450,7 @@ def delete_quote(db: Session, quote_id: int):
 # ── Shipments ──────────────────────────────────────────────
 def _gen_shipment_number(db: Session):
     # [I3] MAX(id)+1 方式
-    today = datetime.now().strftime("%Y%m%d")
+    today = now_jst().strftime("%Y%m%d")
     prefix = f"SH-{today}-"
     max_id = db.query(Shipment.id).order_by(Shipment.id.desc()).first()
     seq = (max_id[0] + 1) if max_id else 1

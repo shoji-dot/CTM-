@@ -1,5 +1,6 @@
 import os
 import shutil
+from auth import now_jst
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, Request
@@ -25,7 +26,7 @@ def _rows(rows):
     return [_row(r) for r in rows]
 
 def now():
-    return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    return now_jst().strftime('%Y-%m-%d %H:%M:%S')
 
 
 # ─── Pydantic ─────────────────────────────────────────
@@ -119,7 +120,7 @@ async def upload_document(
     if file.content_type not in allowed:
         raise HTTPException(400, "PDF/Word/Excelのみアップロード可能です")
 
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    timestamp = now_jst().strftime('%Y%m%d_%H%M%S')
     safe_name = f"{timestamp}_{file.filename}"
     file_path = os.path.join(UPLOAD_DIR, safe_name)
     with open(file_path, 'wb') as f:

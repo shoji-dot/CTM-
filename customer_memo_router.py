@@ -2,6 +2,7 @@
 customer_memo_router.py
 顧客メモ機能: 病院名・医師名・メモ・検索
 """
+from auth import now_jst
 from datetime import datetime
 from fastapi import APIRouter, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -80,7 +81,7 @@ async def update_memo(
             WHERE id=:i
         """),
         {"h": hospital, "d": doctor_name, "m": memo,
-         "t": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "i": memo_id},
+         "t": now_jst().strftime('%Y-%m-%d %H:%M:%S'), "i": memo_id},
     )
     db.commit()
     return JSONResponse({"status": "ok"})

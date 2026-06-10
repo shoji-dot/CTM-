@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
+from auth import now_jst
 from datetime import date, datetime
 
 from database import get_db
@@ -158,7 +159,7 @@ async def barcode_receive(request: Request, db: Session = Depends(get_db)):
         ).first()
         if inventory:
             inventory.current_stock += quantity
-            inventory.updated_at = datetime.now()
+            inventory.updated_at = now_jst()
         else:
             inventory = models.Inventory(
                 product_id=product_id,

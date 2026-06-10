@@ -2,6 +2,7 @@ import smtplib
 import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from auth import now_jst
 from datetime import datetime
 from sqlalchemy import text
 from database import SessionLocal
@@ -93,7 +94,7 @@ def process_pending_notifications():
             if send_email(notif['recipient_email'], subject, body):
                 db.execute(
                     text("UPDATE notifications SET is_sent=TRUE, sent_at=:t WHERE id=:i"),
-                    {"t": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "i": notif['id']}
+                    {"t": now_jst().strftime('%Y-%m-%d %H:%M:%S'), "i": notif['id']}
                 )
                 sent_count += 1
         db.commit()
