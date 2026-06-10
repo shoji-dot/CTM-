@@ -372,3 +372,48 @@ def delete_invoice(invoice_id: int, request: Request, db: Session = Depends(get_
         db.delete(invoice)
         db.commit()
     return RedirectResponse("/invoices", status_code=303)
+
+
+@router.get("/sales/export.csv")
+def export_sales_csv(
+    request: Request, db: Session = Depends(get_db),
+    status: str = "", customer_id: str = "", date_from: str = "", date_to: str = "",
+):
+    import csv, io
+    from fastapi.responses import StreamingResponse
+    import models
+    q = db.query(models.Sale)
+    if status:
+        q = q.filter(models.Sale.status == status)
+    if customer_id:
+        q = q.filter(models.Sale.customer_id == int(customer_id))
+    if date_from:
+        from datetime import date as _date
+        q = q.filter(models.Sale.sale_date >= _date.fromisoformat(date_from))
+    if date_to:
+        from datetime import date as _date
+        q = q.filter(models.Sale.sale_date <= _date.fromisoformat(date_to))
+    rows = q.order_by(models.Sale.id.desc()).all()
+    STATUS_MAP = {"confirmed":"確定","invoiced":"請求済","paid":"入金済"}
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["売上番号","売上日","取引先","商品","数量","単価","小計","消費税","合計","ステータス","担当者"])
+    for s in rows:
+        w.writerow([
+            s.sale_number,
+            str(s.sale_date),
+            s.customer.name if s.customer else "",
+            s.product.name if s.product else "",
+            s.quantity,
+            int(s.unit_price or 0),
+            int(s.subtotal or 0),
+            int(s.tax_amount or 0),
+            int(s.total_amount or 0),
+            STATUS_MAP.get(s.status, s.status),
+            s.staff_name or "",
+        ])
+    return StreamingResponse(
+        iter([("\ufeff" + buf.getvalue()).encode("utf-8-sig")]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=sales.csv"}
+    )

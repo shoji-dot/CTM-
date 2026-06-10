@@ -308,3 +308,48 @@ async def detail_print(repair_id: int, request: Request, db: Session = Depends(g
         "repair": repair,
         "company": COMPANY_INFO, "today": date.today().isoformat()
     })
+
+
+@router.get("/export.csv")
+async def export_repairs_csv(
+    request: Request, db: Session = Depends(get_db),
+    status: str = "", q: str = "",
+):
+    import csv, io
+    from fastapi.responses import StreamingResponse
+    _staff(request)
+    query = db.query(Repair).options(
+        joinedload(Repair.customer),
+        joinedload(Repair.end_user),
+        joinedload(Repair.product),
+    )
+    if status:
+        query = query.filter(Repair.status == status)
+    if q:
+        from sqlalchemy import or_
+        like = f"%{q}%"
+        query = query.filter(or_(
+            Repair.repair_number.ilike(like),
+            Repair.serial_number.ilike(like),
+        ))
+    rows = query.order_by(Repair.id.desc()).all()
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["修理番号","受付日","取引先","エンドユーザー","商品","シリアル番号","ステータス","次工程期限","担当者"])
+    for r in rows:
+        w.writerow([
+            r.repair_number,
+            str(r.received_date or ""),
+            r.customer.name if r.customer else "",
+            r.end_user.name if r.end_user else "",
+            r.product.name if r.product else "",
+            r.serial_number or "",
+            STATUS_LABELS.get(r.status, r.status),
+            str(r.step_deadline or ""),
+            r.staff_name or "",
+        ])
+    return StreamingResponse(
+        iter([("\ufeff" + buf.getvalue()).encode("utf-8-sig")]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=repairs.csv"}
+    )

@@ -20,6 +20,8 @@
     <input type="text" name="product"   class="input" placeholder="製品名"          value="{{ product }}"   style="width:140px">
     <button type="submit" class="btn btn-ghost">絞込</button>
     <a href="/quotes" class="btn btn-ghost">リセット</a>
+    <a href="/quotes/export.csv?status={{ status }}&customer={{ customer }}&end_user={{ end_user }}&product={{ product }}"
+       class="btn btn-ghost" style="margin-left:auto">⬇ CSV</a>
   </form>
 </div>
 

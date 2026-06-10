@@ -177,6 +177,8 @@ async function uploadCsv(input) {
         <div class="col-auto">
           <button type="submit" class="btn btn-sm btn-outline-secondary">🔍 絞込</button>
           <a href="/demo/" class="btn btn-sm btn-link">クリア</a>
+          <a href="/demo/export.csv?status={{ status_filter }}&q={{ q }}"
+             class="btn btn-sm btn-outline-secondary">⬇ CSV</a>
         </div>
       </form>
     </div>

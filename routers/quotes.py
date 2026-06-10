@@ -286,3 +286,34 @@ def delete_quote(quote_id: int, request: Request, db: Session = Depends(get_db))
         return RedirectResponse(f"/quotes/{quote_id}?error=no_permission", status_code=303)
     crud.delete_quote(db, quote_id)
     return RedirectResponse("/quotes", status_code=303)
+
+
+@router.get("/quotes/export.csv")
+def export_quotes_csv(
+    request: Request, db: Session = Depends(get_db),
+    status: str = "", customer: str = "", end_user: str = "", product: str = "",
+):
+    import csv, io
+    from fastapi.responses import StreamingResponse
+    rows = crud.get_quotes_query(db, status=status, customer=customer, end_user=end_user, product=product).all()
+    STATUS_MAP = {"draft":"下書き","pending_approval":"承認待ち","approved":"承認済","sent":"送付済","ordered":"受注","rejected":"却下","cancelled":"取消"}
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["見積番号","取引先","エンドユーザー","ステータス","合計金額","有効期限","担当者","作成日"])
+    for q in rows:
+        w.writerow([
+            q.quote_number,
+            q.customer.name if q.customer else "",
+            q.end_user.name if q.end_user else "",
+            STATUS_MAP.get(q.status, q.status),
+            int(q.total_amount or 0),
+            str(q.valid_until or ""),
+            q.staff_name or "",
+            str(q.created_at.date()) if q.created_at else "",
+        ])
+    output = "\ufeff" + buf.getvalue()
+    return StreamingResponse(
+        iter([output.encode("utf-8-sig")]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=quotes.csv"}
+    )

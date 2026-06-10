@@ -640,3 +640,42 @@ def _build_alert_html(staff_name: str, loans: list, today: date) -> str:
       </div>
     </body></html>
     """
+
+
+@router.get("/export.csv")
+def export_demo_csv(
+    request: Request, db: Session = Depends(get_db),
+    status: str = "", q: str = "",
+):
+    import csv, io
+    from fastapi.responses import StreamingResponse
+    from sqlalchemy.orm import joinedload as _jl
+    query = db.query(DemoUnit).options(_jl(DemoUnit.product))
+    if status:
+        query = query.filter(DemoUnit.status == status)
+    if q:
+        query = query.join(Product).filter(
+            or_(DemoUnit.unit_code.contains(q),
+                DemoUnit.serial_number.contains(q),
+                Product.name.contains(q))
+        )
+    rows = query.order_by(DemoUnit.id.desc()).all()
+    STATUS_MAP = {"available":"貸出可","on_loan":"貸出中","in_repair":"修理中","retired":"廃棄"}
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["管理番号","商品名","シリアル番号","ロット番号","ステータス","購入日","備考"])
+    for u in rows:
+        w.writerow([
+            u.unit_code,
+            u.product.name if u.product else "",
+            u.serial_number or "",
+            u.lot_number or "",
+            STATUS_MAP.get(u.status, u.status),
+            str(u.purchase_date or ""),
+            u.notes or "",
+        ])
+    return StreamingResponse(
+        iter([('\ufeff' + buf.getvalue()).encode("utf-8-sig")]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=demo_units.csv"}
+    )
