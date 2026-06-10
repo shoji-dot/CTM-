@@ -35,9 +35,15 @@
       <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a">売上日（まで）</label>
       <input type="date" name="date_to" value="{{ date_to }}" style="padding:8px 12px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
     </div>
+    <input type="hidden" name="my" value="{{ my }}">
     <button type="submit" style="padding:9px 18px;background:#1a73e8;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer">絞込</button>
     <a href="/sales" style="padding:9px 18px;border:1.5px solid #dde3ea;border-radius:8px;color:#5f6b7a;text-decoration:none;font-weight:600">リセット</a>
-    <a href="/sales/export.csv?status={{ status }}&customer_id={{ customer_id }}&date_from={{ date_from }}&date_to={{ date_to }}"
+    {% if my == "1" %}
+    <a href="/sales?status={{ status }}&customer_id={{ customer_id }}&date_from={{ date_from }}&date_to={{ date_to }}&my=0" style="padding:9px 18px;background:#1a73e8;color:white;border:none;border-radius:8px;font-weight:600;text-decoration:none">👤 マイ案件 ✓</a>
+    {% else %}
+    <a href="/sales?status={{ status }}&customer_id={{ customer_id }}&date_from={{ date_from }}&date_to={{ date_to }}&my=1" style="padding:9px 18px;border:1.5px solid #dde3ea;border-radius:8px;color:#5f6b7a;text-decoration:none;font-weight:600">👤 マイ案件</a>
+    {% endif %}
+    <a href="/sales/export.csv?status={{ status }}&customer_id={{ customer_id }}&date_from={{ date_from }}&date_to={{ date_to }}&my={{ my }}"
        style="padding:9px 18px;border:1.5px solid #dde3ea;border-radius:8px;color:#5f6b7a;text-decoration:none;font-weight:600">⬇ CSV</a>
   </form>
 

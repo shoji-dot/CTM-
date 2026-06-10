@@ -46,7 +46,7 @@ def _gen_invoice_number(db):
 # ============================================================
 @router.get("/sales", response_class=HTMLResponse)
 def list_sales(request: Request, status: str = "", customer_id: str = "",
-               date_from: str = "", date_to: str = "", page: int = 1,
+               date_from: str = "", date_to: str = "", my: str = "", page: int = 1,
                db: Session = Depends(get_db)):
     # [I4] ページネーション適用
     q = db.query(models.Sale)
@@ -58,6 +58,10 @@ def list_sales(request: Request, status: str = "", customer_id: str = "",
         q = q.filter(models.Sale.sale_date >= date.fromisoformat(date_from))
     if date_to:
         q = q.filter(models.Sale.sale_date <= date.fromisoformat(date_to))
+    if my == "1":
+        staff = request.state.staff
+        if staff:
+            q = q.filter(models.Sale.staff_name == staff["name"])
     import crud as _crud
     pager = _crud.paginate(q.order_by(models.Sale.id.desc()), page=page, per_page=50)
     customers = db.query(models.Customer).order_by(models.Customer.name).all()
@@ -66,7 +70,7 @@ def list_sales(request: Request, status: str = "", customer_id: str = "",
         "sales": pager.items, "pager": pager,
         "customers": customers,
         "status": status, "customer_id": customer_id,
-        "date_from": date_from, "date_to": date_to, "total": total,
+        "date_from": date_from, "date_to": date_to, "total": total, "my": my,
     })
 
 

@@ -75,10 +75,13 @@ def list_quotes(
     customer: str = "",
     end_user: str = "",
     product: str = "",
+    my: str = "",
     page: int = 1,
 ):
+    staff = request.state.staff
+    staff_name_filter = staff["name"] if my == "1" and staff else ""
     pager = crud.paginate(
-        crud.get_quotes_query(db, status=status, customer=customer, end_user=end_user, product=product),
+        crud.get_quotes_query(db, status=status, customer=customer, end_user=end_user, product=product, staff_name=staff_name_filter),
         page=page,
     )
     return templates.TemplateResponse("quotes/list.html", {
@@ -89,6 +92,7 @@ def list_quotes(
         "customer": customer,
         "end_user": end_user,
         "product": product,
+        "my": my,
     })
 
 @router.get("/quotes/new", response_class=HTMLResponse)

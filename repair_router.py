@@ -61,8 +61,8 @@ def _gen_repair_number(db: Session):
 
 # ── 一覧 ──────────────────────────────────────────────────
 @router.get("/", response_class=HTMLResponse)
-async def repair_list(request: Request, status: str = "", q: str = "", page: int = 1, db: Session = Depends(get_db)):
-    _staff(request)
+async def repair_list(request: Request, status: str = "", q: str = "", my: str = "", page: int = 1, db: Session = Depends(get_db)):
+    staff = _staff(request)
     from crud import paginate
     query = db.query(Repair).options(
         joinedload(Repair.customer),
@@ -78,6 +78,8 @@ async def repair_list(request: Request, status: str = "", q: str = "", page: int
             Repair.repair_number.ilike(like),
             Repair.serial_number.ilike(like),
         ))
+    if my == "1":
+        query = query.filter(Repair.staff_name == staff["name"])
     query = query.order_by(Repair.id.desc())
     pagination = paginate(query, page=page, per_page=50)
     today = date.today().isoformat()
@@ -95,7 +97,7 @@ async def repair_list(request: Request, status: str = "", q: str = "", page: int
     return TEMPLATES.TemplateResponse(request, "repairs/list.html", {
         "repairs": repairs,
         "pagination": pagination,
-        "status": status, "q": q,
+        "status": status, "q": q, "my": my,
         "status_labels": STATUS_LABELS, "today": today
     })
 

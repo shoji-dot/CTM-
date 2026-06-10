@@ -312,11 +312,13 @@ def get_quotes(db: Session, status: str = "", customer: str = "", end_user: str 
 
     return q.order_by(Quote.id.desc()).distinct().all()
 
-def get_quotes_query(db: Session, status: str = "", customer: str = "", end_user: str = "", product: str = ""):
+def get_quotes_query(db: Session, status: str = "", customer: str = "", end_user: str = "", product: str = "", staff_name: str = ""):
     """get_quotes と同じフィルタ条件でクエリオブジェクトを返す（ページネーション用）"""
     q = db.query(Quote).join(Quote.customer)
     if status:
         q = q.filter(Quote.status == status)
+    if staff_name:
+        q = q.filter(Quote.staff_name == staff_name)
     if customer:
         q = q.filter(Customer.name.contains(customer))
     if end_user:

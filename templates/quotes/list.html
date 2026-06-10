@@ -18,9 +18,15 @@
     <input type="text" name="customer"  class="input" placeholder="顧客名"         value="{{ customer }}"  style="width:140px">
     <input type="text" name="end_user"  class="input" placeholder="エンドユーザー"  value="{{ end_user }}"  style="width:140px">
     <input type="text" name="product"   class="input" placeholder="製品名"          value="{{ product }}"   style="width:140px">
+    <input type="hidden" name="my" value="{{ my }}">
     <button type="submit" class="btn btn-ghost">絞込</button>
     <a href="/quotes" class="btn btn-ghost">リセット</a>
-    <a href="/quotes/export.csv?status={{ status }}&customer={{ customer }}&end_user={{ end_user }}&product={{ product }}"
+    {% if my == "1" %}
+    <a href="/quotes?status={{ status }}&customer={{ customer }}&end_user={{ end_user }}&product={{ product }}&my=0" class="btn btn-primary btn-sm">👤 マイ案件 ✓</a>
+    {% else %}
+    <a href="/quotes?status={{ status }}&customer={{ customer }}&end_user={{ end_user }}&product={{ product }}&my=1" class="btn btn-ghost btn-sm">👤 マイ案件</a>
+    {% endif %}
+    <a href="/quotes/export.csv?status={{ status }}&customer={{ customer }}&end_user={{ end_user }}&product={{ product }}&my={{ my }}"
        class="btn btn-ghost" style="margin-left:auto">⬇ CSV</a>
   </form>
 </div>

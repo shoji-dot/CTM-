@@ -14,9 +14,15 @@
       <option value="{{ k }}" {% if status == k %}selected{% endif %}>{{ v }}</option>
       {% endfor %}
     </select>
+    <input type="hidden" name="my" value="{{ my }}">
     <button type="submit" class="btn btn-primary">絞込</button>
     <a href="/repairs/" class="btn btn-ghost">リセット</a>
-    <a href="/repairs/export.csv?status={{ status }}&q={{ q }}"
+    {% if my == "1" %}
+    <a href="/repairs/?status={{ status }}&q={{ q }}&my=0" class="btn btn-primary btn-sm">👤 マイ案件 ✓</a>
+    {% else %}
+    <a href="/repairs/?status={{ status }}&q={{ q }}&my=1" class="btn btn-ghost btn-sm">👤 マイ案件</a>
+    {% endif %}
+    <a href="/repairs/export.csv?status={{ status }}&q={{ q }}&my={{ my }}"
        class="btn btn-ghost" style="margin-left:auto">⬇ CSV</a>
   </form>
 </div>
