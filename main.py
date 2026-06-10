@@ -127,6 +127,25 @@ def _run_migrations():
             "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS cancelled_by_id INTEGER REFERENCES staffs(id)",
             "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS cancel_comment TEXT",
             "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP",
+            # ── ShipmentItem マイグレーション ──
+            """CREATE TABLE IF NOT EXISTS shipment_items (
+                id            SERIAL PRIMARY KEY,
+                shipment_id   INTEGER NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
+                line_no       INTEGER NOT NULL DEFAULT 1,
+                shipment_type VARCHAR(20) NOT NULL,
+                product_id    INTEGER NOT NULL REFERENCES products(id),
+                quantity      INTEGER NOT NULL DEFAULT 1,
+                serial_number VARCHAR(100),
+                lot_number    VARCHAR(100),
+                expiry_date   DATE,
+                demo_unit_id  INTEGER REFERENCES demo_units(id)
+            )""",
+            "CREATE INDEX IF NOT EXISTS ix_shipment_items_shipment_id ON shipment_items(shipment_id)",
+            "CREATE INDEX IF NOT EXISTS ix_shipment_items_product_id  ON shipment_items(product_id)",
+            "ALTER TABLE sales ADD COLUMN IF NOT EXISTS shipment_item_id INTEGER REFERENCES shipment_items(id)",
+            # ── DemoUnit 所在地カラム ──
+            "ALTER TABLE demo_units ADD COLUMN IF NOT EXISTS location_type VARCHAR(50) DEFAULT 'own'",
+            "ALTER TABLE demo_units ADD COLUMN IF NOT EXISTS location_name VARCHAR(200) DEFAULT 'CTM本社'",
         ]
     else:
         stmts = [
