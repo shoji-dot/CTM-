@@ -1,5 +1,5 @@
 from datetime import datetime
-from auth import now_jst
+from utils import now_jst
 from sqlalchemy import Column, Integer, String, Float, Numeric, DateTime, Date, ForeignKey, Text, Boolean, Index
 from sqlalchemy.orm import relationship, DeclarativeBase
 

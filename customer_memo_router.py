@@ -2,7 +2,7 @@
 customer_memo_router.py
 顧客メモ機能: 病院名・医師名・メモ・検索
 """
-from auth import now_jst
+from utils import now_jst
 from datetime import datetime
 from fastapi import APIRouter, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, JSONResponse

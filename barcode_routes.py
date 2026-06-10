@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
-from auth import now_jst
+from utils import now_jst
 from datetime import date, datetime
 
 from database import get_db

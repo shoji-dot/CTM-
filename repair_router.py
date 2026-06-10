@@ -1,5 +1,5 @@
 import os
-from auth import now_jst
+from utils import now_jst
 from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse

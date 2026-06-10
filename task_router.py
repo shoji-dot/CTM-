@@ -1,4 +1,4 @@
-from auth import now_jst
+from utils import now_jst
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Request, Depends

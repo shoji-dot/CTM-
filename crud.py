@@ -1,4 +1,4 @@
-from auth import now_jst
+from utils import now_jst
 from datetime import datetime, date
 from fastapi import HTTPException
 from sqlalchemy import or_

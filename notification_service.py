@@ -2,7 +2,7 @@ import smtplib
 import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from auth import now_jst
+from utils import now_jst
 from datetime import datetime
 from sqlalchemy import text
 from database import SessionLocal

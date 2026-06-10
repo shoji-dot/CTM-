@@ -1,9 +1,6 @@
 import os
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-
-def now_jst():
-    return datetime.now(ZoneInfo("Asia/Tokyo")).replace(tzinfo=None)
+from utils import now_jst
 from passlib.context import CryptContext
 from itsdangerous import URLSafeTimedSerializer
 from sqlalchemy.orm import Session
