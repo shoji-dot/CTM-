@@ -68,7 +68,7 @@ def login(request: Request, login_id: str = Form(...), password: str = Form(...)
     _clear_fail(login_id)
     token = create_session_token(staff.id)
     response = RedirectResponse("/", status_code=303)
-    response.set_cookie("session", token, max_age=60*60*8, httponly=True, samesite="lax")
+    response.set_cookie("session", token, max_age=60*60*8, httponly=True, samesite="lax", secure=True)
     return response
 
 

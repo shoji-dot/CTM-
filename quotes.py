@@ -72,12 +72,11 @@ async def create_quote(request: Request, db: Session = Depends(get_db)):
 
     # 修理案件と紐付け
     if repair_id:
-        import sqlite3 as _sq, os as _os
-        _db_path = _os.path.join(_os.path.dirname(__file__), "sales_app.db")
-        con = _sq.connect(_db_path, timeout=30)
-        con.execute("UPDATE repairs SET quote_id=? WHERE id=?", (q.id, int(repair_id)))
-        con.commit()
-        con.close()
+        from models import Repair
+        repair = db.query(Repair).filter(Repair.id == int(repair_id)).first()
+        if repair:
+            repair.quote_id = q.id
+            db.commit()
         return RedirectResponse(f"/repairs/{repair_id}", status_code=303)
 
     return RedirectResponse("/quotes", status_code=303)
