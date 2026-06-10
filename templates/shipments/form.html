@@ -305,7 +305,7 @@ function renderDemoResults(items) {
     box.innerHTML = items.map(it =>
       `<div class="search-dropdown-item" onclick='selectDemoItem(${JSON.stringify(it)})'>
         <div class="item-main">${it.product_name}　<span class="status-${it.status}">【${it.status_label}】</span></div>
-        <div class="item-sub">管理番号：${it.unit_code}　シリアル：${it.serial_number || "なし"}</div>
+        <div class="item-sub">管理番号：${it.unit_code}　シリアル：${it.serial_number || "―"}　ロット：${it.lot_number || "―"}</div>
       </div>`
     ).join("");
   }
@@ -326,7 +326,7 @@ function selectDemoItem(it) {
 
   const disp = document.getElementById("demo_selected_display");
   disp.innerHTML = `✅ 選択済み：<strong>${it.product_name}</strong>　管理番号：${it.unit_code}　` +
-    `シリアル：${it.serial_number || "なし"}　<span class="status-${it.status}">【${it.status_label}】</span>`;
+    `シリアル：${it.serial_number || "―"}　ロット：${it.lot_number || "―"}　<span class="status-${it.status}">【${it.status_label}】</span>`;
   disp.style.display = "block";
 }
 

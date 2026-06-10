@@ -49,6 +49,6 @@
     </tbody>
   </table>
 </div>
-{% from "_pagination.html" import render as pagination %}
-{{ pagination(pager, "/customers", {"search": search}) }}
+{% set _extra_params = "search=" ~ search ~ "&category=" ~ category %}
+{% include "_pagination.html" %}
 {% endblock %}
