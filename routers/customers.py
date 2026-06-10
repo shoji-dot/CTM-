@@ -22,7 +22,7 @@ def list_customers(request: Request, search: str = "", category: str = "",
     q = q.order_by(crud.Customer.id.desc())
     pager = crud.paginate(q, page=page, per_page=50)
     return templates.TemplateResponse(request, "customers/list.html", {
-        "customers": pager.items, "pager": pager,
+        "customers": pager.items, "pagination": pager,
         "search": search, "category": category
     })
 
