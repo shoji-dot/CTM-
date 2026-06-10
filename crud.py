@@ -461,73 +461,104 @@ def _gen_shipment_number(db: Session):
 def get_shipments(db: Session, status: str = "", shipment_type: str = "",
                   q_text: str = "", serial: str = "", lot: str = ""):
     from sqlalchemy import or_
+    from models import ShipmentItem
+    from sqlalchemy.orm import joinedload
     EndUser = aliased(Customer)
-    q = db.query(Shipment).join(Customer, Shipment.customer_id == Customer.id, isouter=True)\
-        .join(EndUser, Shipment.end_user_id == EndUser.id, isouter=True)\
-        .join(Product, Shipment.product_id == Product.id, isouter=True)
+    q = db.query(Shipment).options(
+        joinedload(Shipment.items).joinedload(ShipmentItem.product),
+        joinedload(Shipment.customer),
+    ).join(Customer, Shipment.customer_id == Customer.id, isouter=True)
     if status:
         q = q.filter(Shipment.status == status)
     if shipment_type:
-        q = q.filter(Shipment.shipment_type == shipment_type)
+        q = q.join(ShipmentItem, Shipment.id == ShipmentItem.shipment_id, isouter=True)              .filter(ShipmentItem.shipment_type == shipment_type)
     if q_text:
         like = f"%{q_text}%"
-        q = q.filter(or_(
-            Shipment.shipment_number.ilike(like),
-            Customer.name.ilike(like),
-            EndUser.name.ilike(like),
-            Product.name.ilike(like),
-        ))
+        q = q.join(ShipmentItem, Shipment.id == ShipmentItem.shipment_id, isouter=True)              .join(Product, ShipmentItem.product_id == Product.id, isouter=True)              .filter(or_(
+                  Shipment.shipment_number.ilike(like),
+                  Customer.name.ilike(like),
+                  Product.name.ilike(like),
+              ))
     if serial:
-        q = q.filter(Shipment.serial_number.ilike(f"%{serial}%"))
+        q = q.join(ShipmentItem, Shipment.id == ShipmentItem.shipment_id, isouter=True)              .filter(ShipmentItem.serial_number.ilike(f"%{serial}%"))
     if lot:
-        q = q.filter(Shipment.lot_number.ilike(f"%{lot}%"))
-    return q.order_by(Shipment.id.desc()).all()
+        q = q.join(ShipmentItem, Shipment.id == ShipmentItem.shipment_id, isouter=True)              .filter(ShipmentItem.lot_number.ilike(f"%{lot}%"))
+    return q.distinct().order_by(Shipment.id.desc()).all()
+
 
 def get_shipment(db: Session, shipment_id: int):
-    return db.query(Shipment).filter(Shipment.id == shipment_id).first()
+    from models import ShipmentItem
+    from sqlalchemy.orm import joinedload
+    return db.query(Shipment).options(
+        joinedload(Shipment.items).joinedload(ShipmentItem.product),
+        joinedload(Shipment.items).joinedload(ShipmentItem.demo_unit),
+        joinedload(Shipment.customer),
+        joinedload(Shipment.end_user),
+    ).filter(Shipment.id == shipment_id).first()
 
-def create_shipment(db: Session, data: dict):
-    data["shipment_number"] = _gen_shipment_number(db)
-    obj = Shipment(**data)
+
+def create_shipment(db: Session, header: dict, items: list) -> Shipment:
+    """
+    header: {customer_id, end_user_id, shipped_date, return_due_date, notes, staff_name}
+    items:  [{shipment_type, product_id, quantity, serial_number, lot_number,
+               expiry_date, demo_unit_id}]
+    """
+    from models import ShipmentItem
+    header["shipment_number"] = _gen_shipment_number(db)
+    obj = Shipment(**header)
     db.add(obj)
     db.flush()
-    type_label = {"sale": "販売出荷", "demo": "デモ貸出", "sample": "サンプル出荷", "repair": "修理代替品出荷"}
-    move_inventory(db, obj.product_id, "out", obj.quantity,
-                   reason=type_label.get(obj.shipment_type, "出荷"))
+    type_label = {"sale": "販売出荷", "demo": "デモ貸出", "sample": "サンプル出荷", "repair_sub": "修理代替品出荷"}
+    for i, item_data in enumerate(items, start=1):
+        item = ShipmentItem(
+            shipment_id=obj.id,
+            line_no=i,
+            shipment_type=item_data["shipment_type"],
+            product_id=item_data["product_id"],
+            quantity=item_data.get("quantity", 1),
+            serial_number=item_data.get("serial_number") or None,
+            lot_number=item_data.get("lot_number") or None,
+            expiry_date=item_data.get("expiry_date") or None,
+            demo_unit_id=item_data.get("demo_unit_id") or None,
+        )
+        db.add(item)
+        db.flush()
+        # demo/repair_subは在庫移動なし（デモ器台帳で管理）
+        if item_data["shipment_type"] not in ("demo", "repair_sub"):
+            move_inventory(db, item_data["product_id"], "out",
+                           item_data.get("quantity", 1),
+                           reason=type_label.get(item_data["shipment_type"], "出荷"))
     db.commit()
     db.refresh(obj)
     return obj
+
 
 def update_shipment(db: Session, shipment_id: int, data: dict):
     obj = db.query(Shipment).filter(Shipment.id == shipment_id).first()
     if not obj:
         return None
-    # 数量変更時は在庫差分を再計算
-    old_qty = obj.quantity
-    new_qty = data.get("quantity", old_qty)
-    if new_qty != old_qty and obj.status == "shipped":
-        diff = new_qty - old_qty
-        if diff > 0:
-            move_inventory(db, obj.product_id, "out", diff, reason="出荷数量修正")
-        else:
-            move_inventory(db, obj.product_id, "in", abs(diff), reason="出荷数量修正")
     for k, v in data.items():
         setattr(obj, k, v)
     db.commit()
     db.refresh(obj)
     return obj
 
+
 def return_shipment(db: Session, shipment_id: int, returned_date: date):
+    from models import ShipmentItem
     obj = db.query(Shipment).filter(Shipment.id == shipment_id).first()
     if not obj:
         return None
     obj.returned_date = returned_date
     obj.status = "returned"
-    if obj.shipment_type in ("demo", "repair"):
-        move_inventory(db, obj.product_id, "in", obj.quantity, reason="返却入庫")
+    # demo/repair_sub の返却入庫
+    for item in obj.items:
+        if item.shipment_type in ("demo", "repair_sub"):
+            move_inventory(db, item.product_id, "in", item.quantity, reason="返却入庫")
     db.commit()
     db.refresh(obj)
     return obj
+
 
 def complete_shipment(db: Session, shipment_id: int):
     obj = db.query(Shipment).filter(Shipment.id == shipment_id).first()
@@ -538,11 +569,15 @@ def complete_shipment(db: Session, shipment_id: int):
     db.refresh(obj)
     return obj
 
+
 def delete_shipment(db: Session, shipment_id: int):
+    from models import ShipmentItem
     obj = db.query(Shipment).filter(Shipment.id == shipment_id).first()
     if obj:
         if obj.status == "shipped":
-            move_inventory(db, obj.product_id, "in", obj.quantity, reason="出荷取消")
+            for item in obj.items:
+                if item.shipment_type not in ("demo", "repair_sub"):
+                    move_inventory(db, item.product_id, "in", item.quantity, reason="出荷取消")
         db.delete(obj)
         db.commit()
     return obj

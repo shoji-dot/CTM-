@@ -68,7 +68,7 @@ class Product(Base):
     inventory = relationship("Inventory", back_populates="product", uselist=False)
     inventory_histories = relationship("InventoryHistory", back_populates="product")
     quote_items = relationship("QuoteItem", back_populates="product")
-    shipments = relationship("Shipment", back_populates="product")
+    shipment_items = relationship("ShipmentItem", back_populates="product") if False else None  # unused
     __table_args__ = (
         Index("ix_products_name", "name"),
         Index("ix_products_category", "category"),
@@ -156,31 +156,49 @@ class QuoteItem(Base):
 
 class Shipment(Base):
     __tablename__ = "shipments"
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id            = Column(Integer, primary_key=True, autoincrement=True)
     shipment_number = Column(String(50), unique=True)
-    shipment_type = Column(String(20), nullable=False)
-    customer_id = Column(Integer, ForeignKey("customers.id"))
-    end_user_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
-    product_id = Column(Integer, ForeignKey("products.id"))
-    quantity = Column(Integer, nullable=False, default=1)
-    serial_number = Column(String(100), nullable=True)
-    lot_number = Column(String(100), nullable=True)
-    expiry_date = Column(Date, nullable=True)
-    shipped_date = Column(Date, nullable=False)
-    return_due_date = Column(Date, nullable=True)
+    customer_id   = Column(Integer, ForeignKey("customers.id"))
+    end_user_id   = Column(Integer, ForeignKey("customers.id"), nullable=True)
+    shipped_date  = Column(Date, nullable=False)
+    return_due_date = Column(Date, nullable=True)   # デモ・代替品用
     returned_date = Column(Date, nullable=True)
-    status = Column(String(20), default="shipped")
-    notes = Column(Text, nullable=True)
-    staff_name = Column(String(100), nullable=True)
-    created_at = Column(DateTime, default=now_jst)
-    customer = relationship("Customer", foreign_keys=[customer_id])
-    end_user = relationship("Customer", foreign_keys=[end_user_id])
-    product = relationship("Product", back_populates="shipments")
+    status        = Column(String(20), default="shipped")
+    notes         = Column(Text, nullable=True)
+    staff_name    = Column(String(100), nullable=True)
+    created_at    = Column(DateTime, default=now_jst)
+    customer  = relationship("Customer", foreign_keys=[customer_id])
+    end_user  = relationship("Customer", foreign_keys=[end_user_id])
+    items     = relationship("ShipmentItem", back_populates="shipment",
+                             cascade="all, delete-orphan", order_by="ShipmentItem.line_no")
     __table_args__ = (
         Index("ix_shipments_customer_id", "customer_id"),
-        Index("ix_shipments_product_id", "product_id"),
         Index("ix_shipments_status", "status"),
         Index("ix_shipments_shipped_date", "shipped_date"),
+    )
+
+
+class ShipmentItem(Base):
+    """出荷明細行 — 1出荷に複数商品・複数種別を持てる"""
+    __tablename__ = "shipment_items"
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    shipment_id  = Column(Integer, ForeignKey("shipments.id"), nullable=False)
+    line_no      = Column(Integer, nullable=False, default=1)
+    shipment_type = Column(String(20), nullable=False)
+    # sale / demo / sample / repair_sub
+    product_id   = Column(Integer, ForeignKey("products.id"), nullable=False)
+    quantity     = Column(Integer, nullable=False, default=1)
+    serial_number = Column(String(100), nullable=True)
+    lot_number   = Column(String(100), nullable=True)
+    expiry_date  = Column(Date, nullable=True)
+    demo_unit_id = Column(Integer, ForeignKey("demo_units.id"), nullable=True)
+    shipment  = relationship("Shipment", back_populates="items")
+    product   = relationship("Product")
+    demo_unit = relationship("DemoUnit")
+    sale      = relationship("Sale", back_populates="shipment_item", uselist=False)
+    __table_args__ = (
+        Index("ix_shipment_items_shipment_id", "shipment_id"),
+        Index("ix_shipment_items_product_id", "product_id"),
     )
 
 
@@ -188,7 +206,7 @@ class Sale(Base):
     __tablename__ = "sales"
     id = Column(Integer, primary_key=True, autoincrement=True)
     sale_number = Column(String(50), unique=True, nullable=False)
-    shipment_id = Column(Integer, ForeignKey("shipments.id"), nullable=True)
+    shipment_item_id = Column(Integer, ForeignKey("shipment_items.id"), nullable=True)
     quote_id = Column(Integer, ForeignKey("quotes.id"), nullable=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
@@ -203,7 +221,7 @@ class Sale(Base):
     notes = Column(Text, nullable=True)
     staff_name = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=now_jst)
-    shipment = relationship("Shipment", foreign_keys=[shipment_id])
+    shipment_item = relationship("ShipmentItem", back_populates="sale", foreign_keys=[shipment_item_id])
     quote = relationship("Quote", foreign_keys=[quote_id])
     customer = relationship("Customer", foreign_keys=[customer_id])
     product = relationship("Product", foreign_keys=[product_id])

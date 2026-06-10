@@ -1,369 +1,268 @@
 {% extends "base.html" %}
-{% block title %}{{ "出荷編集" if shipment else "出荷登録" }}{% endblock %}
+{% block title %}出荷登録{% endblock %}
 {% block content %}
-<div class="page-header">
-  <h1 class="page-title">{{ "出荷編集" if shipment else "出荷登録" }}</h1>
-  <a href="{{ '/shipments/' + shipment.id|string if shipment else '/shipments' }}" class="btn btn-ghost">← 戻る</a>
-</div>
+<div style="padding:20px 24px;max-width:900px">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <a href="/shipments" style="color:#5f6b7a;text-decoration:none">← 出荷一覧</a>
+    <h1 style="font-size:1.3rem;font-weight:700;margin:0">📦 出荷登録</h1>
+  </div>
 
-{% if error %}
-<div style="background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;padding:12px 16px;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
-  <span>⚠️</span> {{ error }}
-</div>
-{% endif %}
+  {% if error %}
+  <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;margin-bottom:16px;color:#991b1b">⚠ {{ error }}</div>
+  {% endif %}
 
-<div class="form-card">
-  <form method="post" action="{{ '/shipments/' + shipment.id|string + '/edit' if shipment else '/shipments/new' }}" id="shipmentForm">
-    <div class="form-grid">
+  <form method="post" action="/shipments/new" onsubmit="return prepareSubmit()">
 
-      {# ── 出荷種別 ── #}
-      <div class="form-group span-2">
-        <label class="label">出荷種別 <span class="required">*</span></label>
-        <div class="shiptype-buttons">
-          {% for k, v in shipment_types.items() %}
-          <label class="shiptype-label">
-            <input type="radio" name="shipment_type" value="{{ k }}" class="shiptype-radio"
-              onchange="onTypeChange(this.value)"
-              {{ "checked" if shipment and shipment.shipment_type == k }}
-              {{ "required" if not shipment }}>
-            <span class="shiptype-btn">{{ v }}</span>
-          </label>
-          {% endfor %}
+    <!-- ヘッダー -->
+    <div style="background:white;border:1px solid #dde3ea;border-radius:12px;padding:20px;margin-bottom:16px">
+      <h2 style="font-size:1rem;font-weight:700;margin:0 0 16px">出荷ヘッダー</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div>
+          <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">取引先 <span style="color:#e53935">*</span></label>
+          <select name="customer_id" id="customer_id" required style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
+            <option value="">選択してください</option>
+            {% for c in customers %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
         </div>
-      </div>
-
-      {# ── 顧客 ── #}
-      {% if not shipment %}
-      <div class="form-group">
-        <label class="label">出荷先顧客 <span class="required">*</span></label>
-        <select name="customer_id" class="select" required>
-          <option value="">顧客を選択...</option>
-          {% for c in customers %}
-          <option value="{{ c.id }}">{{ c.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      {% else %}
-      <div class="form-group">
-        <label class="label">出荷先顧客</label>
-        <input class="input" value="{{ shipment.customer.name }}" disabled>
-      </div>
-      {% endif %}
-
-      <div class="form-group">
-        <label class="label">エンドユーザー</label>
-        <select name="end_user_id" class="select">
-          <option value="">選択してください（任意）</option>
-          {% for c in customers %}
-          <option value="{{ c.id }}" {{ "selected" if shipment and shipment.end_user_id == c.id }}>{{ c.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      {# ── 商品選択エリア（新規登録のみ） ── #}
-      {% if not shipment %}
-
-      {# --- 販売・サンプル用：商品選択 + 在庫検索 --- #}
-      <div id="sale_section" class="form-group span-2" style="display:none;flex-direction:column;gap:8px;">
-        <label class="label">商品 <span class="required">*</span></label>
-        <select id="sale_product_id" class="select" onchange="onSaleProductChange(this)">
-          <option value="">商品を選択...</option>
-          {% for p in products %}
-          <option value="{{ p.id }}" data-tracking="{{ p.tracking_type }}">
-            {{ p.name }}（在庫：{{ p.inventory.current_stock if p.inventory else 0 }}{{ p.unit }}）
-          </option>
-          {% endfor %}
-        </select>
-        <input type="hidden" name="product_id" id="sale_product_id_hidden">
-
-        <div id="inventory_search_wrap" style="display:none;">
-          <label class="label" style="margin-bottom:4px;font-size:13px;">在庫から選択（型番・シリアル・ロット番号で検索）</label>
-          <div style="position:relative;">
-            <input type="text" id="inv_search_input" class="input"
-              placeholder="シリアル番号・ロット番号・型番を入力..." oninput="searchInventory(this.value)" autocomplete="off">
-            <div id="inv_results" class="search-dropdown" style="display:none;"></div>
-          </div>
-          <div id="inv_selected_display" style="display:none;margin-top:8px;padding:8px 12px;background:#f0fdf4;border:1px solid #86efac;border-radius:6px;font-size:13px;"></div>
+        <div>
+          <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">エンドユーザー</label>
+          <select name="end_user_id" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
+            <option value="">なし</option>
+            {% for c in customers %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
         </div>
-      </div>
-
-      {# --- デモ・修理代替品用：デモ器検索 --- #}
-      <div id="demo_section" class="form-group span-2" style="display:none;flex-direction:column;gap:8px;">
-        <label class="label">デモ器を選択 <span class="required">*</span></label>
-        <div style="position:relative;">
-          <input type="text" id="demo_search_input" class="input"
-            placeholder="型番・管理番号・シリアル番号を入力..." oninput="searchDemo(this.value)" autocomplete="off">
-          <div id="demo_results" class="search-dropdown" style="display:none;"></div>
+        <div>
+          <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">出荷日 <span style="color:#e53935">*</span></label>
+          <input type="date" name="shipped_date" value="{{ today }}" required style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
         </div>
-        <div id="demo_selected_display" style="display:none;margin-top:4px;padding:8px 12px;background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;font-size:13px;"></div>
-        <input type="hidden" name="product_id" id="demo_product_id">
-      </div>
-
-      {% else %}
-      {# 編集時は商品変更不可 #}
-      <div class="form-group span-2">
-        <label class="label">商品</label>
-        <input class="input" value="{{ shipment.product.name }}" disabled>
-      </div>
-      {% endif %}
-
-      {# ── 数量・出荷日 ── #}
-      <div class="form-group">
-        <label class="label">数量 <span class="required">*</span></label>
-        <input name="quantity" type="number" min="1" value="{{ shipment.quantity if shipment else 1 }}"
-          required class="input" {{ "disabled" if shipment }}>
-      </div>
-      <div class="form-group">
-        <label class="label">出荷日 <span class="required">*</span></label>
-        <input name="shipped_date" type="date" required class="input"
-          value="{{ shipment.shipped_date.isoformat() if shipment else today }}">
-      </div>
-
-      {# ── シリアル / ロット ── #}
-      <div class="form-group" id="serial_group"
-        style="display:{{ 'flex' if shipment and shipment.product.tracking_type == 'serial' else 'none' }}">
-        <label class="label">シリアル番号</label>
-        <input name="serial_number" id="serial_number_input" class="input"
-          value="{{ shipment.serial_number if shipment else '' }}" placeholder="例：SN-12345">
-      </div>
-      <div class="form-group" id="lot_group"
-        style="display:{{ 'flex' if shipment and shipment.product.tracking_type == 'lot' else 'none' }}">
-        <label class="label">ロット番号</label>
-        <input name="lot_number" id="lot_number_input" class="input"
-          value="{{ shipment.lot_number if shipment else '' }}" placeholder="例：LOT-2026-001">
-      </div>
-
-      <div class="form-group">
-        <label class="label">有効期限</label>
-        <input name="expiry_date" id="expiry_date_input" type="date" class="input"
-          value="{{ shipment.expiry_date.isoformat() if shipment and shipment.expiry_date else '' }}">
-      </div>
-      <div class="form-group" id="return_due_group"
-        style="display:{{ 'flex' if shipment and shipment.shipment_type in ('demo','repair') else 'none' }}">
-        <label class="label">返却予定日</label>
-        <input name="return_due_date" type="date" class="input"
-          value="{{ shipment.return_due_date.isoformat() if shipment and shipment.return_due_date else '' }}">
-      </div>
-
-      <div class="form-group span-2">
-        <label class="label">備考</label>
-        <textarea name="notes" class="textarea" rows="3">{{ shipment.notes if shipment else '' }}</textarea>
+        <div id="return_due_wrap" style="display:none">
+          <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">返却期限</label>
+          <input type="date" name="return_due_date" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
+        </div>
+        <div>
+          <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">担当者</label>
+          <input type="text" name="staff_name" placeholder="担当者名" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
+        </div>
+        <div>
+          <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">備考</label>
+          <input type="text" name="notes" placeholder="備考" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
+        </div>
       </div>
     </div>
 
-    <div class="form-actions">
-      <a href="{{ '/shipments/' + shipment.id|string if shipment else '/shipments' }}" class="btn btn-ghost">キャンセル</a>
-      <button type="submit" class="btn btn-primary">{{ "更新する" if shipment else "出荷登録" }}</button>
+    <!-- 明細 -->
+    <div style="background:white;border:1px solid #dde3ea;border-radius:12px;padding:20px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <h2 style="font-size:1rem;font-weight:700;margin:0">明細</h2>
+        <div style="display:flex;gap:8px">
+          <button type="button" onclick="addRow('sale')"    style="padding:6px 12px;background:#1a73e8;color:white;border:none;border-radius:6px;font-size:0.82rem;cursor:pointer">＋ 販売</button>
+          <button type="button" onclick="addRow('sample')"  style="padding:6px 12px;background:#0d9488;color:white;border:none;border-radius:6px;font-size:0.82rem;cursor:pointer">＋ サンプル</button>
+          <button type="button" onclick="addRow('demo')"    style="padding:6px 12px;background:#7c3aed;color:white;border:none;border-radius:6px;font-size:0.82rem;cursor:pointer">＋ デモ貸出</button>
+          <button type="button" onclick="addRow('repair_sub')" style="padding:6px 12px;background:#b45309;color:white;border:none;border-radius:6px;font-size:0.82rem;cursor:pointer">＋ 修理代替品</button>
+        </div>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;font-size:0.85rem" id="items_table">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:2px solid #dde3ea">
+            <th style="padding:8px;text-align:left;width:90px">種別</th>
+            <th style="padding:8px;text-align:left">商品 / S.N / ロット</th>
+            <th style="padding:8px;text-align:center;width:70px">数量</th>
+            <th style="padding:8px;text-align:left;width:110px">使用期限</th>
+            <th style="padding:8px;width:36px"></th>
+          </tr>
+        </thead>
+        <tbody id="items_body">
+          <tr id="empty_row">
+            <td colspan="5" style="padding:24px;text-align:center;color:#9ca3af">上のボタンで明細を追加してください</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <input type="hidden" name="items_json" id="items_json">
+    <div style="display:flex;gap:10px">
+      <button type="submit" style="padding:10px 24px;background:#1a73e8;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer">📦 出荷登録</button>
+      <a href="/shipments" style="padding:10px 18px;border:1.5px solid #dde3ea;border-radius:8px;color:#5f6b7a;text-decoration:none;font-weight:600">キャンセル</a>
     </div>
   </form>
 </div>
 
+<!-- 商品検索ドロップダウン（共通） -->
+<div id="search_dropdown" style="display:none;position:absolute;z-index:9999;background:white;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);min-width:360px;max-height:280px;overflow-y:auto"></div>
+
 <style>
-.search-dropdown {
-  position:absolute; top:100%; left:0; right:0; z-index:1000;
-  background:#fff; border:1px solid #d1d5db; border-radius:6px;
-  box-shadow:0 4px 12px rgba(0,0,0,.12); max-height:260px; overflow-y:auto;
-}
-.search-dropdown-item {
-  padding:10px 14px; cursor:pointer; border-bottom:1px solid #f3f4f6; font-size:13px; line-height:1.5;
-}
-.search-dropdown-item:last-child { border-bottom:none; }
-.search-dropdown-item:hover { background:#f0f9ff; }
-.search-dropdown-item .item-main { font-weight:600; color:#1e40af; }
-.search-dropdown-item .item-sub { color:#6b7280; font-size:12px; }
-.search-dropdown-empty { padding:12px 14px; color:#9ca3af; font-size:13px; text-align:center; }
-.status-available { color:#16a34a; font-weight:600; }
-.status-on_loan   { color:#d97706; font-weight:600; }
-.status-in_repair { color:#dc2626; font-weight:600; }
-.status-retired   { color:#6b7280; font-weight:600; }
+.item-row td { padding:6px 8px;border-bottom:1px solid #f0f4f8;vertical-align:top }
+.type-badge { display:inline-block;padding:2px 8px;border-radius:999px;font-size:0.75rem;font-weight:700 }
+.type-sale      { background:#e3f2fd;color:#1565c0 }
+.type-sample    { background:#e0f2f1;color:#00695c }
+.type-demo      { background:#ede9fe;color:#5b21b6 }
+.type-repair_sub{ background:#fef3c7;color:#92400e }
+input.item-input { padding:5px 8px;border:1.5px solid #dde3ea;border-radius:6px;font-size:0.83rem;width:100% }
 </style>
 
 <script>
-let invTimer = null, demoTimer = null;
+const TYPE_LABELS = { sale:"販売", sample:"サンプル", demo:"デモ貸出", repair_sub:"修理代替品" };
+let rowCount = 0;
+let currentSearchRow = null;
+let searchTimer = null;
 
-// ── 出荷種別切替 ─────────────────────────────────────
-function onTypeChange(type) {
-  const saleSection   = document.getElementById("sale_section");
-  const demoSection   = document.getElementById("demo_section");
-  const returnGroup   = document.getElementById("return_due_group");
-  const serialGroup   = document.getElementById("serial_group");
-  const lotGroup      = document.getElementById("lot_group");
-
-  const isSale = (type === "sale" || type === "sample");
-  const isDemo = (type === "demo" || type === "repair");
-
-  if (saleSection) saleSection.style.display = isSale ? "flex" : "none";
-  if (demoSection) demoSection.style.display = isDemo ? "flex" : "none";
-  if (returnGroup) returnGroup.style.display = isDemo ? "flex" : "none";
-
-  if (isDemo) {
-    // デモ/修理：シリアル・ロット手入力欄は検索で自動入力するので非表示
-    if (serialGroup) serialGroup.style.display = "none";
-    if (lotGroup)    lotGroup.style.display    = "none";
-  }
-  if (isSale) {
-    // 商品選択済みなら tracking に合わせて表示
-    const sel = document.getElementById("sale_product_id");
-    if (sel && sel.value) onSaleProductChange(sel);
-  }
-}
-
-// ── 商品選択（販売・サンプル） ──────────────────────
-function onSaleProductChange(sel) {
-  const tracking = sel.options[sel.selectedIndex]?.dataset.tracking;
-  document.getElementById("serial_group").style.display = (tracking === "serial") ? "flex" : "none";
-  document.getElementById("lot_group").style.display    = (tracking === "lot")    ? "flex" : "none";
-  // hidden に同期
-  document.getElementById("sale_product_id_hidden").value = sel.value;
-  // 在庫検索ラップ表示
-  document.getElementById("inventory_search_wrap").style.display = sel.value ? "block" : "none";
-  clearInvSelection();
-}
-
-// ── 在庫検索 ─────────────────────────────────────────
-function searchInventory(val) {
-  clearTimeout(invTimer);
-  const box = document.getElementById("inv_results");
-  if (!val) { box.style.display = "none"; return; }
-  invTimer = setTimeout(async () => {
-    const pid = document.getElementById("sale_product_id")?.value || "";
-    const items = await fetch(`/api/inventory-items?q=${encodeURIComponent(val)}&product_id=${pid}`)
-      .then(r => r.json()).catch(() => []);
-    renderInvResults(items);
-  }, 300);
-}
-
-function renderInvResults(items) {
-  const box = document.getElementById("inv_results");
-  if (!items.length) {
-    box.innerHTML = '<div class="search-dropdown-empty">一致する在庫が見つかりません</div>';
-  } else {
-    box.innerHTML = items.map(it => {
-      const label = it.serial_number ? `シリアル：${it.serial_number}`
-                  : it.lot_number   ? `ロット：${it.lot_number}` : "（番号なし）";
-      const exp = it.expiry_date ? `　有効期限：${it.expiry_date}` : "";
-      return `<div class="search-dropdown-item" onclick='selectInvItem(${JSON.stringify(it)})'>
-        <div class="item-main">${it.product_name}</div>
-        <div class="item-sub">${label}${exp}　入庫日：${it.moved_at}</div>
-      </div>`;
-    }).join("");
-  }
-  box.style.display = "block";
-}
-
-function selectInvItem(it) {
-  // 商品選択に反映
-  const sel = document.getElementById("sale_product_id");
-  if (sel) { sel.value = it.product_id; onSaleProductChange(sel); }
-
-  // serial / lot / expiry 自動入力
-  const sn  = document.getElementById("serial_number_input");
-  const lot = document.getElementById("lot_number_input");
-  const exp = document.getElementById("expiry_date_input");
-  if (sn)  sn.value  = it.serial_number || "";
-  if (lot) lot.value = it.lot_number    || "";
-  if (exp && it.expiry_date) exp.value = it.expiry_date;
-
-  document.getElementById("inv_search_input").value = it.serial_number || it.lot_number || it.product_name;
-  document.getElementById("inv_results").style.display = "none";
-
-  const disp = document.getElementById("inv_selected_display");
-  const lbl  = it.serial_number ? `シリアル：${it.serial_number}` : it.lot_number ? `ロット：${it.lot_number}` : "";
-  disp.innerHTML = `✅ 選択済み：<strong>${it.product_name}</strong>　${lbl}`;
-  disp.style.display = "block";
-}
-
-function clearInvSelection() {
-  ["serial_number_input","lot_number_input"].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = "";
+function updateReturnDue() {
+  const rows = document.querySelectorAll('#items_body tr.item-row');
+  const hasDemoOrRepair = [...rows].some(r => {
+    const t = r.dataset.type;
+    return t === 'demo' || t === 'repair_sub';
   });
-  const disp = document.getElementById("inv_selected_display");
-  if (disp) disp.style.display = "none";
-  const input = document.getElementById("inv_search_input");
-  if (input) input.value = "";
-  const box = document.getElementById("inv_results");
-  if (box) box.style.display = "none";
+  document.getElementById('return_due_wrap').style.display = hasDemoOrRepair ? '' : 'none';
 }
 
-// ── デモ器検索 ──────────────────────────────────────
-function searchDemo(val) {
-  clearTimeout(demoTimer);
-  const box = document.getElementById("demo_results");
-  if (!val) { box.style.display = "none"; return; }
-  demoTimer = setTimeout(async () => {
-    const units = await fetch(`/api/demo-units?q=${encodeURIComponent(val)}`)
-      .then(r => r.json()).catch(() => []);
-    renderDemoResults(units);
-  }, 300);
+function addRow(type) {
+  document.getElementById('empty_row').style.display = 'none';
+  const id = ++rowCount;
+  const tr = document.createElement('tr');
+  tr.className = 'item-row';
+  tr.id = `row_${id}`;
+  tr.dataset.type = type;
+  tr.dataset.productId = '';
+  tr.dataset.serialNumber = '';
+  tr.dataset.lotNumber = '';
+  tr.dataset.expiryDate = '';
+  tr.dataset.demoUnitId = '';
+
+  const isDemoType = (type === 'demo' || type === 'repair_sub');
+
+  tr.innerHTML = `
+    <td><span class="type-badge type-${type}">${TYPE_LABELS[type]}</span></td>
+    <td>
+      <input type="text" class="item-input" id="search_${id}"
+             placeholder="${isDemoType ? 'デモ器名・管理番号・S.N' : '商品名・S.N・ロット番号'}"
+             oninput="onSearchInput(${id}, '${type}')"
+             onfocus="onSearchInput(${id}, '${type}')"
+             autocomplete="off">
+      <div id="selected_${id}" style="font-size:0.78rem;color:#5f6b7a;margin-top:3px;display:none"></div>
+    </td>
+    <td><input type="number" class="item-input" id="qty_${id}" value="1" min="1" style="width:60px;text-align:center"></td>
+    <td>${isDemoType ? '―' : `<input type="date" class="item-input" id="expiry_${id}" style="font-size:0.78rem">`}</td>
+    <td><button type="button" onclick="removeRow(${id})" style="background:none;border:none;color:#e53935;cursor:pointer;font-size:1rem">×</button></td>
+  `;
+  document.getElementById('items_body').appendChild(tr);
+  updateReturnDue();
+  document.getElementById(`search_${id}`).focus();
 }
 
-function renderDemoResults(items) {
-  const box = document.getElementById("demo_results");
+function removeRow(id) {
+  const row = document.getElementById(`row_${id}`);
+  if (row) row.remove();
+  if (!document.querySelectorAll('#items_body tr.item-row').length) {
+    document.getElementById('empty_row').style.display = '';
+  }
+  updateReturnDue();
+}
+
+function onSearchInput(id, type) {
+  clearTimeout(searchTimer);
+  const q = document.getElementById(`search_${id}`).value.trim();
+  currentSearchRow = id;
+  searchTimer = setTimeout(() => {
+    const isDemoType = (type === 'demo' || type === 'repair_sub');
+    const url = isDemoType
+      ? `/api/demo-units?q=${encodeURIComponent(q)}`
+      : `/api/inventory-items?q=${encodeURIComponent(q)}`;
+    fetch(url).then(r => r.json()).then(items => showDropdown(id, type, items));
+  }, 250);
+}
+
+function showDropdown(id, type, items) {
+  const input = document.getElementById(`search_${id}`);
+  const rect = input.getBoundingClientRect();
+  const dd = document.getElementById('search_dropdown');
+  dd.style.display = 'block';
+  dd.style.left = (window.scrollX + rect.left) + 'px';
+  dd.style.top  = (window.scrollY + rect.bottom + 2) + 'px';
+  dd.style.width = Math.max(360, rect.width) + 'px';
+
+  const isDemoType = (type === 'demo' || type === 'repair_sub');
+
   if (!items.length) {
-    box.innerHTML = '<div class="search-dropdown-empty">一致するデモ器が見つかりません</div>';
-  } else {
-    box.innerHTML = items.map(it =>
-      `<div class="search-dropdown-item" onclick='selectDemoItem(${JSON.stringify(it)})'>
-        <div class="item-main">${it.product_name}　<span class="status-${it.status}">【${it.status_label}】</span></div>
-        <div class="item-sub">管理番号：${it.unit_code}　シリアル：${it.serial_number || "―"}　ロット：${it.lot_number || "―"}</div>
-      </div>`
-    ).join("");
+    dd.innerHTML = '<div style="padding:12px 16px;color:#9ca3af;font-size:0.85rem">候補が見つかりません</div>';
+    return;
   }
-  box.style.display = "block";
-}
-
-function selectDemoItem(it) {
-  document.getElementById("demo_product_id").value = it.product_id;
-
-  // serial_number_input（serial_group）に自動入力し、serial_group を表示
-  const sn = document.getElementById("serial_number_input");
-  if (sn) sn.value = it.serial_number || "";
-  const sg = document.getElementById("serial_group");
-  if (sg && it.serial_number) sg.style.display = "flex";
-
-  document.getElementById("demo_search_input").value = `${it.product_name} / ${it.unit_code}`;
-  document.getElementById("demo_results").style.display = "none";
-
-  const disp = document.getElementById("demo_selected_display");
-  disp.innerHTML = `✅ 選択済み：<strong>${it.product_name}</strong>　管理番号：${it.unit_code}　` +
-    `シリアル：${it.serial_number || "―"}　ロット：${it.lot_number || "―"}　<span class="status-${it.status}">【${it.status_label}】</span>`;
-  disp.style.display = "block";
-}
-
-// ── クリック外で候補を閉じる ─────────────────────────
-document.addEventListener("click", e => {
-  if (!e.target.closest("#inventory_search_wrap")) {
-    const b = document.getElementById("inv_results"); if (b) b.style.display = "none";
-  }
-  if (!e.target.closest("#demo_section")) {
-    const b = document.getElementById("demo_results"); if (b) b.style.display = "none";
-  }
-});
-
-// ── submit前バリデーション ──────────────────────────
-document.getElementById("shipmentForm").addEventListener("submit", function(e) {
-  const type = document.querySelector('input[name="shipment_type"]:checked')?.value;
-  if (type === "demo" || type === "repair") {
-    const pid    = document.getElementById("demo_product_id")?.value;
-    const serial = document.getElementById("serial_number_input")?.value;
-    if (!pid || !serial) {
-      e.preventDefault();
-      alert("デモ器台帳から機器を検索・選択してください。");
-      return;
+  dd.innerHTML = items.map(it => {
+    let main, sub;
+    if (isDemoType) {
+      main = `<strong>${it.product_name}</strong> <span style="color:#7c3aed;font-size:0.78rem">【${it.status_label}】</span>`;
+      sub  = `管理番号：${it.unit_code}　S.N：${it.serial_number||'―'}　ロット：${it.lot_number||'―'}`;
+    } else {
+      main = `<strong>${it.product_name}</strong>`;
+      sub  = `S.N：${it.serial_number||'―'}　ロット：${it.lot_number||'―'}　入庫日：${it.moved_at||'―'}`;
     }
+    const data = encodeURIComponent(JSON.stringify(it));
+    return `<div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f0f4f8"
+                 onmousedown="selectItem(${id},'${type}',${JSON.stringify(it).replace(/"/g,'&quot;')})"
+                 onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background=''">
+              <div style="font-size:0.85rem">${main}</div>
+              <div style="font-size:0.75rem;color:#5f6b7a">${sub}</div>
+            </div>`;
+  }).join('');
+}
+
+function selectItem(id, type, it) {
+  const isDemoType = (type === 'demo' || type === 'repair_sub');
+  const row = document.getElementById(`row_${id}`);
+  if (isDemoType) {
+    row.dataset.productId    = it.product_id;
+    row.dataset.demoUnitId   = it.id;
+    row.dataset.serialNumber = it.serial_number || '';
+    row.dataset.lotNumber    = it.lot_number || '';
+    document.getElementById(`search_${id}`).value = `${it.product_name} / ${it.unit_code}`;
+    const disp = document.getElementById(`selected_${id}`);
+    disp.innerHTML = `S.N：${it.serial_number||'―'}　ロット：${it.lot_number||'―'}　【${it.status_label}】`;
+    disp.style.display = '';
+  } else {
+    row.dataset.productId    = it.product_id;
+    row.dataset.serialNumber = it.serial_number || '';
+    row.dataset.lotNumber    = it.lot_number || '';
+    row.dataset.expiryDate   = it.expiry_date || '';
+    document.getElementById(`search_${id}`).value = it.product_name + (it.serial_number ? ` / ${it.serial_number}` : it.lot_number ? ` / ロット:${it.lot_number}` : '');
+    const disp = document.getElementById(`selected_${id}`);
+    disp.innerHTML = `S.N：${it.serial_number||'―'}　ロット：${it.lot_number||'―'}`;
+    disp.style.display = '';
+    const expEl = document.getElementById(`expiry_${id}`);
+    if (expEl && it.expiry_date) expEl.value = it.expiry_date;
   }
-  // 販売/サンプル：product_id を hidden に同期
-  if (type === "sale" || type === "sample") {
-    const sel = document.getElementById("sale_product_id");
-    const hid = document.getElementById("sale_product_id_hidden");
-    if (sel && hid) hid.value = sel.value;
+  document.getElementById('search_dropdown').style.display = 'none';
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#search_dropdown') && !e.target.closest('.item-input')) {
+    document.getElementById('search_dropdown').style.display = 'none';
   }
 });
 
-// ── 初期表示 ─────────────────────────────────────────
-(function() {
-  const checked = document.querySelector('input[name="shipment_type"]:checked');
-  if (checked) onTypeChange(checked.value);
-})();
+function prepareSubmit() {
+  const rows = [...document.querySelectorAll('#items_body tr.item-row')];
+  if (!rows.length) { alert('明細を1行以上追加してください。'); return false; }
+  const items = rows.map(row => {
+    const id = row.id.replace('row_', '');
+    const expiryEl = document.getElementById(`expiry_${id}`);
+    return {
+      shipment_type: row.dataset.type,
+      product_id:    row.dataset.productId ? parseInt(row.dataset.productId) : null,
+      quantity:      parseInt(document.getElementById(`qty_${id}`)?.value || 1),
+      serial_number: row.dataset.serialNumber || '',
+      lot_number:    row.dataset.lotNumber || '',
+      expiry_date:   expiryEl ? expiryEl.value : '',
+      demo_unit_id:  row.dataset.demoUnitId ? parseInt(row.dataset.demoUnitId) : null,
+    };
+  });
+  const missing = items.findIndex(it => !it.product_id);
+  if (missing >= 0) { alert(`${missing+1}行目の商品が選択されていません。`); return false; }
+  document.getElementById('items_json').value = JSON.stringify(items);
+  return true;
+}
 </script>
 {% endblock %}

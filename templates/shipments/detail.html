@@ -1,127 +1,95 @@
-﻿{% extends "base.html" %}
-{% block title %}{{ shipment.shipment_number }}{% endblock %}
+{% extends "base.html" %}
+{% block title %}出荷詳細 {{ shipment.shipment_number }}{% endblock %}
 {% block content %}
-<div class="page-header no-print">
-  <h1 class="page-title">{{ shipment.shipment_number }}</h1>
-  <div class="header-actions">
-    <a href="/shipments" class="btn btn-ghost">← 一覧</a>
-    <a href="/shipments/{{ shipment.id }}/edit" class="btn btn-ghost">編集</a>
-    <button onclick="window.print()" class="btn btn-primary">🖨 伝票印刷</button>
-    {% if shipment.status == "shipped" %}
-    <form method="post" action="/shipments/{{ shipment.id }}/delete" style="display:inline"
-      onsubmit="return confirm('削除しますか？出荷中の場合は在庫に戻されます。')">
-      <button class="btn btn-danger">削除</button>
-    </form>
-    {% endif %}
+<div style="padding:20px 24px;max-width:800px">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <a href="/shipments" style="color:#5f6b7a;text-decoration:none">← 出荷一覧</a>
+    <h1 style="font-size:1.3rem;font-weight:700;margin:0">📦 出荷詳細</h1>
   </div>
-</div>
 
-<!-- 印刷用ヘッダー -->
-<div class="print-only print-header">
-  <div class="print-header-grid">
-    <div class="print-title-block">
-      <h1 class="print-title">出 荷 伝 票</h1>
-      <div class="print-quote-number">伝票番号：{{ shipment.shipment_number }}</div>
-      <div class="print-quote-number">出荷日：{{ shipment.shipped_date.strftime("%Y年%m月%d日") }}</div>
-      <div class="print-quote-number">種別：{{ shipment_types[shipment.shipment_type] }}</div>
+  <div style="background:white;border:1px solid #dde3ea;border-radius:16px;padding:24px;margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+      <div>
+        <div style="font-family:monospace;font-size:0.9rem;color:#5f6b7a">{{ shipment.shipment_number }}</div>
+        <div style="font-size:1.2rem;font-weight:700;margin-top:4px">{{ shipment.customer.name }}</div>
+        {% if shipment.end_user %}<div style="font-size:0.85rem;color:#5f6b7a">EU: {{ shipment.end_user.name }}</div>{% endif %}
+      </div>
+      {% if shipment.status == 'shipped' %}
+      <span style="background:#dbeafe;color:#1e40af;padding:5px 14px;border-radius:999px;font-size:0.82rem;font-weight:700">出荷中</span>
+      {% elif shipment.status == 'returned' %}
+      <span style="background:#dcfce7;color:#166534;padding:5px 14px;border-radius:999px;font-size:0.82rem;font-weight:700">返却済</span>
+      {% else %}
+      <span style="background:#f3f4f6;color:#374151;padding:5px 14px;border-radius:999px;font-size:0.82rem;font-weight:700">完了</span>
+      {% endif %}
     </div>
-    <div class="print-company-block">
-      <div class="print-company-name">{{ company.name if company else "" }}</div>
-      <div class="print-company-info">{{ company.postal if company else "" }} {{ company.address if company else "" }}</div>
-      <div class="print-company-info">TEL：{{ company.tel if company else "" }}</div>
-      <div class="print-company-info">FAX：{{ company.fax if company else "" }}</div>
-    </div>
-  </div>
-  <div class="print-customer-block">
-    <span class="print-customer-name">{{ shipment.customer.name }}</span> 御中
-  </div>
-</div>
 
-<div class="detail-grid">
-  <div class="detail-card">
-    <h2 class="card-title">出荷情報</h2>
-    <dl class="dl">
-      <dt>伝票番号</dt><dd class="mono">{{ shipment.shipment_number }}</dd>
-      <dt>種別</dt><dd><span class="badge badge-shiptype-{{ shipment.shipment_type }} no-print">{{ shipment_types[shipment.shipment_type] }}</span><span class="print-only">{{ shipment_types[shipment.shipment_type] }}</span></dd>
-      <dt class="no-print">状態</dt><dd class="no-print"><span class="badge badge-status-{{ shipment.status }}">{{ {"shipped":"出荷中","returned":"返却済","completed":"完了"}[shipment.status] }}</span></dd>
-      <dt>出荷先</dt><dd>{{ shipment.customer.name }}</dd>
-      <dt>エンドユーザー</dt><dd>{{ shipment.end_user.name if shipment.end_user else "―" }}</dd>
-      <dt>出荷日</dt><dd>{{ shipment.shipped_date.strftime("%Y/%m/%d") }}</dd>
-      {% if shipment.return_due_date %}
-      <dt>返却予定日</dt><dd>{{ shipment.return_due_date.strftime("%Y/%m/%d") }}</dd>
-      {% endif %}
-      {% if shipment.returned_date %}
-      <dt>返却日</dt><dd>{{ shipment.returned_date.strftime("%Y/%m/%d") }}</dd>
-      {% endif %}
-      {% if shipment.notes %}
-      <dt>備考</dt><dd>{{ shipment.notes }}</dd>
-      {% endif %}
-    </dl>
-  </div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.88rem;margin-bottom:20px">
+      <tr style="border-bottom:1px solid #f0f4f8"><td style="padding:8px 0;color:#5f6b7a;width:130px">出荷日</td><td style="padding:8px 0;font-weight:600">{{ shipment.shipped_date }}</td></tr>
+      {% if shipment.return_due_date %}<tr style="border-bottom:1px solid #f0f4f8"><td style="padding:8px 0;color:#5f6b7a">返却期限</td><td style="padding:8px 0;font-weight:600">{{ shipment.return_due_date }}</td></tr>{% endif %}
+      {% if shipment.returned_date %}<tr style="border-bottom:1px solid #f0f4f8"><td style="padding:8px 0;color:#5f6b7a">返却日</td><td style="padding:8px 0;font-weight:600">{{ shipment.returned_date }}</td></tr>{% endif %}
+      {% if shipment.staff_name %}<tr style="border-bottom:1px solid #f0f4f8"><td style="padding:8px 0;color:#5f6b7a">担当者</td><td style="padding:8px 0">{{ shipment.staff_name }}</td></tr>{% endif %}
+      {% if shipment.notes %}<tr><td style="padding:8px 0;color:#5f6b7a">備考</td><td style="padding:8px 0">{{ shipment.notes }}</td></tr>{% endif %}
+    </table>
 
-  <div class="detail-card">
-    <h2 class="card-title">商品情報</h2>
-    <dl class="dl">
-      <dt>商品名</dt><dd>{{ shipment.product.name }}</dd>
-      <dt>数量</dt><dd>{{ shipment.quantity }} {{ shipment.product.unit }}</dd>
-      {% if shipment.serial_number %}
-      <dt>シリアル番号</dt><dd class="mono">{{ shipment.serial_number }}</dd>
-      {% endif %}
-      {% if shipment.lot_number %}
-      <dt>ロット番号</dt><dd class="mono">{{ shipment.lot_number }}</dd>
-      {% endif %}
-      {% if shipment.expiry_date %}
-      <dt>有効期限</dt><dd>{{ shipment.expiry_date.strftime("%Y/%m/%d") }}</dd>
-      {% endif %}
-    </dl>
-
-    <!-- 印刷用サイン欄 -->
-    <div class="print-only" style="margin-top:32px;border-top:1px solid #ccc;padding-top:16px">
-      <table style="width:100%;border-collapse:collapse;font-size:12px">
-        <tr>
-          <td style="border:1px solid #ccc;padding:8px 16px;width:33%">担当者確認<br><br><br></td>
-          <td style="border:1px solid #ccc;padding:8px 16px;width:33%">受取確認<br><br><br></td>
-          <td style="border:1px solid #ccc;padding:8px 16px;width:33%">備考<br><br><br></td>
+    <!-- 明細テーブル -->
+    <h3 style="font-size:0.9rem;font-weight:700;color:#374151;margin-bottom:8px">出荷明細</h3>
+    {% set type_colors = {"sale":"#e3f2fd;color:#1565c0","sample":"#e0f2f1;color:#00695c","demo":"#ede9fe;color:#5b21b6","repair_sub":"#fef3c7;color:#92400e"} %}
+    <table style="width:100%;border-collapse:collapse;font-size:0.85rem;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+      <thead>
+        <tr style="background:#f8fafc">
+          <th style="padding:8px 12px;text-align:left;font-size:0.75rem;color:#5f6b7a">#</th>
+          <th style="padding:8px 12px;text-align:left;font-size:0.75rem;color:#5f6b7a">種別</th>
+          <th style="padding:8px 12px;text-align:left;font-size:0.75rem;color:#5f6b7a">商品</th>
+          <th style="padding:8px 12px;text-align:center;font-size:0.75rem;color:#5f6b7a">数量</th>
+          <th style="padding:8px 12px;text-align:left;font-size:0.75rem;color:#5f6b7a">S.N / ロット</th>
+          <th style="padding:8px 12px;text-align:left;font-size:0.75rem;color:#5f6b7a">使用期限</th>
+          <th style="padding:8px 12px;width:90px"></th>
         </tr>
-      </table>
-    </div>
+      </thead>
+      <tbody>
+        {% for item in shipment.items %}
+        <tr style="border-top:1px solid #f0f4f8">
+          <td style="padding:10px 12px;color:#9ca3af">{{ item.line_no }}</td>
+          <td style="padding:10px 12px">
+            <span style="background:{{ type_colors.get(item.shipment_type,'#f3f4f6;color:#374151') }};padding:2px 9px;border-radius:999px;font-size:0.75rem;font-weight:700">{{ shipment_types.get(item.shipment_type, item.shipment_type) }}</span>
+          </td>
+          <td style="padding:10px 12px;font-weight:600">{{ item.product.name }}</td>
+          <td style="padding:10px 12px;text-align:center">{{ item.quantity }}{{ item.product.unit or "" }}</td>
+          <td style="padding:10px 12px;font-family:monospace;font-size:0.82rem">
+            {% if item.serial_number %}S.N: {{ item.serial_number }}<br>{% endif %}
+            {% if item.lot_number %}ロット: {{ item.lot_number }}{% endif %}
+            {% if not item.serial_number and not item.lot_number %}―{% endif %}
+          </td>
+          <td style="padding:10px 12px;font-family:monospace;font-size:0.82rem">{{ item.expiry_date or "―" }}</td>
+          <td style="padding:8px 12px">
+            {% if item.shipment_type == "sale" and not item.sale %}
+            <a href="/sales/new?shipment_item_id={{ item.id }}" style="padding:4px 10px;background:#1a73e8;color:white;border-radius:6px;text-decoration:none;font-size:0.78rem;font-weight:600">💰 売上登録</a>
+            {% elif item.sale %}
+            <a href="/sales/{{ item.sale.id }}" style="color:#1a73e8;font-size:0.78rem">売上済 →</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="padding:20px;text-align:center;color:#9ca3af">明細なし</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
-</div>
 
-<!-- アクションボタン -->
-<div class="detail-card no-print" style="margin-top:20px">
-  <h2 class="card-title">アクション</h2>
-  {% if shipment.status == "shipped" and shipment.shipment_type in ("demo", "repair") %}
-  <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">返却登録を行うと在庫に自動で加算されます。</p>
-  <form method="post" action="/shipments/{{ shipment.id }}/return" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-    <div class="form-group">
-      <label class="label">返却日</label>
-      <input name="returned_date" type="date" class="input" value="{{ today }}">
-    </div>
-    <button type="submit" class="btn btn-primary" onclick="return confirm('返却登録しますか？')">↩ 返却登録</button>
-  </form>
-  {% endif %}
-{% if shipment.status == "shipped" and shipment.shipment_type in ("sale", "sample") %}
-  <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">販売・サンプルは返却なしで完了にできます。</p>
+  <!-- アクション -->
   <div style="display:flex;gap:10px;flex-wrap:wrap">
-    {% if shipment.shipment_type == "sale" %}
-    <a href="/sales/new?shipment_id={{ shipment.id }}" class="btn btn-primary" style="background:#00c896;border-color:#00c896">
-      💰 売上登録する
-    </a>
-    {% endif %}
-    <form method="post" action="/shipments/{{ shipment.id }}/complete">
-      <button type="submit" class="btn btn-primary">✓ 完了にする</button>
+    {% set has_demo = shipment.items | selectattr("shipment_type","in",["demo","repair_sub"]) | list %}
+    {% if shipment.status == "shipped" and has_demo %}
+    <form method="post" action="/shipments/{{ shipment.id }}/return" style="display:flex;gap:8px;align-items:center">
+      <input type="date" name="returned_date" value="{{ today }}" style="padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.85rem">
+      <button type="submit" style="padding:9px 16px;background:#059669;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer">↩ 返却登録</button>
     </form>
+    {% endif %}
+    {% if shipment.status == "shipped" %}
+    <form method="post" action="/shipments/{{ shipment.id }}/complete">
+      <button type="submit" style="padding:9px 16px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer">✓ 完了にする</button>
+    </form>
+    {% endif %}
   </div>
-  {% endif %}
-  {% if shipment.status == "returned" %}
-  <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">返却確認後に完了にしてください。</p>
-  <form method="post" action="/shipments/{{ shipment.id }}/complete">
-    <button type="submit" class="btn btn-primary">✓ 完了にする</button>
-  </form>
-  {% endif %}
-  {% if shipment.status == "completed" %}
-  <div class="accepted-badge">✓ この出荷は完了済みです</div>
-  {% endif %}
 </div>
 {% endblock %}

@@ -14,7 +14,7 @@
   {% endif %}
 
   <form method="post" action="/sales/new" style="background:white;border:1px solid #dde3ea;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:18px">
-    <input type="hidden" name="shipment_id" value="{{ shipment.id if shipment else '' }}">
+    <input type="hidden" name="shipment_item_id" value="{{ shipment_item.id if shipment_item else '' }}">
     <input type="hidden" name="quote_id" value="{{ quote.id if quote else '' }}">
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -39,13 +39,13 @@
         <select name="product_id" id="product_id" required onchange="updatePrice()" style="padding:9px 12px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.9rem">
           <option value="">-- 選択 --</option>
           {% for p in products %}
-          <option value="{{ p.id }}" data-price="{{ p.unit_price }}" {% if shipment and shipment.product_id==p.id %}selected{% endif %}>{{ p.name }}</option>
+          <option value="{{ p.id }}" data-price="{{ p.unit_price }}" {% if shipment_item and shipment_item.product_id==p.id %}selected{% endif %}>{{ p.name }}</option>
           {% endfor %}
         </select>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px">
         <label style="font-size:0.8rem;font-weight:600;color:#5f6b7a">数量 <span style="color:#e53935">*</span></label>
-        <input type="number" name="quantity" id="quantity" min="1" value="{{ shipment.quantity if shipment else 1 }}" required onchange="calcTotal()" style="padding:9px 12px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.9rem">
+        <input type="number" name="quantity" id="quantity" min="1" value="{{ shipment_item.quantity if shipment_item else 1 }}" required onchange="calcTotal()" style="padding:9px 12px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.9rem">
       </div>
       <div style="display:flex;flex-direction:column;gap:6px">
         <label style="font-size:0.8rem;font-weight:600;color:#5f6b7a">単価（税抜） <span style="color:#e53935">*</span></label>

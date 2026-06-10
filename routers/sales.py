@@ -78,14 +78,17 @@ def list_sales(request: Request, status: str = "", customer_id: str = "",
 # 売上新規作成（出荷または見積から）
 # ============================================================
 @router.get("/sales/new", response_class=HTMLResponse)
-def new_sale_form(request: Request, shipment_id: str = "", quote_id: str = "",
+def new_sale_form(request: Request, shipment_item_id: str = "", quote_id: str = "",
                   db: Session = Depends(get_db)):
-    shipment = None
+    shipment_item = None
     quote = None
-    if shipment_id:
-        shipment = db.query(models.Shipment).filter(
-            models.Shipment.id == int(shipment_id)
-        ).first()
+    if shipment_item_id:
+        from models import ShipmentItem
+        from sqlalchemy.orm import joinedload
+        shipment_item = db.query(ShipmentItem).options(
+            joinedload(ShipmentItem.product),
+            joinedload(ShipmentItem.shipment),
+        ).filter(ShipmentItem.id == int(shipment_item_id)).first()
     if quote_id:
         quote = db.query(models.Quote).filter(
             models.Quote.id == int(quote_id)
@@ -94,7 +97,7 @@ def new_sale_form(request: Request, shipment_id: str = "", quote_id: str = "",
     products = db.query(models.Product).order_by(models.Product.name).all()
     today = date.today().isoformat()
     return templates.TemplateResponse(request, "sales/form.html", {
-        "shipment": shipment, "quote": quote,
+        "shipment_item": shipment_item, "quote": quote,
         "customers": customers, "products": products,
         "today": today, "tax_rate": int(TAX_RATE * 100),
     })
@@ -126,12 +129,12 @@ async def create_sale(request: Request, db: Session = Depends(get_db)):
     tax_amount = float(tax_amount)
     total_amount = float(total_amount)
 
-    shipment_id = int(form["shipment_id"]) if form.get("shipment_id") else None
+    shipment_item_id = int(form["shipment_item_id"]) if form.get("shipment_item_id") else None
     quote_id = int(form["quote_id"]) if form.get("quote_id") else None
 
     sale = models.Sale(
         sale_number=_gen_sale_number(db),
-        shipment_id=shipment_id,
+        shipment_item_id=shipment_item_id,
         quote_id=quote_id,
         customer_id=int(form["customer_id"]),
         product_id=product_id,
@@ -149,12 +152,11 @@ async def create_sale(request: Request, db: Session = Depends(get_db)):
     db.add(sale)
 
     # 出荷ステータスを completed に更新
-    if shipment_id:
-        shipment = db.query(models.Shipment).filter(
-            models.Shipment.id == shipment_id
-        ).first()
-        if shipment:
-            shipment.status = "completed"
+    if shipment_item_id:
+        from models import ShipmentItem
+        item = db.query(ShipmentItem).filter(ShipmentItem.id == shipment_item_id).first()
+        if item and item.shipment:
+            item.shipment.status = "completed"
 
     db.commit()
     return RedirectResponse("/sales", status_code=303)
