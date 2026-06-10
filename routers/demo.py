@@ -52,18 +52,19 @@ def get_alert_counts(db: Session) -> dict:
         DemoLoan.due_date <= soon
     ).count()
 
-    from models import Shipment
+    from models import Shipment, ShipmentItem
+    _demo_ship_ids = {r.shipment_id for r in db.query(ShipmentItem).filter(ShipmentItem.shipment_type == "demo").all()}
     ship_overdue = db.query(Shipment).filter(
-        Shipment.shipment_type == "demo",
+        Shipment.id.in_(_demo_ship_ids),
         Shipment.status == "shipped",
         Shipment.return_due_date < today
-    ).count()
+    ).count() if _demo_ship_ids else 0
     ship_soon = db.query(Shipment).filter(
-        Shipment.shipment_type == "demo",
+        Shipment.id.in_(_demo_ship_ids),
         Shipment.status == "shipped",
         Shipment.return_due_date >= today,
         Shipment.return_due_date <= soon
-    ).count()
+    ).count() if _demo_ship_ids else 0
 
     return {
         "demo_overdue": overdue + ship_overdue,
@@ -102,12 +103,16 @@ def demo_list(request: Request, db: Session = Depends(get_db),
         DemoLoan.due_date <= soon
     ).order_by(DemoLoan.due_date).all()
 
-    from models import Shipment
-    alert_shipments = db.query(Shipment).filter(
-        Shipment.shipment_type == "demo",
+    from models import Shipment, ShipmentItem
+    from sqlalchemy.orm import joinedload as _jl
+    _ids = {r.shipment_id for r in db.query(ShipmentItem).filter(ShipmentItem.shipment_type == "demo").all()}
+    alert_shipments = db.query(Shipment).options(
+        _jl(Shipment.customer), _jl(Shipment.items)
+    ).filter(
+        Shipment.id.in_(_ids),
         Shipment.status == "shipped",
         Shipment.return_due_date <= soon
-    ).order_by(Shipment.return_due_date).all()
+    ).order_by(Shipment.return_due_date).all() if _ids else []
 
     counts = get_alert_counts(db)
 

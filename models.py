@@ -68,7 +68,7 @@ class Product(Base):
     inventory = relationship("Inventory", back_populates="product", uselist=False)
     inventory_histories = relationship("InventoryHistory", back_populates="product")
     quote_items = relationship("QuoteItem", back_populates="product")
-    shipment_items = relationship("ShipmentItem", back_populates="product") if False else None  # unused
+    shipment_items = relationship("ShipmentItem", back_populates="product")
     __table_args__ = (
         Index("ix_products_name", "name"),
         Index("ix_products_category", "category"),
@@ -193,7 +193,7 @@ class ShipmentItem(Base):
     expiry_date  = Column(Date, nullable=True)
     demo_unit_id = Column(Integer, ForeignKey("demo_units.id"), nullable=True)
     shipment  = relationship("Shipment", back_populates="items")
-    product   = relationship("Product")
+    product   = relationship("Product", back_populates="shipment_items")
     demo_unit = relationship("DemoUnit")
     sale      = relationship("Sale", back_populates="shipment_item", uselist=False)
     __table_args__ = (

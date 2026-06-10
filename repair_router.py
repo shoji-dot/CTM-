@@ -108,15 +108,20 @@ async def new_repair_form(request: Request, db: Session = Depends(get_db)):
     _staff(request)
     customers = db.query(Customer).order_by(Customer.name).all()
     products  = db.query(Product).order_by(Product.name).all()
-    rep_shipments = db.query(Shipment).filter(
-        Shipment.shipment_type == "repair", Shipment.status == "shipped"
-    ).order_by(Shipment.id.desc()).all()
+    from models import ShipmentItem
+    from sqlalchemy.orm import joinedload as _jl
+    _repair_ids = {r.shipment_id for r in db.query(ShipmentItem).filter(ShipmentItem.shipment_type == "repair_sub").all()}
+    rep_shipments = db.query(Shipment).options(
+        _jl(Shipment.items), _jl(Shipment.customer)
+    ).filter(
+        Shipment.id.in_(_repair_ids), Shipment.status == "shipped"
+    ).order_by(Shipment.id.desc()).all() if _repair_ids else []
     return TEMPLATES.TemplateResponse(request, "repairs/form.html", {
         "customers": [{"id": c.id, "name": c.name} for c in customers],
         "products":  [{"id": p.id, "name": p.name} for p in products],
         "rep_shipments": [{"id": s.id, "shipment_number": s.shipment_number,
-                           "serial_number": s.serial_number,
-                           "product_name": s.product.name if s.product else "",
+                           "serial_number": s.items[0].serial_number if s.items else "",
+                           "product_name": s.items[0].product.name if s.items else "",
                            "customer_name": s.customer.name if s.customer else ""} for s in rep_shipments],
         "today": date.today().isoformat()
     })
@@ -176,7 +181,7 @@ async def repair_detail(repair_id: int, request: Request, db: Session = Depends(
     repair["is_overdue"]           = bool(dl_str and dl_str < today and repair["status"] != "closed")
     rep_ship = db.query(Shipment).filter(Shipment.id == r.replacement_shipment_id).first() if r.replacement_shipment_id else None
     repair["rep_shipment_number"]  = rep_ship.shipment_number if rep_ship else None
-    repair["rep_product_name"]     = rep_ship.product.name if rep_ship and rep_ship.product else None
+    repair["rep_product_name"]     = rep_ship.items[0].product.name if rep_ship and rep_ship.items else None
     next_status = NEXT_STATUS.get(repair["status"])
     return TEMPLATES.TemplateResponse(request, "repairs/detail.html", {
         "repair": repair,

@@ -7,9 +7,9 @@
     <h1 style="font-size:1.3rem;font-weight:700;margin:0">💰 売上登録</h1>
   </div>
 
-  {% if shipment %}
+  {% if shipment_item %}
   <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:0.88rem">
-    <strong>出荷情報から自動入力</strong>：{{ shipment.shipment_number }} / {{ shipment.product.name }} / {{ shipment.customer.name }}
+    <strong>出荷情報から自動入力</strong>：{{ shipment_item.shipment.shipment_number }} / {{ shipment_item.product.name }} / {{ shipment_item.shipment.customer.name }}
   </div>
   {% endif %}
 
@@ -23,7 +23,7 @@
         <select name="customer_id" required style="padding:9px 12px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.9rem">
           <option value="">-- 選択 --</option>
           {% for c in customers %}
-          <option value="{{ c.id }}" {% if shipment and shipment.customer_id==c.id %}selected{% elif quote and quote.customer_id==c.id %}selected{% endif %}>{{ c.name }}</option>
+          <option value="{{ c.id }}" {% if shipment_item and shipment_item.shipment.customer_id==c.id %}selected{% elif quote and quote.customer_id==c.id %}selected{% endif %}>{{ c.name }}</option>
           {% endfor %}
         </select>
       </div>

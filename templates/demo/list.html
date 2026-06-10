@@ -130,7 +130,7 @@ async function uploadCsv(input) {
             <td><span class="badge bg-dark">出荷</span></td>
             <td>
               <strong>{{ ship.shipment_number }}</strong><br>
-              <small class="text-muted">{{ ship.product.name }}</small>
+              <small class="text-muted">{{ ship.items[0].product.name if ship.items else "―" }}</small>
             </td>
             <td>{{ ship.customer.name }}</td>
             <td>
