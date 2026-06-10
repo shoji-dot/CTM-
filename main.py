@@ -32,6 +32,87 @@ def _run_migrations():
     is_pg = "postgresql" in str(engine.url)
     if is_pg:
         stmts = [
+            # ── テーブル新規作成（存在しない場合のみ） ──
+            """CREATE TABLE IF NOT EXISTS announcements (
+                id SERIAL PRIMARY KEY,
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                author_id INTEGER NOT NULL REFERENCES staffs(id),
+                is_pinned BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )""",
+            """CREATE TABLE IF NOT EXISTS document_types (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT NOW()
+            )""",
+            """CREATE TABLE IF NOT EXISTS documents (
+                id SERIAL PRIMARY KEY,
+                title TEXT NOT NULL,
+                document_type_id INTEGER NOT NULL REFERENCES document_types(id),
+                file_path TEXT NOT NULL,
+                file_name TEXT NOT NULL,
+                file_size INTEGER,
+                mime_type TEXT,
+                status TEXT NOT NULL DEFAULT 'draft',
+                uploaded_by INTEGER NOT NULL REFERENCES staffs(id),
+                current_step INTEGER DEFAULT 0,
+                comment TEXT,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )""",
+            """CREATE TABLE IF NOT EXISTS approval_flows (
+                id SERIAL PRIMARY KEY,
+                document_type_id INTEGER NOT NULL REFERENCES document_types(id),
+                name TEXT NOT NULL,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT NOW()
+            )""",
+            """CREATE TABLE IF NOT EXISTS approval_steps (
+                id SERIAL PRIMARY KEY,
+                flow_id INTEGER NOT NULL REFERENCES approval_flows(id),
+                step_order INTEGER NOT NULL,
+                step_name TEXT NOT NULL,
+                approver_id INTEGER REFERENCES staffs(id),
+                approver_role TEXT,
+                required_level INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT NOW()
+            )""",
+            """CREATE TABLE IF NOT EXISTS approval_logs (
+                id SERIAL PRIMARY KEY,
+                document_id INTEGER NOT NULL REFERENCES documents(id),
+                step_order INTEGER NOT NULL,
+                approver_id INTEGER NOT NULL REFERENCES staffs(id),
+                action TEXT NOT NULL,
+                comment TEXT,
+                created_at TIMESTAMP DEFAULT NOW()
+            )""",
+            """CREATE TABLE IF NOT EXISTS notifications (
+                id SERIAL PRIMARY KEY,
+                document_id INTEGER,
+                recipient_id INTEGER NOT NULL REFERENCES staffs(id),
+                type TEXT NOT NULL,
+                is_sent BOOLEAN DEFAULT FALSE,
+                sent_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT NOW(),
+                resource_type TEXT,
+                resource_id INTEGER,
+                message TEXT DEFAULT '',
+                link TEXT DEFAULT ''
+            )""",
+            """CREATE TABLE IF NOT EXISTS customer_memos (
+                id SERIAL PRIMARY KEY,
+                hospital TEXT NOT NULL,
+                doctor_name TEXT,
+                memo TEXT,
+                staff_id INTEGER REFERENCES staffs(id),
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+            )""",
+            # ── 列追加（既存テーブルへ） ──
             "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS approval_doc_id INTEGER",
             "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS created_by_id INTEGER REFERENCES staffs(id)",
             "ALTER TABLE products ADD COLUMN IF NOT EXISTS alert_enabled BOOLEAN NOT NULL DEFAULT TRUE",
