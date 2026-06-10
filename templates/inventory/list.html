@@ -14,6 +14,42 @@
 <div class="alert-banner">⚠ {{ alert_count }}件の商品が在庫アラートラインを下回っています</div>
 {% endif %}
 
+{% if expiry_alerts %}
+<div style="background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:16px 20px;margin-bottom:16px;">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+    <span style="font-size:1.1rem">⏰</span>
+    <strong style="color:#c2410c">使用期限アラート（30日以内・期限切れ）</strong>
+    <span style="background:#ea580c;color:#fff;padding:2px 8px;border-radius:999px;font-size:0.78rem;margin-left:4px;">{{ expiry_alerts|length }}件</span>
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+    <thead>
+      <tr style="background:#fed7aa;">
+        <th style="padding:6px 10px;text-align:left;">商品名</th>
+        <th style="padding:6px 10px;text-align:left;">ロット番号</th>
+        <th style="padding:6px 10px;text-align:left;">使用期限</th>
+        <th style="padding:6px 10px;text-align:left;">状態</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in expiry_alerts %}
+      <tr style="background:{{ '#fee2e2' if a.is_expired else '#fefce8' }};border-bottom:1px solid #fde68a;">
+        <td style="padding:6px 10px;">{{ a.product_name }}</td>
+        <td style="padding:6px 10px;font-family:monospace;">{{ a.lot_number or "―" }}</td>
+        <td style="padding:6px 10px;font-family:monospace;">{{ a.expiry_date }}</td>
+        <td style="padding:6px 10px;">
+          {% if a.is_expired %}
+          <span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:999px;font-size:0.78rem;font-weight:700;">期限切れ</span>
+          {% else %}
+          <span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:999px;font-size:0.78rem;font-weight:700;">残{{ a.days_left }}日</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
 <div class="table-wrap">
   <table class="table">
     <thead>

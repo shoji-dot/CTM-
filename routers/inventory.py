@@ -22,8 +22,10 @@ def list_inventory(request: Request, db: Session = Depends(get_db)):
     inventory = crud.get_inventory_list(db)
     alerts = crud.get_alerts(db)
     alert_ids = {a.product_id for a in alerts}
+    expiry_alerts = crud.get_expiry_alerts(db, days=30)
     return templates.TemplateResponse(request, "inventory/list.html", {
-        "inventory": inventory, "alert_ids": alert_ids
+        "inventory": inventory, "alert_ids": alert_ids,
+        "expiry_alerts": expiry_alerts,
     })
 
 

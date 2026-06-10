@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -222,7 +223,68 @@ def _create_default_admin():
 
 _create_default_admin()
 
-app = FastAPI(title="営業・在庫管理システム")
+def _send_expiry_alert_job():
+    """使用期限アラートメールを管理者・マネージャーに送信"""
+    from datetime import date
+    db = SessionLocal()
+    try:
+        alerts = crud.get_expiry_alerts(db, days=30)
+        if not alerts:
+            return
+        from models import Staff
+        managers = db.query(Staff).filter(
+            Staff.is_active == True,
+            Staff.role.in_(["admin", "manager"]),
+            Staff.email.isnot(None),
+        ).all()
+        to_list = [s.email for s in managers if s.email]
+        if not to_list:
+            return
+        from notification_service import send_email
+        today_str = date.today().strftime("%Y/%m/%d")
+        rows_html = ""
+        for a in alerts:
+            color = "#fee2e2" if a["is_expired"] else "#fef9c3"
+            label = f"<b style='color:#dc2626'>期限切れ</b>" if a["is_expired"] else f"残{a['days_left']}日"
+            rows_html += f"""<tr style='background:{color}'>
+              <td style='padding:8px 12px;border-bottom:1px solid #e5e7eb'>{a['product_name']}</td>
+              <td style='padding:8px 12px;border-bottom:1px solid #e5e7eb'>{a['lot_number'] or '―'}</td>
+              <td style='padding:8px 12px;border-bottom:1px solid #e5e7eb'>{a['expiry_date']}</td>
+              <td style='padding:8px 12px;border-bottom:1px solid #e5e7eb'>{label}</td>
+            </tr>"""
+        html_body = f"""<html><body style='font-family:sans-serif;color:#1f2937'>
+          <div style='max-width:640px;margin:32px auto;background:#fff;padding:32px;border:1px solid #e5e7eb;border-radius:8px'>
+            <h2 style='color:#dc2626'>⚠ 使用期限アラート ({today_str})</h2>
+            <p>以下の商品の使用期限が30日以内または期限切れです。</p>
+            <table style='width:100%;border-collapse:collapse;font-size:0.9rem'>
+              <thead><tr style='background:#f3f4f6'>
+                <th style='padding:8px 12px;text-align:left'>商品名</th>
+                <th style='padding:8px 12px;text-align:left'>ロット番号</th>
+                <th style='padding:8px 12px;text-align:left'>使用期限</th>
+                <th style='padding:8px 12px;text-align:left'>状態</th>
+              </tr></thead>
+              <tbody>{rows_html}</tbody>
+            </table>
+          </div>
+        </body></html>"""
+        send_email(to_list, f"【使用期限アラート】{len(alerts)}件 ({today_str})", "使用期限アラート", html_body=html_body)
+    finally:
+        db.close()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from apscheduler.schedulers.background import BackgroundScheduler
+    from apscheduler.triggers.cron import CronTrigger
+    from zoneinfo import ZoneInfo
+    scheduler = BackgroundScheduler(timezone=ZoneInfo("Asia/Tokyo"))
+    scheduler.add_job(_send_expiry_alert_job, CronTrigger(hour=8, minute=0))
+    scheduler.start()
+    yield
+    scheduler.shutdown()
+
+
+app = FastAPI(title="営業・在庫管理システム", lifespan=lifespan)
 
 # ── 静的ファイル（ルーター登録より前にまとめてマウント）──
 app.mount("/static", StaticFiles(directory="static"), name="static")

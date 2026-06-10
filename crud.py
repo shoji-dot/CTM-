@@ -585,3 +585,96 @@ def validate_inventory_item(db: Session, product_id: int,
 def search_demo_units(db: Session, q: str = "", product_id: int = None):
     """デモ器台帳を型番・管理番号・シリアル番号で検索"""
  
+
+def get_expiry_alerts(db: Session, days: int = 30):
+    """使用期限がdays日以内 or 期限切れの入庫ロットを返す（在庫あり商品のみ）"""
+    from datetime import date, timedelta
+    from models import InventoryHistory, Inventory, Product
+    today = date.today()
+    threshold = today + timedelta(days=days)
+
+    # 在庫あり商品IDセット
+    stocked_ids = {r.product_id for r in db.query(Inventory).filter(Inventory.current_stock > 0).all()}
+    if not stocked_ids:
+        return []
+
+    rows = (
+        db.query(InventoryHistory)
+        .join(Product, InventoryHistory.product_id == Product.id)
+        .filter(
+            InventoryHistory.movement_type == "in",
+            InventoryHistory.expiry_date.isnot(None),
+            InventoryHistory.product_id.in_(stocked_ids),
+        )
+        .order_by(InventoryHistory.expiry_date)
+        .all()
+    )
+
+    alerts = []
+    seen = set()  # (product_id, expiry_date) 重複除去
+    for r in rows:
+        try:
+            exp = date.fromisoformat(str(r.expiry_date)[:10])
+        except (ValueError, TypeError):
+            continue
+        if exp > threshold:
+            continue
+        key = (r.product_id, str(exp))
+        if key in seen:
+            continue
+        seen.add(key)
+        alerts.append({
+            "product_id":   r.product_id,
+            "product_name": r.product.name if r.product else "",
+            "lot_number":   r.lot_number or "",
+            "expiry_date":  exp,
+            "days_left":    (exp - today).days,
+            "is_expired":   exp < today,
+        })
+    return alerts
+
+
+def get_expiry_alerts(db, days: int = 30):
+    """使用期限がdays日以内 or 期限切れの入庫ロットを返す（在庫あり商品のみ）"""
+    from datetime import date, timedelta
+    from models import InventoryHistory, Inventory
+    today = date.today()
+    threshold = today + timedelta(days=days)
+
+    stocked_ids = {r.product_id for r in db.query(Inventory).filter(Inventory.current_stock > 0).all()}
+    if not stocked_ids:
+        return []
+
+    rows = (
+        db.query(InventoryHistory)
+        .filter(
+            InventoryHistory.movement_type == "in",
+            InventoryHistory.expiry_date.isnot(None),
+            InventoryHistory.product_id.in_(stocked_ids),
+        )
+        .order_by(InventoryHistory.expiry_date)
+        .all()
+    )
+
+    alerts = []
+    seen = set()
+    for r in rows:
+        try:
+            exp = date.fromisoformat(str(r.expiry_date)[:10])
+        except (ValueError, TypeError):
+            continue
+        if exp > threshold:
+            continue
+        key = (r.product_id, str(exp))
+        if key in seen:
+            continue
+        seen.add(key)
+        alerts.append({
+            "product_id":   r.product_id,
+            "product_name": r.product.name if r.product else "",
+            "lot_number":   r.lot_number or "",
+            "expiry_date":  exp,
+            "days_left":    (exp - today).days,
+            "is_expired":   exp < today,
+        })
+    return alerts
