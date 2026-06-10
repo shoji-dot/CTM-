@@ -10,6 +10,15 @@ from database import get_db
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 from templates_config import templates as templates
 
+def _require_manager(request: Request):
+    """manager / admin のみ許可。それ以外は 403。"""
+    staff = getattr(request.state, "staff", None)
+    if not staff:
+        raise HTTPException(status_code=401)
+    if staff.get("role") not in ("admin", "manager"):
+        raise HTTPException(status_code=403, detail="この操作には管理者権限が必要です")
+    return staff
+
 
 def _row(row):
     return dict(row._mapping)
@@ -118,7 +127,8 @@ def update_task(task_id: int, body: TaskUpdate, db: Session = Depends(get_db)):
 
 
 @router.delete("/api/{task_id}")
-def delete_task(task_id: int, db: Session = Depends(get_db)):
+def delete_task(task_id: int, request: Request, db: Session = Depends(get_db)):
+    _require_manager(request)
     db.execute(text("DELETE FROM task_comments WHERE task_id=:i"), {"i": task_id})
     db.execute(text("DELETE FROM tasks WHERE id=:i"), {"i": task_id})
     db.commit()

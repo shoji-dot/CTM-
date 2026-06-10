@@ -46,6 +46,11 @@ def _staff(request: Request):
         raise HTTPException(status_code=401)
     return staff
 
+def _require_manager(staff: dict):
+    """manager / admin のみ許可。それ以外は 403。"""
+    if staff.get("role") not in ("admin", "manager"):
+        raise HTTPException(status_code=403, detail="この操作には管理者権限が必要です")
+
 def _gen_repair_number(db: Session):
     prefix = f"REP-{datetime.now().strftime('%Y%m')}-"
     row = db.query(Repair).filter(Repair.repair_number.like(f"{prefix}%")).order_by(Repair.id.desc()).first()
@@ -200,13 +205,16 @@ async def advance_status(
     notes: str                     = Form(""),
     db: Session                    = Depends(get_db),
 ):
-    _staff(request)
+    staff = _staff(request)
     r = db.query(Repair).filter(Repair.id == repair_id).first()
     if not r:
         raise HTTPException(404)
     next_st = NEXT_STATUS.get(r.status)
     if not next_st:
         return RedirectResponse(f"/repairs/{repair_id}", status_code=303)
+    # closed（最終完了）への変更はmanager以上のみ
+    if next_st == "closed":
+        _require_manager(staff)
 
     def _d(v): return date.fromisoformat(v) if v else None
     def _f(v): return float(v) if v else None

@@ -219,7 +219,8 @@ def move_inventory(db, product_id, movement_type, quantity,
     """在庫移動。出庫時に在庫不足の場合は ValueError を送出する。
     allow_negative=True を指定した場合のみ在庫不足でも続行（廃棄等の特殊用途）。
     """
-    inv = db.query(Inventory).filter(Inventory.product_id == product_id).first()
+    # PostgreSQL: 行レベルロックで同時出庫による競合を防ぐ（SQLiteは無視される）
+    inv = db.query(Inventory).filter(Inventory.product_id == product_id).with_for_update().first()
     if not inv:
         return None
     if movement_type == "in":
