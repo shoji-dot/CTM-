@@ -265,6 +265,7 @@ class DemoUnit(Base):
     unit_code = Column(String(50), unique=True, nullable=False)   # 管理番号 例: DEMO-001
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     serial_number = Column(String(100), nullable=True)            # 機器シリアル番号
+    lot_number = Column(String(100), nullable=True)               # ロット番号
     status = Column(String(20), default="available")
     # available(貸出可) / on_loan(貸出中) / in_repair(修理中) / retired(廃棄)
     purchase_date = Column(Date, nullable=True)                   # 自社購入日

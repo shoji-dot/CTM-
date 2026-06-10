@@ -431,7 +431,7 @@ async def demo_csv_import(
 ):
     """CSVで複数デモ器を一括登録。
     フォーマット（ヘッダー行あり）:
-      製品名,型番,シリアル番号,登録日(YYYY-MM-DD),備考
+      製品名,型番,シリアル番号,ロット番号,登録日(YYYY-MM-DD),備考
     製品名・型番（SKU）どちらかで製品マスタを照合します。
     """
     import csv, io
@@ -456,6 +456,7 @@ async def demo_csv_import(
         product_name = (row.get("製品名") or "").strip()
         model_number = (row.get("型番") or "").strip()
         serial = (row.get("シリアル番号") or "").strip()
+        lot = (row.get("ロット番号") or "").strip()
         date_str = (row.get("登録日") or "").strip()
         notes = (row.get("備考") or "").strip()
 
@@ -485,6 +486,7 @@ async def demo_csv_import(
             unit_code=unit_code,
             product_id=product_id,
             serial_number=serial or None,
+            lot_number=lot or None,
             purchase_date=purchase_date,
             notes=notes or None,
         )

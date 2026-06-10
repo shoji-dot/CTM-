@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}デモ器台帳
-{% block extra_js %}
+{% block title %}デモ器台帳{% endblock %}
+{% block scripts %}
 <script>
 async function uploadCsv(input) {
   const file = input.files[0];
@@ -22,7 +22,6 @@ async function uploadCsv(input) {
   if (data.ok > 0) setTimeout(() => location.reload(), 1500);
 }
 </script>
-{% endblock %}
 {% endblock %}
 
 {% block content %}
