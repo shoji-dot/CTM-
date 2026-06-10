@@ -185,6 +185,22 @@
       var csrfToken = document.querySelector('meta[name="csrf-token"]')
                       ? document.querySelector('meta[name="csrf-token"]').content : '';
 
+      // [I1] fetch を上書きして全POSTリクエストに X-CSRF-Token を自動付与
+      (function() {
+        var _origFetch = window.fetch;
+        window.fetch = function(url, options) {
+          options = options || {};
+          var method = (options.method || 'GET').toUpperCase();
+          if (method !== 'GET' && method !== 'HEAD' && csrfToken) {
+            options.headers = options.headers || {};
+            if (!options.headers['X-CSRF-Token']) {
+              options.headers['X-CSRF-Token'] = csrfToken;
+            }
+          }
+          return _origFetch(url, options);
+        };
+      })();
+
       document.addEventListener('submit', function(e) {
         var form = e.target;
         if (form.hasAttribute('data-no-disable')) return;

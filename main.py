@@ -293,24 +293,29 @@ async def auth_middleware(request: Request, call_next):
 
     request.state.staff = staff_dict
 
-    # [I1] POST/PUT/DELETE リクエストのCSRF検証
+    # [I1] POST/PUT/DELETE リクエストのCSRF strict 検証
     if request.method in ("POST", "PUT", "DELETE", "PATCH"):
-        form_data = None
-        csrf_token_val = request.headers.get("X-CSRF-Token")
-        if not csrf_token_val:
-            # フォームボディからも取得を試みる（multipart/form-data対応は別途）
-            # ヘッダーにない場合はクエリパラメータから取得
-            csrf_token_val = request.query_params.get("_csrf")
-        session_token = request.cookies.get("session", "")
-        # API エンドポイント（JSON）はヘッダーチェックのみ
-        content_type = request.headers.get("content-type", "")
-        if "application/json" in content_type:
-            if csrf_token_val and not verify_csrf_token(session_token, csrf_token_val):
-                from fastapi.responses import JSONResponse
-                return JSONResponse(status_code=403, content={"detail": "CSRF token invalid"})
-        # フォーム送信はテンプレート側の hidden field で対応（後述）
-        # ここでは検証をログのみに留め、段階的に有効化する
-        # TODO: 全フォームへのトークン埋め込み完了後に strict モードを有効化
+        # ログイン・ログアウトはCSRF対象外
+        if request.url.path not in ("/login", "/logout"):
+            csrf_token_val = request.headers.get("X-CSRF-Token")
+            content_type = request.headers.get("content-type", "")
+            session_token = request.cookies.get("session", "")
+
+            if not csrf_token_val:
+                if "application/x-www-form-urlencoded" in content_type:
+                    from urllib.parse import parse_qs
+                    body = await request.body()
+                    form_vals = parse_qs(body.decode("utf-8", errors="ignore"))
+                    csrf_token_val = (form_vals.get("_csrf") or [""])[0]
+                elif "multipart/form-data" in content_type:
+                    form = await request.form()
+                    csrf_token_val = form.get("_csrf", "") or ""
+                else:
+                    csrf_token_val = request.query_params.get("_csrf", "")
+
+            if not csrf_token_val or not verify_csrf_token(session_token, csrf_token_val):
+                from fastapi.responses import HTMLResponse as _HTML
+                return _HTML("CSRF verification failed (403)", status_code=403)
 
     return await call_next(request)
 
