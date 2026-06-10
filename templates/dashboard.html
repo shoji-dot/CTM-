@@ -427,7 +427,7 @@
         {% if m.memo %}
         <div class="memo-snippet">{{ m.memo }}</div>
         {% endif %}
-        <div class="memo-date">{{ m.updated_at[:10] }}</div>
+        <div class="memo-date">{{ (m.updated_at or "")[:10] }}</div>
       </div>
       {% else %}
       <div class="empty-msg">顧客メモがまだありません</div>
