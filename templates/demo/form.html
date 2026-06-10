@@ -42,6 +42,13 @@
         </div>
 
         <div class="mb-3">
+          <label class="form-label fw-bold">ロット番号</label>
+          <input type="text" name="lot_number" class="form-control"
+                 value="{{ unit.lot_number if unit else '' }}"
+                 placeholder="ロット番号（ロット製品の場合）">
+        </div>
+
+        <div class="mb-3">
           <label class="form-label fw-bold">自社購入日</label>
           <input type="date" name="purchase_date" class="form-control"
                  value="{{ unit.purchase_date.isoformat() if unit and unit.purchase_date else '' }}">

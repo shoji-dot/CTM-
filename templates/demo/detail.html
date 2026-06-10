@@ -20,6 +20,9 @@
       {% if unit.status in ("available", "on_loan") %}
         <a href="/demo/{{ unit.id }}/repair/new" class="btn btn-warning">🔧 故障登録</a>
       {% endif %}
+      {% if unit.status != "retired" %}
+        <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#retireModal">🗑️ 廃棄登録</button>
+      {% endif %}
       <a href="/demo/{{ unit.id }}/edit" class="btn btn-outline-secondary">✏️ 編集</a>
     </div>
   </div>
@@ -38,6 +41,8 @@
                 <td>{{ unit.product.name }}</td></tr>
             <tr><th class="text-muted">シリアル番号</th>
                 <td><code>{{ unit.serial_number or "—" }}</code></td></tr>
+            <tr><th class="text-muted">ロット番号</th>
+                <td><code>{{ unit.lot_number or "—" }}</code></td></tr>
             <tr><th class="text-muted">購入日</th>
                 <td>{{ unit.purchase_date.strftime('%Y/%m/%d') if unit.purchase_date else "—" }}</td></tr>
             <tr><th class="text-muted">ステータス</th>
@@ -225,5 +230,43 @@
 
     </div><!-- /col -->
   </div><!-- /row -->
+</div>
+
+<!-- 廃棄登録モーダル -->
+<div class="modal fade" id="retireModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title">🗑️ 廃棄登録</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="/demo/{{ unit.id }}/retire">
+        <div class="modal-body">
+          <div class="alert alert-warning">
+            <strong>{{ unit.unit_code }}</strong>（{{ unit.product.name }}）を廃棄登録します。ステータスを「廃棄」に変更します。
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">廃棄理由 <span class="text-danger">*</span></label>
+            <select name="retire_reason" class="form-select" required>
+              <option value="">-- 選択してください --</option>
+              <option value="修理不能">修理不能</option>
+              <option value="経年劣化">経年劣化</option>
+              <option value="破損">破損</option>
+              <option value="紛失">紛失</option>
+              <option value="その他">その他</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">備考</label>
+            <textarea name="retire_notes" class="form-control" rows="2" placeholder="詳細・経緯など"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">キャンセル</button>
+          <button type="submit" class="btn btn-danger">廃棄登録する</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 {% endblock %}

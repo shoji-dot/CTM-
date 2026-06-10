@@ -192,7 +192,7 @@ async function uploadCsv(input) {
           <tr>
             <th>管理番号</th>
             <th>製品名</th>
-            <th>シリアル番号</th>
+            <th>シリアル番号/ロット番号</th>
             <th>状態</th>
             <th>現在の貸出先</th>
             <th>返却期限</th>
@@ -206,7 +206,11 @@ async function uploadCsv(input) {
           <tr>
             <td><strong>{{ unit.unit_code }}</strong></td>
             <td>{{ unit.product.name }}</td>
-            <td><code>{{ unit.serial_number or "—" }}</code></td>
+            <td>
+              {% if unit.serial_number %}<code>{{ unit.serial_number }}</code>{% endif %}
+              {% if unit.lot_number %}<span class="text-muted small">ロット: {{ unit.lot_number }}</span>{% endif %}
+              {% if not unit.serial_number and not unit.lot_number %}—{% endif %}
+            </td>
             <td>
               {% if unit.status == "available" %}
                 <span class="badge bg-success">✅ 貸出可</span>

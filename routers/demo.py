@@ -163,6 +163,7 @@ def demo_create(
     db: Session = Depends(get_db),
     product_id: int = Form(...),
     serial_number: str = Form(""),
+    lot_number: str = Form(""),
     purchase_date: str = Form(""),
     notes: str = Form(""),
 ):
@@ -171,6 +172,7 @@ def demo_create(
         unit_code=unit_code,
         product_id=product_id,
         serial_number=serial_number or None,
+        lot_number=lot_number or None,
         purchase_date=date.fromisoformat(purchase_date) if purchase_date else None,
         notes=notes or None,
     )
@@ -197,6 +199,7 @@ def demo_update(
     unit_code: str = Form(...),
     product_id: int = Form(...),
     serial_number: str = Form(""),
+    lot_number: str = Form(""),
     purchase_date: str = Form(""),
     status: str = Form(...),
     notes: str = Form(""),
@@ -207,6 +210,7 @@ def demo_update(
     unit.unit_code = unit_code
     unit.product_id = product_id
     unit.serial_number = serial_number or None
+    unit.lot_number = lot_number or None
     unit.purchase_date = date.fromisoformat(purchase_date) if purchase_date else None
     unit.status = status
     unit.notes = notes or None
@@ -424,6 +428,29 @@ def repair_update(
 
 
 # ──────────────────────────────────────────────
+# 廃棄登録
+# ──────────────────────────────────────────────
+
+@router.post("/{unit_id}/retire")
+def demo_retire(
+    unit_id: int,
+    db: Session = Depends(get_db),
+    retire_reason: str = Form(...),
+    retire_notes: str = Form(""),
+):
+    unit = db.query(DemoUnit).filter(DemoUnit.id == unit_id).first()
+    if not unit:
+        raise HTTPException(404)
+    unit.status = "retired"
+    note_text = f"廃棄理由: {retire_reason}"
+    if retire_notes:
+        note_text += f"\n{retire_notes}"
+    unit.notes = (unit.notes + "\n" if unit.notes else "") + note_text
+    db.commit()
+    return RedirectResponse(f"/demo/{unit_id}", status_code=303)
+
+
+# ──────────────────────────────────────────────
 # アラートメール送信
 # ──────────────────────────────────────────────
 
@@ -435,8 +462,9 @@ async def demo_csv_import(
 ):
     """CSVで複数デモ器を一括登録。
     フォーマット（ヘッダー行あり）:
-      製品名,型番,シリアル番号,ロット番号,登録日(YYYY-MM-DD),備考
+      製品名,型番,シリアル番号,ロット番号,数量,登録日(YYYY-MM-DD),備考
     製品名・型番（SKU）どちらかで製品マスタを照合します。
+    数量が2以上の場合、同じロット・製品で複数のDemoUnitを生成します。
     """
     import csv, io
 
@@ -461,8 +489,14 @@ async def demo_csv_import(
         model_number = (row.get("型番") or "").strip()
         serial = (row.get("シリアル番号") or "").strip()
         lot = (row.get("ロット番号") or "").strip()
+        qty_str = (row.get("数量") or "1").strip()
         date_str = (row.get("登録日") or "").strip()
         notes = (row.get("備考") or "").strip()
+
+        try:
+            qty = max(1, int(qty_str))
+        except ValueError:
+            qty = 1
 
         if not product_name and not model_number:
             errors.append(f"行{i}: 製品名または型番を入力してください")
@@ -485,22 +519,27 @@ async def demo_csv_import(
                 errors.append(f"行{i}: 登録日の形式が不正です（YYYY-MM-DD）: {date_str}")
                 continue
 
-        unit_code = _gen_unit_code(db)
-        unit = DemoUnit(
-            unit_code=unit_code,
-            product_id=product_id,
-            serial_number=serial or None,
-            lot_number=lot or None,
-            purchase_date=purchase_date,
-            notes=notes or None,
-        )
-        db.add(unit)
-        try:
-            db.flush()
-            ok_count += 1
-        except Exception as e:
-            db.rollback()
-            errors.append(f"行{i}: DB登録エラー: {e}")
+        row_error = False
+        for n in range(qty):
+            unit_code = _gen_unit_code(db)
+            unit = DemoUnit(
+                unit_code=unit_code,
+                product_id=product_id,
+                serial_number=serial or None,
+                lot_number=lot or None,
+                purchase_date=purchase_date,
+                notes=notes or None,
+            )
+            db.add(unit)
+            try:
+                db.flush()
+                ok_count += 1
+            except Exception as e:
+                db.rollback()
+                errors.append(f"行{i}({n+1}台目): DB登録エラー: {e}")
+                row_error = True
+                break
+        if row_error:
             continue
 
     db.commit()
