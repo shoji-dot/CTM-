@@ -592,10 +592,12 @@ def search_demo_units(db: Session, q: str = "", product_id: int = None):
     if product_id:
         query = query.filter(DemoUnit.product_id == product_id)
     if q:
+        from models import Product
         like = f"%{q}%"
-        query = query.filter(
+        query = query.join(Product, DemoUnit.product_id == Product.id).filter(
             (DemoUnit.unit_code.ilike(like)) |
-            (DemoUnit.serial_number.ilike(like))
+            (DemoUnit.serial_number.ilike(like)) |
+            (Product.name.ilike(like))
         )
     return query.order_by(DemoUnit.unit_code).all()
 
