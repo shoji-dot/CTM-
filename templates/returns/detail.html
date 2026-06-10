@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ ret.return_number }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">{{ ret.return_number }}</h1>
+  <div class="header-actions">
+    <a href="/returns/" class="btn btn-ghost">← 一覧</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h2 class="card-title">返品情報</h2>
+    <table class="detail-table">
+      <tr><th>返品番号</th><td class="mono">{{ ret.return_number }}</td></tr>
+      <tr><th>ステータス</th><td><span class="badge badge-{{ ret.status }}">{{ status_labels.get(ret.status, ret.status) }}</span></td></tr>
+      <tr><th>返品日</th><td>{{ ret.return_date }}</td></tr>
+      <tr><th>取引先</th><td>{{ ret.customer.name if ret.customer else "―" }}</td></tr>
+      <tr><th>商品</th><td>{{ ret.product.name if ret.product else "―" }}</td></tr>
+      <tr><th>数量</th><td>{{ ret.quantity }}</td></tr>
+      <tr><th>返品理由</th><td>{{ reason_labels.get(ret.reason, ret.reason or "―") }}</td></tr>
+      <tr><th>在庫戻し</th><td>{{ "あり（入庫済）" if ret.restock else "なし" }}</td></tr>
+      <tr><th>担当者</th><td>{{ ret.staff_name or "―" }}</td></tr>
+      <tr><th>備考</th><td>{{ ret.notes or "―" }}</td></tr>
+      <tr><th>登録日時</th><td>{{ ret.created_at.strftime('%Y/%m/%d %H:%M') if ret.created_at else "―" }}</td></tr>
+    </table>
+  </div>
+</div>
+
+{% if ret.sale %}
+<div class="card" style="margin-top:16px">
+  <div class="card-body">
+    <h2 class="card-title">元売上</h2>
+    <table class="detail-table">
+      <tr><th>売上番号</th><td><a href="/sales/{{ ret.sale.id }}" class="link">{{ ret.sale.sale_number }}</a></td></tr>
+      <tr><th>売上日</th><td>{{ ret.sale.sale_date }}</td></tr>
+      <tr><th>合計金額</th><td>¥{{ "{:,.0f}".format(ret.sale.total_amount) }}</td></tr>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

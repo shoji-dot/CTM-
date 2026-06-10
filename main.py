@@ -10,6 +10,7 @@ from models import Base
 from database import engine, get_db, SessionLocal
 from routers import customers, products, inventory, quotes, shipments
 from routers import staff as staff_router
+from routers.returns import router as returns_router
 import crud
 import company_config
 from auth import decode_session_token, now_jst, generate_csrf_token, verify_csrf_token
@@ -336,6 +337,7 @@ app.include_router(material_router)
 app.include_router(memo_router)
 app.include_router(notif_router)
 app.include_router(repair_router)
+app.include_router(returns_router)
 app.include_router(update_router)
 
 

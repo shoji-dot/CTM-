@@ -477,3 +477,30 @@ class TaskComment(Base):
     created_at = Column(DateTime, default=now_jst)
     task       = relationship("Task", back_populates="comments")
     author     = relationship("Staff", foreign_keys=[staff_id])
+
+
+class Return(Base):
+    """返品管理 - 売上に対する返品を記録"""
+    __tablename__ = "returns"
+    id            = Column(Integer, primary_key=True, autoincrement=True)
+    return_number = Column(String(50), unique=True, nullable=False)
+    sale_id       = Column(Integer, ForeignKey("sales.id"), nullable=True)
+    customer_id   = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    product_id    = Column(Integer, ForeignKey("products.id"), nullable=False)
+    quantity      = Column(Integer, nullable=False, default=1)
+    return_date   = Column(Date, nullable=False)
+    reason        = Column(Text, nullable=True)
+    restock       = Column(Boolean, default=False)   # 在庫に戻すか
+    status        = Column(String(20), default="returned")  # returned / restocked / disposed
+    notes         = Column(Text, nullable=True)
+    staff_name    = Column(String(100), nullable=True)
+    created_at    = Column(DateTime, default=now_jst)
+
+    sale     = relationship("Sale",     foreign_keys=[sale_id])
+    customer = relationship("Customer", foreign_keys=[customer_id])
+    product  = relationship("Product",  foreign_keys=[product_id])
+    __table_args__ = (
+        Index("ix_returns_sale_id",     "sale_id"),
+        Index("ix_returns_customer_id", "customer_id"),
+        Index("ix_returns_return_date", "return_date"),
+    )

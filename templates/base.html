@@ -48,14 +48,15 @@
       <li><a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">◈</span> ダッシュボード</a></li>
 
       <!-- 出荷 / 修理 -->
-      {% set grp1_active = ('/shipments' in request.url.path and '/repairs' not in request.url.path) or '/repairs' in request.url.path %}
+      {% set grp1_active = ('/shipments' in request.url.path and '/repairs' not in request.url.path and '/returns' not in request.url.path) or '/repairs' in request.url.path or '/returns' in request.url.path %}
       <li class="nav-group-item">
         <div class="nav-group-header {% if grp1_active %}open{% endif %}" onclick="toggleGroup('grp-shipment')">
           <span class="nav-icon">◐</span> 出荷 / 修理 <span class="nav-arrow">›</span>
         </div>
         <ul class="nav-group {% if grp1_active %}open{% endif %}" id="grp-shipment">
-          <li><a href="/shipments" class="nav-link {% if '/shipments' in request.url.path and '/repairs' not in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">◐</span> 出荷管理</a></li>
+          <li><a href="/shipments" class="nav-link {% if '/shipments' in request.url.path and '/repairs' not in request.url.path and '/returns' not in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">◐</span> 出荷管理</a></li>
           <li><a href="/repairs/"  class="nav-link {% if '/repairs'   in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">🔧</span> 修理受付管理</a></li>
+          <li><a href="/returns/"  class="nav-link {% if '/returns'   in request.url.path %}active{% endif %}" onclick="closeMenu()"><span class="nav-icon">↩</span> 返品管理</a></li>
         </ul>
       </li>
 

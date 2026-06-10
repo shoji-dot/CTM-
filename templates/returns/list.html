@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}返品管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">返品管理</h1>
+  <div class="header-actions">
+    <a href="/returns/new" class="btn btn-primary">＋ 返品登録</a>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <form method="get" class="filter-form">
+    <select name="status" class="select">
+      <option value="">すべて</option>
+      {% for k, v in status_labels.items() %}
+      <option value="{{ k }}" {% if status == k %}selected{% endif %}>{{ v }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="customer" class="input" placeholder="顧客名" value="{{ customer }}" style="width:160px">
+    <button type="submit" class="btn btn-ghost">絞込</button>
+    <a href="/returns/" class="btn btn-ghost">リセット</a>
+  </form>
+</div>
+
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>返品番号</th>
+        <th>返品日</th>
+        <th>取引先</th>
+        <th>商品</th>
+        <th>数量</th>
+        <th>ステータス</th>
+        <th>担当者</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in returns %}
+      <tr>
+        <td class="mono">{{ r.return_number }}</td>
+        <td>{{ r.return_date }}</td>
+        <td>{{ r.customer.name if r.customer else "―" }}</td>
+        <td>{{ r.product.name if r.product else "―" }}</td>
+        <td>{{ r.quantity }}</td>
+        <td><span class="badge badge-{{ r.status }}">{{ status_labels.get(r.status, r.status) }}</span></td>
+        <td>{{ r.staff_name or "―" }}</td>
+        <td><a href="/returns/{{ r.id }}" class="btn btn-sm btn-ghost">詳細</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="text-center text-muted py-4">返品記録がありません</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% set _extra_params = "status=" ~ status ~ "&customer=" ~ customer %}
+  {% include "_pagination.html" %}
+</div>
+{% endblock %}

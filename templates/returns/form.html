@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}返品登録{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">返品登録</h1>
+  <a href="/returns/" class="btn btn-ghost">← 一覧</a>
+</div>
+
+{% if sale %}
+<div class="alert alert-info" style="margin-bottom:16px;padding:12px 16px;background:#e8f4fd;border:1px solid #b3d7f5;border-radius:8px">
+  <strong>元売上：</strong>{{ sale.sale_number }} ／ {{ sale.customer.name }} ／ {{ sale.product.name }} ／ {{ sale.quantity }}個
+</div>
+{% endif %}
+
+<div class="form-card">
+  <form method="post" action="/returns/new">
+    {% if sale %}
+    <input type="hidden" name="sale_id" value="{{ sale.id }}">
+    {% endif %}
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="label">取引先 <span class="required">*</span></label>
+        <select name="customer_id" class="select" required>
+          <option value="">選択してください</option>
+          {% for c in customers %}
+          <option value="{{ c.id }}" {% if sale and sale.customer_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="label">商品 <span class="required">*</span></label>
+        <select name="product_id" class="select" required>
+          <option value="">選択してください</option>
+          {% for p in products %}
+          <option value="{{ p.id }}" {% if sale and sale.product_id == p.id %}selected{% endif %}>{{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="label">返品数量 <span class="required">*</span></label>
+        <input type="number" name="quantity" class="input" min="1"
+               value="{{ sale.quantity if sale else 1 }}" required>
+      </div>
+
+      <div class="form-group">
+        <label class="label">返品日 <span class="required">*</span></label>
+        <input type="date" name="return_date" class="input" value="{{ today }}" required>
+      </div>
+
+      <div class="form-group">
+        <label class="label">返品理由</label>
+        <select name="reason" class="select">
+          <option value="">選択してください</option>
+          {% for k, v in reason_labels.items() %}
+          <option value="{{ k }}">{{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group" style="display:flex;align-items:center;gap:8px;padding-top:24px">
+        <input type="checkbox" name="restock" value="1" id="restock" style="width:18px;height:18px">
+        <label for="restock" class="label" style="margin:0;cursor:pointer">在庫に戻す（入庫処理）</label>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="label">備考</label>
+      <textarea name="notes" class="textarea" rows="3" placeholder="追記事項があれば入力"></textarea>
+    </div>
+
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary">返品登録</button>
+      <a href="/returns/" class="btn btn-ghost">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
