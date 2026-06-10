@@ -268,6 +268,9 @@ class DemoUnit(Base):
     lot_number = Column(String(100), nullable=True)               # ロット番号
     status = Column(String(20), default="available")
     # available(貸出可) / on_loan(貸出中) / in_repair(修理中) / retired(廃棄)
+    location_type = Column(String(20), default="own")
+    # own(自社) / customer(取引先) / maker(製造元) / end_user(エンドユーザー)
+    location_name = Column(String(200), default="CTM本社")       # 拠点名・取引先名など
     purchase_date = Column(Date, nullable=True)                   # 自社購入日
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=now_jst)

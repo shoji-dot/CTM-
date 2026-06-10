@@ -45,6 +45,13 @@
                 <td><code>{{ unit.lot_number or "—" }}</code></td></tr>
             <tr><th class="text-muted">購入日</th>
                 <td>{{ unit.purchase_date.strftime('%Y/%m/%d') if unit.purchase_date else "—" }}</td></tr>
+            <tr><th class="text-muted">現在地</th>
+                <td>
+                  {% set loc_icon = {"own":"🏢","customer":"🏥","maker":"🏭","end_user":"👤"}.get(unit.location_type, "📍") %}
+                  {{ loc_icon }}
+                  {% if unit.location_type == "own" %}自社：{% elif unit.location_type == "customer" %}取引先：{% elif unit.location_type == "maker" %}製造元：{% elif unit.location_type == "end_user" %}エンドユーザー：{% endif %}
+                  <strong>{{ unit.location_name or "―" }}</strong>
+                </td></tr>
             <tr><th class="text-muted">ステータス</th>
                 <td>
                   {% if unit.status == "available" %}

@@ -196,6 +196,7 @@ async function uploadCsv(input) {
             <th>製品名</th>
             <th>シリアル番号/ロット番号</th>
             <th>状態</th>
+            <th>所在地</th>
             <th>現在の貸出先</th>
             <th>返却期限</th>
             <th>修理記録</th>
@@ -223,6 +224,10 @@ async function uploadCsv(input) {
               {% elif unit.status == "retired" %}
                 <span class="badge bg-secondary">🗑️ 廃棄</span>
               {% endif %}
+            </td>
+            <td>
+              {% set loc_icon = {"own":"🏢","customer":"🏥","maker":"🏭","end_user":"👤"}.get(unit.location_type, "📍") %}
+              <span>{{ loc_icon }} {{ unit.location_name or "―" }}</span>
             </td>
             <td>
               {% if active %}
@@ -256,7 +261,7 @@ async function uploadCsv(input) {
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="8" class="text-center text-muted py-4">デモ器が登録されていません</td></tr>
+          <tr><td colspan="9" class="text-center text-muted py-4">デモ器が登録されていません</td></tr>
           {% endfor %}
         </tbody>
       </table>

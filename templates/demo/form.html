@@ -66,6 +66,22 @@
         </div>
         {% endif %}
 
+        <div class="mb-3">
+          <label class="form-label fw-bold">現在地区分</label>
+          <select name="location_type" class="form-select">
+            <option value="own"      {% if not unit or unit.location_type == 'own' %}selected{% endif %}>🏢 自社（本社・営業所）</option>
+            <option value="customer" {% if unit and unit.location_type == 'customer' %}selected{% endif %}>🏥 取引先</option>
+            <option value="maker"    {% if unit and unit.location_type == 'maker' %}selected{% endif %}>🏭 製造元</option>
+            <option value="end_user" {% if unit and unit.location_type == 'end_user' %}selected{% endif %}>👤 エンドユーザー</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">所在地名</label>
+          <input type="text" name="location_name" class="form-control"
+                 value="{{ unit.location_name if unit else 'CTM本社' }}"
+                 placeholder="例：CTM本社 / 関東営業所 / 〇〇病院">
+        </div>
+
         <div class="mb-4">
           <label class="form-label fw-bold">備考</label>
           <textarea name="notes" class="form-control" rows="3"

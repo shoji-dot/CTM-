@@ -165,6 +165,8 @@ def demo_create(
     serial_number: str = Form(""),
     lot_number: str = Form(""),
     purchase_date: str = Form(""),
+    location_type: str = Form("own"),
+    location_name: str = Form("CTM本社"),
     notes: str = Form(""),
 ):
     unit_code = _gen_unit_code(db)
@@ -174,6 +176,8 @@ def demo_create(
         serial_number=serial_number or None,
         lot_number=lot_number or None,
         purchase_date=date.fromisoformat(purchase_date) if purchase_date else None,
+        location_type=location_type or "own",
+        location_name=location_name or "CTM本社",
         notes=notes or None,
     )
     db.add(unit)
@@ -202,6 +206,8 @@ def demo_update(
     lot_number: str = Form(""),
     purchase_date: str = Form(""),
     status: str = Form(...),
+    location_type: str = Form("own"),
+    location_name: str = Form("CTM本社"),
     notes: str = Form(""),
 ):
     unit = db.query(DemoUnit).filter(DemoUnit.id == unit_id).first()
@@ -213,6 +219,8 @@ def demo_update(
     unit.lot_number = lot_number or None
     unit.purchase_date = date.fromisoformat(purchase_date) if purchase_date else None
     unit.status = status
+    unit.location_type = location_type or "own"
+    unit.location_name = location_name or "CTM本社"
     unit.notes = notes or None
     db.commit()
     return RedirectResponse(f"/demo/{unit_id}", status_code=303)
@@ -293,6 +301,10 @@ def loan_create(
         status="on_loan",
     )
     unit.status = "on_loan"
+    # 所在地を取引先に自動更新
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    unit.location_type = "customer"
+    unit.location_name = customer.name if customer else ""
     db.add(loan)
     db.commit()
     return RedirectResponse(f"/demo/{unit_id}", status_code=303)
@@ -319,6 +331,9 @@ def loan_return(
     loan.notes = (loan.notes or "") + ("\n返却備考: " + notes if notes else "")
     loan.status = "returned"
     loan.demo_unit.status = "available"
+    # 所在地を自社に戻す
+    loan.demo_unit.location_type = "own"
+    loan.demo_unit.location_name = "CTM本社"
     db.commit()
     return RedirectResponse(f"/demo/{unit_id}", status_code=303)
 
