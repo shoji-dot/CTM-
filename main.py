@@ -379,6 +379,13 @@ async def delete_announcement(
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db)):
+    try:
+        return _dashboard_inner(request, db)
+    except Exception as e:
+        import traceback
+        return HTMLResponse(f"<pre>DEBUG ERROR:\n{traceback.format_exc()}</pre>", status_code=500)
+
+def _dashboard_inner(request: Request, db: Session):
     from datetime import datetime, timedelta
     from models import Staff
 
