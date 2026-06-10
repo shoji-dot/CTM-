@@ -2,8 +2,8 @@
 routers/demo.py  -  デモ器台帳・貸出・修理管理
 """
 from datetime import date, datetime, timedelta
-from fastapi import APIRouter, Depends, Form, Request, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Form, Request, HTTPException, UploadFile, File
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from collections import defaultdict
@@ -422,6 +422,77 @@ def repair_update(
 # ──────────────────────────────────────────────
 # アラートメール送信
 # ──────────────────────────────────────────────
+
+@router.post("/csv-import")
+async def demo_csv_import(
+    request: Request,
+    db: Session = Depends(get_db),
+    file: UploadFile = File(...),
+):
+    """CSVで複数デモ器を一括登録。
+    フォーマット（ヘッダー行あり）:
+      製品名,シリアル番号,購入日(YYYY-MM-DD),備考
+    """
+    import csv, io
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8-sig")  # BOM付きUTF-8も対応
+    except UnicodeDecodeError:
+        text = content.decode("shift_jis", errors="replace")
+
+    reader = csv.DictReader(io.StringIO(text))
+
+    # 製品名→IDマップ
+    products = db.query(Product).all()
+    prod_map = {p.name: p.id for p in products}
+
+    ok_count = 0
+    errors = []
+
+    for i, row in enumerate(reader, start=2):  # 2行目から（1行目はヘッダー）
+        product_name = (row.get("製品名") or "").strip()
+        serial = (row.get("シリアル番号") or "").strip()
+        purchase_date_str = (row.get("購入日") or "").strip()
+        notes = (row.get("備考") or "").strip()
+
+        if not product_name:
+            errors.append(f"行{i}: 製品名が空です")
+            continue
+
+        product_id = prod_map.get(product_name)
+        if not product_id:
+            errors.append(f"行{i}: 製品「{product_name}」が見つかりません")
+            continue
+
+        purchase_date = None
+        if purchase_date_str:
+            try:
+                purchase_date = date.fromisoformat(purchase_date_str)
+            except ValueError:
+                errors.append(f"行{i}: 購入日の形式が不正です（YYYY-MM-DD）: {purchase_date_str}")
+                continue
+
+        unit_code = _gen_unit_code(db)
+        unit = DemoUnit(
+            unit_code=unit_code,
+            product_id=product_id,
+            serial_number=serial or None,
+            purchase_date=purchase_date,
+            notes=notes or None,
+        )
+        db.add(unit)
+        try:
+            db.flush()
+            ok_count += 1
+        except Exception as e:
+            db.rollback()
+            errors.append(f"行{i}: DB登録エラー: {e}")
+            continue
+
+    db.commit()
+    return JSONResponse({"ok": ok_count, "errors": errors})
+
 
 @router.post("/send-alert-emails")
 def send_alert_emails(db: Session = Depends(get_db)):

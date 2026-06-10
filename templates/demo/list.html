@@ -1,5 +1,29 @@
 {% extends "base.html" %}
-{% block title %}デモ器台帳{% endblock %}
+{% block title %}デモ器台帳
+{% block extra_js %}
+<script>
+async function uploadCsv(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await fetch('/demo/csv-import', {method:'POST', body:fd});
+  const data = await res.json();
+  const el = document.getElementById('csvResult');
+  el.style.display = '';
+  if (data.errors && data.errors.length > 0) {
+    el.className = 'alert alert-warning mb-2';
+    el.innerHTML = data.ok + '件登録完了。エラー:<br>' + data.errors.join('<br>');
+  } else {
+    el.className = 'alert alert-success mb-2';
+    el.innerHTML = data.ok + '件のデモ器を登録しました。';
+  }
+  input.value = '';
+  if (data.ok > 0) setTimeout(() => location.reload(), 1500);
+}
+</script>
+{% endblock %}
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-3">
@@ -7,8 +31,13 @@
   <!-- ページヘッダー -->
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="mb-0">🔬 デモ器台帳</h2>
-    <a href="/demo/new" class="btn btn-primary">＋ デモ器登録</a>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('csvFileInput').click()">📂 CSV一括登録</button>
+      <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="uploadCsv(this)">
+      <a href="/demo/new" class="btn btn-primary">＋ デモ器登録</a>
+    </div>
   </div>
+  <div id="csvResult" style="display:none" class="alert mb-2"></div>
 <!-- メール送信ボタン -->
 <form method="post" action="/demo/send-alert-emails" style="margin-bottom:1rem">
   <button type="submit"
