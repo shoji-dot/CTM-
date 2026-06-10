@@ -28,7 +28,7 @@ STATUS_LABELS = {
     "quote_submitted": "見積提出済",
     "repair_ordered":  "修理発注済",
     "repair_completed":"修理完了",
-    "closed":          "クロージング",
+    "closed":          "クローズ済",
 }
 
 NEXT_STATUS = {

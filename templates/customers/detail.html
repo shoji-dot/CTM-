@@ -12,7 +12,7 @@
   <div class="detail-card">
     <h2 class="card-title">基本情報</h2>
     <dl class="dl">
-      <dt>カテゴリ</dt><dd><span class="badge badge-{{ customer.category }}">{{ "医療機関" if customer.category in ("hospital","medical") else "取引先" }}</span></dd>
+      <dt>カテゴリ</dt><dd><span class="badge badge-{{ customer.category }}">{{ {"hospital":"病院","medical":"病院","clinic":"クリニック","doctor":"医師","technician":"技士","dealer":"ディーラー","supplier":"取引先","ham":"取引先"}.get(customer.category, customer.category) }}</span></dd>
       <dt>電話番号</dt><dd>{{ customer.phone or "―" }}</dd>
       <dt>メール</dt><dd>{{ customer.email or "―" }}</dd>
       <dt>住所</dt><dd>{{ customer.address or "―" }}</dd>

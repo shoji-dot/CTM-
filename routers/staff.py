@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from collections import defaultdict
 from database import get_db
-from models import Staff
+from models import Staff, Quote, Customer
 
 # [I7] ログイン試行制限: {login_id: (失敗回数, 最終失敗時刻)}
 _login_attempts: dict = defaultdict(lambda: {"count": 0, "last_fail": None})
@@ -169,11 +169,26 @@ def update_staff(
 
 @router.post("/staff/{staff_id}/delete")
 def delete_staff(staff_id: int, request: Request, db: Session = Depends(get_db)):
+    from urllib.parse import quote as urlquote
     current = get_staff_or_redirect(request, db)
     if not current or current.role != "admin":
         return RedirectResponse("/", status_code=303)
     staff = db.query(Staff).filter(Staff.id == staff_id).first()
-    if staff and staff.id != current.id:
-        db.delete(staff)
-        db.commit()
+    if not staff:
+        return RedirectResponse("/staff", status_code=303)
+    if staff.id == current.id:
+        return RedirectResponse("/staff?error=" + urlquote("自分自身は削除できません"), status_code=303)
+    # 整合性チェック: 関連データが存在する場合は削除不可
+    quote_count = db.query(Quote).filter(Quote.created_by_id == staff_id).count()
+    customer_count = db.query(Customer).filter(Customer.staff_id == staff_id).count()
+    errors = []
+    if quote_count:
+        errors.append(f"見積もり {quote_count} 件")
+    if customer_count:
+        errors.append(f"担当顧客 {customer_count} 件")
+    if errors:
+        msg = urlquote(f"削除できません。関連データあり：{', '.join(errors)}")
+        return RedirectResponse(f"/staff?error={msg}", status_code=303)
+    db.delete(staff)
+    db.commit()
     return RedirectResponse("/staff", status_code=303)

@@ -4,7 +4,7 @@ routers/demo.py  -  デモ器台帳・貸出・修理管理
 from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Depends, Form, Request, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 from collections import defaultdict
 
@@ -82,7 +82,7 @@ def demo_list(request: Request, db: Session = Depends(get_db),
     from crud import paginate
     _update_loan_statuses(db)
 
-    query = db.query(DemoUnit)
+    query = db.query(DemoUnit).options(joinedload(DemoUnit.product))
     if status:
         query = query.filter(DemoUnit.status == status)
     if q:

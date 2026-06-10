@@ -96,6 +96,9 @@ async def register_receive(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/inventory/move")
 async def move_inventory(request: Request, db: Session = Depends(get_db)):
+    staff = getattr(request.state, "staff", None)
+    if not staff or staff.get("role") not in ("admin", "manager"):
+        return RedirectResponse("/inventory?error=権限がありません（管理者以上が必要です）", status_code=303)
     form_data = await request.form()
     product_id = int(form_data.get("product_id"))
     movement_type = form_data.get("movement_type")
@@ -126,6 +129,9 @@ def disposal_form(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/inventory/disposal")
 async def register_disposal(request: Request, db: Session = Depends(get_db)):
+    staff_chk = getattr(request.state, "staff", None)
+    if not staff_chk or staff_chk.get("role") not in ("admin", "manager"):
+        return RedirectResponse("/inventory/disposal?error=権限がありません（管理者以上が必要です）", status_code=303)
     form_data = await request.form()
     product_id = int(form_data.get("product_id"))
     quantity = int(form_data.get("quantity", 1))

@@ -157,6 +157,9 @@ def delete_customer(customer_id: int, request: Request, db: Session = Depends(ge
     # [I10] HTTPException を受け取ってエラーメッセージ付きリダイレクト
     from fastapi import HTTPException
     from urllib.parse import quote as urlquote
+    staff = request.state.staff
+    if not staff or staff.get("role") not in ("admin", "manager"):
+        return RedirectResponse("/customers?error=権限がありません（管理者以上が必要です）", status_code=303)
     try:
         crud.delete_customer(db, customer_id)
     except HTTPException as e:

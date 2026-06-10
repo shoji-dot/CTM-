@@ -16,7 +16,7 @@
 
 <!-- ステップバー -->
 {% set steps = ["received","inspecting","sent_to_maker","maker_responded","quote_submitted","repair_ordered","repair_completed","closed"] %}
-{% set step_labels = {"received":"受付済","inspecting":"自社点検中","sent_to_maker":"メーカー送付済","maker_responded":"メーカー回答済","quote_submitted":"見積提出済","repair_ordered":"修理発注済","repair_completed":"修理完了","closed":"クロージング"} %}
+{% set step_labels = {"received":"受付済","inspecting":"自社点検中","sent_to_maker":"メーカー送付済","maker_responded":"メーカー回答済","quote_submitted":"見積提出済","repair_ordered":"修理発注済","repair_completed":"修理完了","closed":"クローズ済"} %}
 {% set current_idx = steps.index(repair.status) %}
 <div class="repair-steps" style="display:flex;gap:0;margin-bottom:24px;overflow-x:auto;">
   {% for s in steps %}
@@ -100,7 +100,7 @@
       <tr><th>修理完了日</th><td>{{ repair.repair_completed_date or "―" }}</td></tr>
       <tr><th>発送方法</th><td>{% if repair.delivery_type == "direct" %}顧客直送{% elif repair.delivery_type == "company" %}弊社経由{% else %}―{% endif %}</td></tr>
       <tr><th>発送先</th><td>{{ repair.delivery_address or "―" }}</td></tr>
-      <tr><th>クロージング日</th><td>{{ repair.closed_date or "―" }}</td></tr>
+      <tr><th>クローズ日</th><td>{{ repair.closed_date or "―" }}</td></tr>
     </table>
   </div>
 </div>
