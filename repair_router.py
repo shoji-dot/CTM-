@@ -2,7 +2,7 @@ import os
 from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from database import get_db
 from models import Repair, Customer, Product, Shipment
 import company_config
@@ -57,13 +57,17 @@ def _gen_repair_number(db: Session):
 @router.get("/", response_class=HTMLResponse)
 async def repair_list(request: Request, status: str = "", q: str = "", db: Session = Depends(get_db)):
     _staff(request)
-    query = db.query(Repair)
+    query = db.query(Repair).options(
+        joinedload(Repair.customer),
+        joinedload(Repair.end_user),
+        joinedload(Repair.product),
+    )
     if status:
         query = query.filter(Repair.status == status)
     if q:
         from sqlalchemy import or_
         like = f"%{q}%"
-        query = query.outerjoin(Repair.customer).outerjoin(Repair.product).filter(or_(
+        query = query.filter(or_(
             Repair.repair_number.ilike(like),
             Repair.serial_number.ilike(like),
         ))
@@ -159,7 +163,6 @@ async def repair_detail(repair_id: int, request: Request, db: Session = Depends(
     repair["product_name"]         = r.product.name if r.product else ""
     repair["step_deadline"]        = dl_str
     repair["is_overdue"]           = bool(dl_str and dl_str < today and repair["status"] != "closed")
-    # 代替品出荷情報
     rep_ship = db.query(Shipment).filter(Shipment.id == r.replacement_shipment_id).first() if r.replacement_shipment_id else None
     repair["rep_shipment_number"]  = rep_ship.shipment_number if rep_ship else None
     repair["rep_product_name"]     = rep_ship.product.name if rep_ship and rep_ship.product else None

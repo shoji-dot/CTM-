@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, Numeric, DateTime, Date, ForeignKey, Text, Boolean
+from sqlalchemy import Column, Integer, String, Float, Numeric, DateTime, Date, ForeignKey, Text, Boolean, Index
 from sqlalchemy.orm import relationship, DeclarativeBase
 
 
@@ -38,6 +38,10 @@ class Customer(Base):
     staff_id = Column(Integer, ForeignKey("staffs.id"), nullable=True)
     staff = relationship("Staff")
     quotes = relationship("Quote", back_populates="customer", foreign_keys="Quote.customer_id")
+    __table_args__ = (
+        Index("ix_customers_name", "name"),
+        Index("ix_customers_category", "category"),
+    )
 
 
 class Product(Base):
@@ -64,6 +68,11 @@ class Product(Base):
     inventory_histories = relationship("InventoryHistory", back_populates="product")
     quote_items = relationship("QuoteItem", back_populates="product")
     shipments = relationship("Shipment", back_populates="product")
+    __table_args__ = (
+        Index("ix_products_name", "name"),
+        Index("ix_products_category", "category"),
+        Index("ix_products_maker", "maker"),
+    )
 
 
 class Inventory(Base):
@@ -90,6 +99,11 @@ class InventoryHistory(Base):
     lot_number = Column(String(100), nullable=True)
     expiry_date = Column(String(20), nullable=True)
     product = relationship("Product", back_populates="inventory_histories")
+    __table_args__ = (
+        Index("ix_inventory_history_product_id", "product_id"),
+        Index("ix_inventory_history_moved_at", "moved_at"),
+        Index("ix_inventory_history_movement_type", "movement_type"),
+    )
 
 
 class Quote(Base):
@@ -97,7 +111,7 @@ class Quote(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     quote_number = Column(String(50), unique=True)
     customer_id = Column(Integer, ForeignKey("customers.id"))
-    end_user_id = Column(Integer, ForeignKey("customers.id"), nullable=True) 
+    end_user_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
     status = Column(String(20), default="draft")
     total_amount = Column(Numeric(12, 2), default=0.0)
     valid_until = Column(Date, nullable=True)
@@ -119,6 +133,11 @@ class Quote(Base):
     cancelled_by = relationship("Staff", foreign_keys=[cancelled_by_id])
     end_user = relationship("Customer", foreign_keys=[end_user_id])
     items = relationship("QuoteItem", back_populates="quote", cascade="all, delete-orphan")
+    __table_args__ = (
+        Index("ix_quotes_customer_id", "customer_id"),
+        Index("ix_quotes_status", "status"),
+        Index("ix_quotes_created_at", "created_at"),
+    )
 
 
 class QuoteItem(Base):
@@ -128,7 +147,7 @@ class QuoteItem(Base):
     product_id = Column(Integer, ForeignKey("products.id"))
     quantity = Column(Integer, nullable=False)
     unit_price = Column(Numeric(12, 2), nullable=False)
-    discount_rate = Column(Float, default=1.0) 
+    discount_rate = Column(Float, default=1.0)
     subtotal = Column(Numeric(12, 2), default=0.0)
     quote = relationship("Quote", back_populates="items")
     product = relationship("Product", back_populates="quote_items")
@@ -156,6 +175,12 @@ class Shipment(Base):
     customer = relationship("Customer", foreign_keys=[customer_id])
     end_user = relationship("Customer", foreign_keys=[end_user_id])
     product = relationship("Product", back_populates="shipments")
+    __table_args__ = (
+        Index("ix_shipments_customer_id", "customer_id"),
+        Index("ix_shipments_product_id", "product_id"),
+        Index("ix_shipments_status", "status"),
+        Index("ix_shipments_shipped_date", "shipped_date"),
+    )
 
 
 class Sale(Base):
@@ -182,6 +207,12 @@ class Sale(Base):
     customer = relationship("Customer", foreign_keys=[customer_id])
     product = relationship("Product", foreign_keys=[product_id])
     invoice_items = relationship("InvoiceItem", back_populates="sale", cascade="all, delete-orphan")
+    __table_args__ = (
+        Index("ix_sales_customer_id", "customer_id"),
+        Index("ix_sales_product_id", "product_id"),
+        Index("ix_sales_sale_date", "sale_date"),
+        Index("ix_sales_status", "status"),
+    )
 
 
 class Invoice(Base):
@@ -225,9 +256,6 @@ class Payment(Base):
     created_at = Column(DateTime, default=datetime.now)
     invoice = relationship("Invoice", back_populates="payments")
 
-# ===================================================================
-# 以下を models.py の末尾に追記してください
-# ===================================================================
 
 class DemoUnit(Base):
     """デモ機マスタ - デモ器1台1台を管理"""
@@ -245,6 +273,10 @@ class DemoUnit(Base):
     product = relationship("Product")
     loans = relationship("DemoLoan", back_populates="demo_unit", cascade="all, delete-orphan")
     repairs = relationship("RepairRecord", back_populates="demo_unit", cascade="all, delete-orphan")
+    __table_args__ = (
+        Index("ix_demo_units_status", "status"),
+        Index("ix_demo_units_product_id", "product_id"),
+    )
 
 
 class DemoLoan(Base):
@@ -311,6 +343,12 @@ class Repair(Base):
     customer  = relationship("Customer", foreign_keys=[customer_id])
     end_user  = relationship("Customer", foreign_keys=[end_user_id])
     product   = relationship("Product")
+    __table_args__ = (
+        Index("ix_repairs_customer_id", "customer_id"),
+        Index("ix_repairs_product_id", "product_id"),
+        Index("ix_repairs_status", "status"),
+        Index("ix_repairs_received_date", "received_date"),
+    )
 
 
 class RepairRecord(Base):
@@ -322,7 +360,7 @@ class RepairRecord(Base):
     symptom = Column(Text, nullable=False)                        # 故障症状
     cause = Column(Text, nullable=True)                           # 原因（判明後）
     repair_vendor = Column(String(200), nullable=True)            # 修理業者
-    repair_cost = Column(Numeric(12, 2), nullable=True)                    # 修理費用
+    repair_cost = Column(Numeric(12, 2), nullable=True)           # 修理費用
     sent_date = Column(Date, nullable=True)                       # メーカー送付日
     repaired_date = Column(Date, nullable=True)                   # 修理完了・返却日
     status = Column(String(20), nullable=False, default="reported")

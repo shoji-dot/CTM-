@@ -24,7 +24,14 @@ if DATABASE_URL.startswith("sqlite"):
         cursor.close()
 
 else:
-    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        pool_size=5,        # 常時保持する接続数
+        max_overflow=10,    # 超過時に追加できる接続数（最大15接続）
+        pool_timeout=30,    # 接続取得タイムアウト（秒）
+        pool_recycle=1800,  # 30分で接続を再生成（Railway側の切断対策）
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
