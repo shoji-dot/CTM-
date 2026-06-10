@@ -19,19 +19,6 @@ def send_email(to_list: list[str], subject: str, html_body: str) -> bool:
 router = APIRouter(prefix="/demo", tags=["demo"])
 from templates_config import templates
 
-def _get_staff(request: Request) -> dict:
-    staff = getattr(request.state, "staff", None)
-    if not staff:
-        raise HTTPException(status_code=401)
-    return staff
-
-def _require_manager(request: Request) -> dict:
-    """manager / admin のみ許可。それ以外は 403。"""
-    staff = _get_staff(request)
-    if staff.get("role") not in ("admin", "manager"):
-        raise HTTPException(status_code=403, detail="この操作には管理者権限が必要です")
-    return staff
-
 
 # ──────────────────────────────────────────────
 # ユーティリティ
@@ -175,7 +162,6 @@ def demo_create(
     purchase_date: str = Form(""),
     notes: str = Form(""),
 ):
-    _require_manager(request)
     unit_code = _gen_unit_code(db)
     unit = DemoUnit(
         unit_code=unit_code,
@@ -445,7 +431,8 @@ async def demo_csv_import(
 ):
     """CSVで複数デモ器を一括登録。
     フォーマット（ヘッダー行あり）:
-      製品名,シリアル番号,購入日(YYYY-MM-DD),備考
+      製品名,型番,シリアル番号,登録日(YYYY-MM-DD),備考
+    製品名・型番（SKU）どちらかで製品マスタを照合します。
     """
     import csv, io
 
@@ -457,34 +444,40 @@ async def demo_csv_import(
 
     reader = csv.DictReader(io.StringIO(text))
 
-    # 製品名→IDマップ
+    # 製品名→ID、SKU→IDの2つのマップを用意
     products = db.query(Product).all()
-    prod_map = {p.name: p.id for p in products}
+    prod_map_name = {p.name: p.id for p in products}
+    prod_map_sku  = {p.sku: p.id for p in products if p.sku}
 
     ok_count = 0
     errors = []
 
     for i, row in enumerate(reader, start=2):  # 2行目から（1行目はヘッダー）
         product_name = (row.get("製品名") or "").strip()
+        model_number = (row.get("型番") or "").strip()
         serial = (row.get("シリアル番号") or "").strip()
-        purchase_date_str = (row.get("購入日") or "").strip()
+        date_str = (row.get("登録日") or "").strip()
         notes = (row.get("備考") or "").strip()
 
-        if not product_name:
-            errors.append(f"行{i}: 製品名が空です")
+        if not product_name and not model_number:
+            errors.append(f"行{i}: 製品名または型番を入力してください")
             continue
 
-        product_id = prod_map.get(product_name)
+        # 製品名で照合 → なければ型番（SKU）で照合
+        product_id = prod_map_name.get(product_name)
+        if not product_id and model_number:
+            product_id = prod_map_sku.get(model_number)
         if not product_id:
-            errors.append(f"行{i}: 製品「{product_name}」が見つかりません")
+            label = product_name or model_number
+            errors.append(f"行{i}: 製品「{label}」が見つかりません（製品名・型番を確認してください）")
             continue
 
         purchase_date = None
-        if purchase_date_str:
+        if date_str:
             try:
-                purchase_date = date.fromisoformat(purchase_date_str)
+                purchase_date = date.fromisoformat(date_str)
             except ValueError:
-                errors.append(f"行{i}: 購入日の形式が不正です（YYYY-MM-DD）: {purchase_date_str}")
+                errors.append(f"行{i}: 登録日の形式が不正です（YYYY-MM-DD）: {date_str}")
                 continue
 
         unit_code = _gen_unit_code(db)
@@ -509,8 +502,7 @@ async def demo_csv_import(
 
 
 @router.post("/send-alert-emails")
-def send_alert_emails(request: Request, db: Session = Depends(get_db)):
-    _require_manager(request)
+def send_alert_emails(db: Session = Depends(get_db)):
     today     = date.today()
     threshold = today + timedelta(days=7)
 
@@ -548,4 +540,58 @@ def send_alert_emails(request: Request, db: Session = Depends(get_db)):
         target_loans = [item[1] for item in items]
         subject      = f"【デモ器返却アラート】担当案件 {len(target_loans)}件の返却期限をご確認ください"
         html_body    = _build_alert_html(staff.name, target_loans, today)
-   
+        try:
+            send_email([staff.email], subject, html_body)
+            sent_count += 1
+        except Exception as e:
+            errors.append(f"{staff.name}: {str(e)}")
+           
+
+    import urllib.parse
+    error_msg = urllib.parse.quote("; ".join(errors)) if errors else ""
+    mail_type = "error" if errors else "success"
+
+    return RedirectResponse(
+        url=f"/demo/?mail_sent={sent_count}&mail_no_staff={len(no_staff_loans)}&mail_type={mail_type}&error_msg={error_msg}",
+        status_code=303
+    )
+
+
+def _build_alert_html(staff_name: str, loans: list, today: date) -> str:
+    rows = ""
+    for loan in loans:
+        unit = loan.demo_unit
+        days = (loan.due_date - today).days
+        if days < 0:
+            badge = f'<span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:4px;font-weight:bold">⚠ {abs(days)}日超過</span>'
+        else:
+            badge = f'<span style="background:#fef9c3;color:#92400e;padding:2px 8px;border-radius:4px;font-weight:bold">残 {days}日</span>'
+
+        rows += f"""
+        <tr>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb">{unit.unit_code if unit else "-"}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb">{unit.product.name if unit and unit.product else "-"}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb">{loan.customer.name if loan.customer else "-"}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb">{loan.due_date.strftime('%Y/%m/%d')}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb">{badge}</td>
+        </tr>
+        """
+
+    return f"""
+    <html><body style="font-family:sans-serif;color:#1f2937;background:#f9fafb">
+      <div style="max-width:640px;margin:32px auto;background:#fff;padding:32px">
+        <h2 style="color:#1d4ed8">demo alert</h2>
+        <p>{staff_name}</p>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr>
+            <th>管理番号</th>
+            <th>商品名</th>
+            <th>取引先</th>
+            <th>返却期限</th>
+            <th>状泵</th>
+          </tr></thead>
+          <tbody>{rows}</tbody>
+        </table>
+      </div>
+    </body></html>
+    """
