@@ -545,6 +545,44 @@ def demo_retire(
 
 
 # ──────────────────────────────────────────────
+# デモ器削除（個別・一括）
+# ──────────────────────────────────────────────
+
+@router.post("/{unit_id}/delete")
+def demo_delete(unit_id: int, request: Request, db: Session = Depends(get_db)):
+    staff = request.state.staff
+    if not staff or staff.get("role") not in ("admin", "manager"):
+        return RedirectResponse("/demo/?error=権限がありません", status_code=303)
+    unit = db.query(DemoUnit).filter(DemoUnit.id == unit_id).first()
+    if not unit:
+        raise HTTPException(404)
+    db.delete(unit)
+    db.commit()
+    return RedirectResponse("/demo/", status_code=303)
+
+
+@router.post("/bulk-delete")
+async def demo_bulk_delete(request: Request, db: Session = Depends(get_db)):
+    staff = request.state.staff
+    if not staff or staff.get("role") not in ("admin", "manager"):
+        return JSONResponse({"error": "権限がありません"}, status_code=403)
+    body = await request.json()
+    ids = body.get("ids", [])
+    deleted = 0
+    errors = []
+    for uid in ids:
+        unit = db.query(DemoUnit).filter(DemoUnit.id == int(uid)).first()
+        if unit:
+            try:
+                db.delete(unit)
+                deleted += 1
+            except Exception as e:
+                errors.append(f"ID {uid}: {str(e)}")
+    db.commit()
+    return JSONResponse({"deleted": deleted, "errors": errors})
+
+
+# ──────────────────────────────────────────────
 # アラートメール送信
 # ──────────────────────────────────────────────
 

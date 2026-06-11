@@ -2,6 +2,36 @@
 {% block title %}デモ器台帳{% endblock %}
 {% block scripts %}
 <script>
+function toggleAll(chk) {
+  document.querySelectorAll('.row-chk').forEach(c => c.checked = chk.checked);
+  updateSel();
+}
+function updateSel() {
+  const checked = document.querySelectorAll('.row-chk:checked');
+  const btn = document.getElementById('bulk-delete-btn');
+  document.getElementById('sel-count').textContent = checked.length;
+  btn.style.display = checked.length > 0 ? '' : 'none';
+  const all = document.querySelectorAll('.row-chk');
+  document.getElementById('chk-all').indeterminate = checked.length > 0 && checked.length < all.length;
+  document.getElementById('chk-all').checked = all.length > 0 && checked.length === all.length;
+}
+async function bulkDelete() {
+  const ids = [...document.querySelectorAll('.row-chk:checked')].map(c => c.value);
+  if (!ids.length) return;
+  if (!confirm(`選択した ${ids.length} 件のデモ器を削除しますか？\n貸出・修理履歴も全て削除されます。`)) return;
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const res = await fetch('/demo/bulk-delete', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken},
+    body: JSON.stringify({ids})
+  });
+  const data = await res.json();
+  if (data.errors && data.errors.length) {
+    alert(`削除完了: ${data.deleted}件\nエラー:\n${data.errors.join('\n')}`);
+  }
+  location.reload();
+}
+
 async function uploadCsv(input) {
   const file = input.files[0];
   if (!file) return;
@@ -31,6 +61,7 @@ async function uploadCsv(input) {
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="mb-0">🔬 デモ器台帳</h2>
     <div class="d-flex gap-2">
+      <button id="bulk-delete-btn" class="btn btn-danger btn-sm" style="display:none" onclick="bulkDelete()">🗑 選択削除 (<span id="sel-count">0</span>件)</button>
       <a href="/static/demo_import_template.csv" download class="btn btn-ghost btn-sm">⬇ CSVテンプレート</a>
       <button class="btn btn-ghost btn-sm" onclick="document.getElementById('csvFileInput').click()">📂 CSV一括登録</button>
       <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="uploadCsv(this)">
@@ -191,6 +222,7 @@ async function uploadCsv(input) {
       <table class="table table-hover mb-0">
         <thead class="table-light">
           <tr>
+            <th style="width:36px"><input type="checkbox" id="chk-all" onchange="toggleAll(this)"></th>
             <th>管理番号</th>
             <th>製品名</th>
             <th>シリアル番号/ロット番号</th>
@@ -206,6 +238,7 @@ async function uploadCsv(input) {
           {% for unit in units %}
           {% set active = unit.loans | selectattr("status", "in", ["on_loan","overdue"]) | list | first %}
           <tr>
+            <td><input type="checkbox" class="row-chk" value="{{ unit.id }}" onchange="updateSel()"></td>
             <td><strong>{{ unit.unit_code }}</strong></td>
             <td>
               {{ unit.product.name }}
@@ -262,10 +295,14 @@ async function uploadCsv(input) {
             </td>
             <td>
               <a href="/demo/{{ unit.id }}" class="btn btn-primary btn-sm">詳細</a>
+              <form method="post" action="/demo/{{ unit.id }}/delete" style="display:inline"
+                    onsubmit="return confirm('{{ unit.unit_code }} を削除しますか？\n貸出・修理履歴も全て削除されます。')">
+                <button class="btn btn-danger btn-sm">削除</button>
+              </form>
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="9" class="text-center text-muted py-4">デモ器が登録されていません</td></tr>
+          <tr><td colspan="10" class="text-center text-muted py-4">デモ器が登録されていません</td></tr>
           {% endfor %}
         </tbody>
       </table>
