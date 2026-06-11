@@ -634,10 +634,11 @@ async def demo_csv_import(
             errors.append(f"行{i}: 製品名または型番を入力してください")
             continue
 
-        # 製品名で照合 → なければ型番（SKU）で照合
-        product_id = prod_map_name.get(product_name)
-        if not product_id and model_number:
+        # 型番(SKU)が指定されていればSKU優先、なければ製品名で照合
+        if model_number:
             product_id = prod_map_sku.get(model_number)
+        if not product_id:
+            product_id = prod_map_name.get(product_name)
         if not product_id:
             label = product_name or model_number
             errors.append(f"行{i}: 製品「{label}」が見つかりません（製品名・型番を確認してください）")
