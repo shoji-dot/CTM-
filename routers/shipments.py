@@ -148,7 +148,10 @@ async def create_shipment(request: Request, db: Session = Depends(get_db)):
             "demo_unit_id":  int(it["demo_unit_id"]) if it.get("demo_unit_id") else None,
         })
 
-    crud.create_shipment(db, header, items)
+    try:
+        crud.create_shipment(db, header, items)
+    except Exception as e:
+        return redirect_error(f"登録エラー: {type(e).__name__}: {str(e)[:200]}")
     return RedirectResponse("/shipments", status_code=303)
 
 
