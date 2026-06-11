@@ -63,8 +63,8 @@ def import_form(request: Request):
     return templates.TemplateResponse(request, "customers/import.html", {"results": None})
 
 
-VALID_CATEGORIES = {"hospital", "clinic", "doctor", "technician", "dealer", "supplier"}
-_CAT_LABELS = {"hospital":"病院","clinic":"クリニック","doctor":"医師","technician":"技士","dealer":"ディーラー","supplier":"取引先"}
+VALID_CATEGORIES = {"hospital", "clinic", "doctor", "dealer", "manufacturer"}
+_CAT_LABELS = {"hospital":"病院","clinic":"クリニック","doctor":"医師","dealer":"ディーラー","manufacturer":"メーカー"}
 
 @router.get("/api/customers", response_class=JSONResponse)
 def api_search_customers(q: str = "", limit: int = 15, db: Session = Depends(get_db)):
@@ -79,7 +79,7 @@ def download_template():
     content = "name,category,phone,email,address,trading_terms,notes\n"
     content += "医療法人サンプル,hospital,03-0000-0000,sample@example.com,東京都〇〇区1-1-1,月末締め翌月末払い,備考\n"
     content += "クリニックサンプル,clinic,06-0000-0000,sample2@example.com,大阪府〇〇市1-1-1,月末締め,\n"
-    content += "取引先サンプル,supplier,052-000-0000,sample3@example.com,愛知県〇〇市1-1-1,,\n"
+    content += "メーカーサンプル,manufacturer,052-000-0000,sample3@example.com,愛知県〇〇市1-1-1,,\n"
     return StreamingResponse(
         io.BytesIO(content.encode("utf-8-sig")),
         media_type="text/csv",

@@ -15,12 +15,11 @@
       <div class="form-group">
         <label class="label">カテゴリ</label>
         <select name="category" class="select">
-          <option value="hospital"    {{ "selected" if not customer or customer.category in ("hospital","medical") }}>病院・医療機関</option>
-          <option value="clinic"      {{ "selected" if customer and customer.category == "clinic" }}>クリニック</option>
-          <option value="doctor"      {{ "selected" if customer and customer.category == "doctor" }}>医師</option>
-          <option value="technician"  {{ "selected" if customer and customer.category == "technician" }}>技士</option>
-          <option value="dealer"      {{ "selected" if customer and customer.category == "dealer" }}>ディーラー</option>
-          <option value="supplier"    {{ "selected" if customer and customer.category in ("supplier","ham") }}>取引先</option>
+          <option value="hospital"      {{ "selected" if not customer or customer.category in ("hospital","medical") }}>病院・医療機関</option>
+          <option value="clinic"        {{ "selected" if customer and customer.category == "clinic" }}>クリニック</option>
+          <option value="doctor"        {{ "selected" if customer and customer.category == "doctor" }}>医師</option>
+          <option value="dealer"        {{ "selected" if customer and customer.category == "dealer" }}>ディーラー</option>
+          <option value="manufacturer"  {{ "selected" if customer and customer.category in ("manufacturer","supplier","technician","ham") }}>メーカー</option>
         </select>
       </div>
       <div class="form-group">
