@@ -209,8 +209,8 @@ async function uploadCsv(input) {
             <td><strong>{{ unit.unit_code }}</strong></td>
             <td>
               {{ unit.product.name }}
-              {% if unit.product.model_spec %}
-              <br><small class="text-muted">{{ unit.product.model_spec }}</small>
+              {% if unit.product.sku %}
+              <br><small class="text-muted">{{ unit.product.sku }}</small>
               {% endif %}
             </td>
             <td>
