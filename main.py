@@ -146,6 +146,8 @@ def _run_migrations():
             # ── DemoUnit 所在地カラム ──
             "ALTER TABLE demo_units ADD COLUMN IF NOT EXISTS location_type VARCHAR(50) DEFAULT 'own'",
             "ALTER TABLE demo_units ADD COLUMN IF NOT EXISTS location_name VARCHAR(200) DEFAULT 'CTM本社'",
+            # ── RepairRecord staff_name カラム ──
+            "ALTER TABLE repair_records ADD COLUMN IF NOT EXISTS staff_name VARCHAR(100)",
         ]
     else:
         stmts = [
@@ -596,8 +598,5 @@ def _dashboard_inner(request: Request, db: Session):
         "my_approval_count": my_approval_count,
         "announcements": announcements,
         "fav_materials": fav_materials,
-        "recent_notifs": recent_notifs,
-        "unread_notif_count": unread_notif_count,
-        "recent_memos": recent_memos,
-        "overdue_repairs_count": overdue_repairs_count,
+        "recent_notifs": recent_notifs
     })

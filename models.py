@@ -386,7 +386,8 @@ class RepairRecord(Base):
     repair_cost = Column(Numeric(12, 2), nullable=True)           # 修理費用
     sent_date = Column(Date, nullable=True)                       # メーカー送付日
     repaired_date = Column(Date, nullable=True)                   # 修理完了・返却日
-    status = Column(String(20), nullable=False, default="reported")
+    status = Column(String(20), nullable=False, default="pending")
+    staff_name = Column(String(100), nullable=True)               # 担当スタッフ
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=now_jst)
 
@@ -523,5 +524,6 @@ class Return(Base):
     __table_args__ = (
         Index("ix_returns_sale_id",     "sale_id"),
         Index("ix_returns_customer_id", "customer_id"),
+        Index("ix_returns_product_id",  "product_id"),
         Index("ix_returns_return_date", "return_date"),
     )
