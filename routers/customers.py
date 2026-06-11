@@ -164,9 +164,30 @@ def update_customer(
     return RedirectResponse(f"/customers/{customer_id}", status_code=303)
 
 
+@router.post("/customers/bulk-delete")
+async def bulk_delete_customers(request: Request, db: Session = Depends(get_db)):
+    from fastapi import HTTPException
+    from fastapi.responses import JSONResponse as _JSONResponse
+    staff = request.state.staff
+    if not staff or staff.get("role") not in ("admin", "manager"):
+        return _JSONResponse({"error": "権限がありません"}, status_code=403)
+    body = await request.json()
+    ids = body.get("ids", [])
+    deleted = 0
+    errors = []
+    for cid in ids:
+        try:
+            crud.delete_customer(db, int(cid))
+            deleted += 1
+        except HTTPException as e:
+            errors.append(f"ID {cid}: {e.detail}")
+        except Exception as e:
+            errors.append(f"ID {cid}: {str(e)}")
+    return _JSONResponse({"deleted": deleted, "errors": errors})
+
+
 @router.post("/customers/{customer_id}/delete")
 def delete_customer(customer_id: int, request: Request, db: Session = Depends(get_db)):
-    # [I10] HTTPException を受け取ってエラーメッセージ付きリダイレクト
     from fastapi import HTTPException
     from urllib.parse import quote as urlquote
     staff = request.state.staff

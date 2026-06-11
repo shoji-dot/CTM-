@@ -4,6 +4,7 @@
 <div class="page-header">
   <h1 class="page-title">顧客管理</h1>
   <div class="header-actions">
+    <button id="bulk-delete-btn" class="btn btn-danger" style="display:none" onclick="bulkDelete()">🗑 選択削除 (<span id="sel-count">0</span>件)</button>
     <a href="/customers/template" class="btn btn-ghost">📥 CSVテンプレート</a>
     <a href="/customers/import" class="btn btn-ghost">⬆ CSV一括登録</a>
     <a href="/customers/new" class="btn btn-primary">＋ 新規登録</a>
@@ -26,10 +27,14 @@
 </div>
 <div class="table-wrap">
   <table class="table">
-    <thead><tr><th>ID</th><th>顧客名</th><th>カテゴリ</th><th>電話番号</th><th>メール</th><th>取引条件</th><th></th></tr></thead>
+    <thead><tr>
+      <th style="width:36px"><input type="checkbox" id="chk-all" title="全選択" onchange="toggleAll(this)"></th>
+      <th>ID</th><th>顧客名</th><th>カテゴリ</th><th>電話番号</th><th>メール</th><th>取引条件</th><th></th>
+    </tr></thead>
     <tbody>
       {% for c in customers %}
       <tr>
+        <td><input type="checkbox" class="row-chk" value="{{ c.id }}" onchange="updateSel()"></td>
         <td class="mono text-muted">{{ c.id }}</td>
         <td><a href="/customers/{{ c.id }}" class="link">{{ c.name }}</a></td>
         <td><span class="badge badge-{{ c.category }}">{{ {"hospital":"病院","medical":"病院","clinic":"クリニック","doctor":"医師","dealer":"ディーラー","manufacturer":"メーカー","supplier":"メーカー","technician":"メーカー","ham":"メーカー"}.get(c.category, c.category) }}</span></td>
@@ -44,11 +49,43 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="7" class="empty">顧客が登録されていません</td></tr>
+      <tr><td colspan="8" class="empty">顧客が登録されていません</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+
+<script>
+function toggleAll(chk) {
+  document.querySelectorAll('.row-chk').forEach(c => c.checked = chk.checked);
+  updateSel();
+}
+function updateSel() {
+  const checked = document.querySelectorAll('.row-chk:checked');
+  const btn = document.getElementById('bulk-delete-btn');
+  document.getElementById('sel-count').textContent = checked.length;
+  btn.style.display = checked.length > 0 ? '' : 'none';
+  const all = document.querySelectorAll('.row-chk');
+  document.getElementById('chk-all').indeterminate = checked.length > 0 && checked.length < all.length;
+  document.getElementById('chk-all').checked = all.length > 0 && checked.length === all.length;
+}
+async function bulkDelete() {
+  const ids = [...document.querySelectorAll('.row-chk:checked')].map(c => c.value);
+  if (!ids.length) return;
+  if (!confirm(`選択した ${ids.length} 件の顧客を削除しますか？\nこの操作は取り消せません。`)) return;
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const res = await fetch('/customers/bulk-delete', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken},
+    body: JSON.stringify({ids})
+  });
+  const data = await res.json();
+  if (data.errors && data.errors.length) {
+    alert(`削除完了: ${data.deleted}件\nエラー:\n${data.errors.join('\n')}`);
+  }
+  location.reload();
+}
+</script>
 {% set _extra_params = "search=" ~ search ~ "&category=" ~ category %}
 {% include "_pagination.html" %}
 {% endblock %}
