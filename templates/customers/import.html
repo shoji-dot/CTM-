@@ -49,8 +49,7 @@
       </thead>
       <tbody>
         <tr><td class="mono">name</td><td>顧客名</td><td class="text-danger">必須</td><td>医療法人〇〇</td></tr>
-        <tr><td class="mono">category</td><td>カテゴリ</td><td>任意</td><td>medical または ham</td></tr>
-        <tr><td class="mono">contact_name</td><td>担当者名</td><td>任意</td><td>田中 一郎</td></tr>
+        <tr><td class="mono">category</td><td>カテゴリ</td><td>任意</td><td>hospital / clinic / doctor / technician / dealer / supplier（省略時: hospital）</td></tr>
         <tr><td class="mono">phone</td><td>電話番号</td><td>任意</td><td>03-1234-5678</td></tr>
         <tr><td class="mono">email</td><td>メール</td><td>任意</td><td>info@example.com</td></tr>
         <tr><td class="mono">address</td><td>住所</td><td>任意</td><td>東京都〇〇区1-1-1</td></tr>
@@ -62,10 +61,10 @@
     </div>
   </div>
 
-  <form method="post" action="/customers/import" enctype="multipart/form-data" style="margin-top:20px">
+  <form id="import-form" enctype="multipart/form-data" style="margin-top:20px" onsubmit="submitImport(event)">
     <div class="form-group">
       <label class="label">CSVファイル <span class="required">*</span></label>
-      <input type="file" name="file" accept=".csv" required class="input" style="padding:6px">
+      <input type="file" id="csv-file" name="file" accept=".csv" required class="input" style="padding:6px">
       <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
         UTF-8またはShift-JIS形式のCSVに対応しています
       </div>
@@ -75,5 +74,36 @@
       <button type="submit" class="btn btn-primary">インポート実行</button>
     </div>
   </form>
+  <script>
+  function submitImport(e) {
+    e.preventDefault();
+    const fileInput = document.getElementById('csv-file');
+    if (!fileInput.files[0]) return;
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const btn = e.submitter;
+    btn.disabled = true;
+    btn.textContent = '処理中...';
+    fetch('/customers/import', {
+      method: 'POST',
+      headers: { 'X-CSRF-Token': csrfToken },
+      body: formData,
+    }).then(r => {
+      if (r.redirected) {
+        window.location.href = r.url;
+      } else {
+        return r.text().then(html => {
+          document.open(); document.write(html); document.close();
+          history.pushState({}, '', '/customers/import');
+        });
+      }
+    }).catch(err => {
+      alert('エラーが発生しました: ' + err);
+      btn.disabled = false;
+      btn.textContent = 'インポート実行';
+    });
+  }
+  </script>
 </div>
 {% endblock %}
