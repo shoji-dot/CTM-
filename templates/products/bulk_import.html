@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}商品一括登録{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">商品一括登録（CSVインポート）</h1>
+  <a href="/products" class="btn btn-ghost">← 一覧に戻る</a>
+</div>
+
+{% if success_count is defined or updated_count is defined %}
+<div class="import-results">
+  <div class="import-stat-grid">
+    <div class="import-stat success">
+      <div class="import-stat-value">{{ success_count or 0 }}</div>
+      <div class="import-stat-label">新規登録</div>
+    </div>
+    <div class="import-stat skip">
+      <div class="import-stat-value">{{ updated_count or 0 }}</div>
+      <div class="import-stat-label">更新（SKU重複）</div>
+    </div>
+    <div class="import-stat error">
+      <div class="import-stat-value">{{ errors | length }}</div>
+      <div class="import-stat-label">エラー</div>
+    </div>
+  </div>
+  {% if errors %}
+  <div class="import-errors">
+    <div class="import-errors-title">⚠ エラー詳細</div>
+    {% for e in errors %}
+    <div class="import-error-row">{{ e }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if (success_count or 0) + (updated_count or 0) > 0 %}
+  <div style="margin-top:16px">
+    <a href="/products" class="btn btn-primary">商品一覧を確認する →</a>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="form-card" style="margin-top:20px">
+  <h2 class="card-title">CSVファイルをアップロード</h2>
+  <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">
+    ※ SKUが既に登録済みの商品は上書き更新されます。
+  </div>
+  <form method="post" action="/products/csv-import" enctype="multipart/form-data">
+    <div class="form-group">
+      <label class="label">CSVファイル <span class="required">*</span></label>
+      <input type="file" name="file" accept=".csv" required class="input" style="padding:6px">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
+        UTF-8またはShift-JIS形式のCSVに対応しています
+      </div>
+    </div>
+    <div class="form-actions">
+      <a href="/products" class="btn btn-ghost">キャンセル</a>
+      <button type="submit" class="btn btn-primary">インポート実行</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

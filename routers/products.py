@@ -65,7 +65,7 @@ def csv_template_dl():
 
 
 @router.post("/products/csv-import")
-async def csv_import(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def csv_import(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):
     # 日本語列名 → 内部キー のマッピング
     COL = {
         "商品名": "name", "カテゴリ": "category", "商品コード(SKU)": "sku",
@@ -123,7 +123,8 @@ async def csv_import(file: UploadFile = File(...), db: Session = Depends(get_db)
         if not {"name", "unit_price"}.issubset(mapped_fields):
             return JSONResponse({"error": "必須列「商品名」「単価(円)」が不足しています"}, status_code=400)
 
-        created = 0
+        success_count = 0
+        updated_count = 0
         errors = []
         for i, raw_row in enumerate(reader, start=2):
             # 注釈行スキップ（1列目が「※」で始まる）
@@ -139,10 +140,11 @@ async def csv_import(file: UploadFile = File(...), db: Session = Depends(get_db)
                 price_str = g(row, "unit_price", "0").replace(",", "")
                 alert_raw = g(row, "alert_enabled", "有効").lower()
                 alert_enabled = alert_raw not in ("無効", "false", "0", "off")
-                crud.create_product(db, {
+                sku = g(row, "sku") or None
+                data = {
                     "name": name,
                     "category": CATEGORY_MAP.get(g(row, "category", "医療機器"), "medical"),
-                    "sku": g(row, "sku") or None,
+                    "sku": sku,
                     "unit_price": float(price_str) if price_str else 0,
                     "unit": g(row, "unit"),
                     "tracking_type": TRACKING_MAP.get(g(row, "tracking_type", "なし"), "none"),
@@ -152,26 +154,30 @@ async def csv_import(file: UploadFile = File(...), db: Session = Depends(get_db)
                     "jan_code": g(row, "jan_code") or None,
                     "approval_number": g(row, "approval_number") or None,
                     "device_class": CLASS_MAP.get(g(row, "device_class", ""), "") or None,
-                    "sales_role": g(row, "sales_role") or None,
-                })
-                success_count += 1
+                    "sales_role": ROLE_MAP.get(g(row, "sales_role", ""), "") or None,
+                    "model_spec": g(row, "model_spec") or None,
+                    "sterility": STERILITY_MAP.get(g(row, "sterility", ""), "") or None,
+                    "notes": g(row, "notes") or None,
+                }
+                # SKUが既存の場合は更新（upsert）
+                from models import Product
+                existing = db.query(Product).filter(Product.sku == sku).first() if sku else None
+                if existing:
+                    crud.update_product(db, existing.id, data)
+                    updated_count += 1
+                else:
+                    crud.create_product(db, data)
+                    success_count += 1
             except Exception as e:
-                errors.append(f"{i}\u884c\u76ee: {e}")
+                errors.append(f"{i}行目: {e}")
 
-        if errors:
-            return templates.TemplateResponse(request, "products/bulk_import.html", {
-                "errors": errors,
-                "success_count": success_count,
-            })
-        return RedirectResponse("/products", status_code=303)
+        return templates.TemplateResponse(request, "products/bulk_import.html", {
+            "errors": errors,
+            "success_count": success_count,
+            "updated_count": updated_count,
+        })
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
-
-
-    return templates.TemplateResponse(request, "products/bulk_import.html", {
-        "errors": [],
-        "success_count": 0,
-    })
 
 
 @router.get("/products/{product_id}", response_class=HTMLResponse)

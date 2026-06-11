@@ -67,7 +67,14 @@ function submitCsv(input) {
         <td>{{ p.unit or '' }}</td>
         <td style="text-align:right{% if is_alert %};color:#dc2626;font-weight:600{% endif %}">{{ stock }}</td>
         <td style="text-align:right">{{ p.stock_alert_threshold }}</td>
-        <td><a href="/products/{{ p.id }}/edit" class="btn btn-sm btn-ghost">編集</a></td>
+        <td style="white-space:nowrap">
+          <a href="/products/{{ p.id }}/edit" class="btn btn-sm btn-ghost">編集</a>
+          {% if request.state.staff and request.state.staff.role in ('admin', 'manager') %}
+          <form method="post" action="/products/{{ p.id }}/delete" style="display:inline" onsubmit="return confirm('「{{ p.name }}」を削除しますか？\n在庫・出荷履歴がある場合は削除できません。')">
+            <button type="submit" class="btn btn-sm btn-danger">削除</button>
+          </form>
+          {% endif %}
+        </td>
       </tr>
       {% else %}
       <tr><td colspan="9" class="empty">商品が登録されていません</td></tr>
