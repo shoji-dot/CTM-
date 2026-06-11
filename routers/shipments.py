@@ -56,6 +56,7 @@ def api_demo_units(q: str = "", product_id: int = None, db: Session = Depends(ge
             "unit_code": u.unit_code,
             "product_id": u.product_id,
             "product_name": u.product.name,
+            "sku": u.product.sku or "",
             "serial_number": u.serial_number or "",
             "lot_number": u.lot_number or "",
             "status": u.status,

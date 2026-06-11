@@ -199,7 +199,7 @@ function showDropdown(id, type, items) {
     let main, sub;
     if (isDemoType) {
       main = `<strong>${it.product_name}</strong> <span style="color:#7c3aed;font-size:0.78rem">【${it.status_label}】</span>`;
-      sub  = `管理番号：${it.unit_code}　S.N：${it.serial_number||'―'}　ロット：${it.lot_number||'―'}`;
+      sub  = `管理番号：${it.unit_code}${it.sku ? '　型番：'+it.sku : ''}　S.N：${it.serial_number||'―'}　ロット：${it.lot_number||'―'}`;
     } else {
       main = `<strong>${it.product_name}</strong>`;
       sub  = `S.N：${it.serial_number||'―'}　ロット：${it.lot_number||'―'}　入庫日：${it.moved_at||'―'}`;
@@ -224,7 +224,7 @@ function selectItem(id, type, it) {
     row.dataset.lotNumber    = it.lot_number || '';
     document.getElementById(`search_${id}`).value = `${it.product_name} / ${it.unit_code}`;
     const disp = document.getElementById(`selected_${id}`);
-    disp.innerHTML = `S.N：${it.serial_number||'―'}　ロット：${it.lot_number||'―'}　【${it.status_label}】`;
+    disp.innerHTML = `${it.sku ? '型番：'+it.sku+'　' : ''}S.N：${it.serial_number||'―'}　ロット：${it.lot_number||'―'}　【${it.status_label}】`;
     disp.style.display = '';
   } else {
     row.dataset.productId    = it.product_id;
