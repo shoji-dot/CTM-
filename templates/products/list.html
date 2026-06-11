@@ -17,21 +17,27 @@
   {{ request.query_params.get('csv_msg') }}
 </div>
 {% endif %}
-<form id="csv-form" method="post" action="/products/csv-import" enctype="multipart/form-data" style="display:none">
-  <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
-  <input type="file" id="csv-file-input" name="file" accept=".csv">
-</form>
 <script>
 function submitCsv(input) {
   if (!input.files[0]) return;
-  const form = document.getElementById('csv-form');
-  const fileInput = document.getElementById('csv-file-input');
-  const dt = new DataTransfer();
-  dt.items.add(input.files[0]);
-  fileInput.files = dt.files;
-  if (confirm(input.files[0].name + ' を取り込みますか？')) {
-    form.submit();
-  }
+  if (!confirm(input.files[0].name + ' を取り込みますか？')) return;
+  const formData = new FormData();
+  formData.append('file', input.files[0]);
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  fetch('/products/csv-import', {
+    method: 'POST',
+    headers: { 'X-CSRF-Token': csrfToken },
+    body: formData,
+  }).then(r => {
+    if (r.redirected) {
+      window.location.href = r.url;
+    } else {
+      return r.text().then(html => {
+        document.open(); document.write(html); document.close();
+        history.pushState({}, '', '/products/csv-import');
+      });
+    }
+  }).catch(e => alert('エラー: ' + e));
 }
 </script>
 <div class="filter-bar">
