@@ -1,20 +1,20 @@
-﻿/* ── Variables ─────────────────────────────────────────── */
+/* ── Variables ─────────────────────────────────────────── */
 :root {
-  --bg: #0f1117;
-  --surface: #1a1d27;
-  --surface2: #22263a;
-  --border: #2e3350;
-  --text: #e8eaf0;
-  --text-muted: #7a8099;
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --surface2: #f0f4f8;
+  --border: #e2e8f0;
+  --text: #1e2330;
+  --text-muted: #6b7280;
   --accent: #4f8ef7;
-  --accent-hover: #6ba3ff;
-  --success: #3ecf8e;
-  --danger: #f76f6f;
-  --warning: #f5a623;
+  --accent-hover: #3b7de8;
+  --success: #16a34a;
+  --danger: #dc2626;
+  --warning: #c2790a;
   --medical: #4f8ef7;
   --ham: #e07b54;
   --radius: 10px;
-  --shadow: 0 2px 12px rgba(0,0,0,.4);
+  --shadow: 0 2px 12px rgba(0,0,0,.08);
   --font: "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
   --mono: "JetBrains Mono", "Fira Code", monospace;
 }
@@ -47,6 +47,29 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); disp
 .nav-group .nav-link { padding-left: 36px; font-size: 12.5px; }
 .sidebar-footer { padding: 14px 18px; font-size: 10px; color: var(--text-muted); border-top: 1px solid var(--border); }
 
+/* ── サイドバーはダークテーマを維持 ───────────────────── */
+.sidebar { background: #1a1d27; border-right-color: #2e3350; color: #e8eaf0; }
+.sidebar .logo { border-bottom-color: #2e3350; }
+.sidebar .logo-title { color: #e8eaf0; }
+.sidebar .logo-sub { color: #7a8099; }
+.sidebar .nav-section { color: #7a8099; }
+.sidebar .nav-link { color: #7a8099; }
+.sidebar .nav-link:hover { background: #22263a; color: #e8eaf0; }
+.sidebar .nav-link.active { background: rgba(79,142,247,.12); color: #4f8ef7; border-left-color: #4f8ef7; }
+.sidebar .nav-group-header { color: #7a8099; }
+.sidebar .nav-group-header:hover { background: #22263a; color: #e8eaf0; }
+.sidebar .nav-group-header.open { color: #e8eaf0; }
+.sidebar .sidebar-footer { border-top-color: #2e3350; color: #7a8099; }
+.sidebar .sidebar-user { border-top-color: #2e3350; }
+.sidebar .sidebar-user-name { color: #e8eaf0; }
+.sidebar .sidebar-user-role { color: #7a8099; }
+.sidebar .online-item.is-online { background: rgba(62,207,142,.1); border-color: rgba(62,207,142,.2); }
+.sidebar .online-item.is-offline { background: #22263a; border-color: #2e3350; }
+.sidebar .online-name { color: #e8eaf0; }
+.sidebar .online-dept, .sidebar .online-time { color: #7a8099; }
+.hamburger { background: #1a1d27; border-color: #2e3350; color: #e8eaf0; }
+
+
 /* ── Hamburger ─────────────────────────────────────────── */
 .hamburger { display: none; position: fixed; top: 12px; left: 12px; z-index: 200; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; cursor: pointer; font-size: 18px; color: var(--text); }
 .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 99; }
@@ -78,8 +101,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); disp
 .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .table { width: 100%; border-collapse: collapse; min-width: 500px; }
 .table th { text-align: left; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
-.table td { padding: 10px 12px; border-bottom: 1px solid rgba(46,51,80,.5); vertical-align: middle; }
-.table tr:hover td { background: rgba(255,255,255,.02); }
+.table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.table tr:hover td { background: rgba(0,0,0,.025); }
 .table tfoot td { border-top: 2px solid var(--border); border-bottom: none; }
 .table .total-row td { font-size: 15px; padding: 14px 12px; }
 .alert-row td { background: rgba(247,111,111,.05); }

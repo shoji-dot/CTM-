@@ -245,10 +245,14 @@ def demo_detail(unit_id: int, request: Request, db: Session = Depends(get_db)):
     active_loan = next(
         (l for l in unit.loans if l.status in ("on_loan", "overdue")), None
     )
+    active_repair = next(
+        (r for r in unit.repairs if r.status in ("pending", "in_repair")), None
+    )
     return templates.TemplateResponse(request, "demo/detail.html", {
         "unit": unit,
         "today": today,
-        "active_loan": active_loan
+        "active_loan": active_loan,
+        "active_repair": active_repair,
     })
 
 
@@ -443,6 +447,76 @@ def repair_update(
     elif status == "scrapped":
         unit.status = "retired"
 
+    db.commit()
+    return RedirectResponse(f"/demo/{unit_id}", status_code=303)
+
+
+# ──────────────────────────────────────────────
+# 修理ウィザード ステップ別エンドポイント
+# ──────────────────────────────────────────────
+
+@router.post("/{unit_id}/repair/{repair_id}/step-send")
+def repair_step_send(
+    unit_id: int, repair_id: int,
+    db: Session = Depends(get_db),
+    repair_vendor: str = Form(""),
+    sent_date: str = Form(...),
+):
+    """ステップ2: メーカーへ送付完了"""
+    repair = db.query(RepairRecord).filter(RepairRecord.id == repair_id).first()
+    unit = db.query(DemoUnit).filter(DemoUnit.id == unit_id).first()
+    if not repair or not unit:
+        raise HTTPException(404)
+    if repair_vendor:
+        repair.repair_vendor = repair_vendor
+    repair.sent_date = date.fromisoformat(sent_date)
+    repair.status = "in_repair"
+    unit.location_type = "maker"
+    unit.location_name = repair_vendor or "製造元"
+    db.commit()
+    return RedirectResponse(f"/demo/{unit_id}", status_code=303)
+
+
+@router.post("/{unit_id}/repair/{repair_id}/step-complete")
+def repair_step_complete(
+    unit_id: int, repair_id: int,
+    db: Session = Depends(get_db),
+    repaired_date: str = Form(...),
+    repair_cost: str = Form(""),
+    notes: str = Form(""),
+):
+    """ステップ3a: 修理完了・デモ器を貸出可に戻す"""
+    repair = db.query(RepairRecord).filter(RepairRecord.id == repair_id).first()
+    unit = db.query(DemoUnit).filter(DemoUnit.id == unit_id).first()
+    if not repair or not unit:
+        raise HTTPException(404)
+    repair.repaired_date = date.fromisoformat(repaired_date)
+    repair.repair_cost = float(repair_cost) if repair_cost else None
+    if notes:
+        repair.notes = (repair.notes or "") + "\n" + notes
+    repair.status = "completed"
+    unit.status = "available"
+    unit.location_type = "own"
+    unit.location_name = "CTM本社"
+    db.commit()
+    return RedirectResponse(f"/demo/{unit_id}", status_code=303)
+
+
+@router.post("/{unit_id}/repair/{repair_id}/step-scrap")
+def repair_step_scrap(
+    unit_id: int, repair_id: int,
+    db: Session = Depends(get_db),
+    notes: str = Form(""),
+):
+    """ステップ3b: 修理不能・廃棄決定"""
+    repair = db.query(RepairRecord).filter(RepairRecord.id == repair_id).first()
+    unit = db.query(DemoUnit).filter(DemoUnit.id == unit_id).first()
+    if not repair or not unit:
+        raise HTTPException(404)
+    repair.status = "scrapped"
+    if notes:
+        repair.notes = (repair.notes or "") + "\n廃棄理由: " + notes
+    unit.status = "retired"
     db.commit()
     return RedirectResponse(f"/demo/{unit_id}", status_code=303)
 
@@ -645,57 +719,14 @@ def _build_alert_html(staff_name: str, loans: list, today: date) -> str:
     return f"""
     <html><body style="font-family:sans-serif;color:#1f2937;background:#f9fafb">
       <div style="max-width:640px;margin:32px auto;background:#fff;padding:32px">
-        <h2 style="color:#1d4ed8">demo alert</h2>
-        <p>{staff_name}</p>
+        <h2 style="color:#1d4ed8">デモ器返却アラート</h2>
+        <p>{staff_name} 様</p>
         <table style="width:100%;border-collapse:collapse">
           <thead><tr>
-            <th>管理番号</th>
-            <th>商品名</th>
-            <th>取引先</th>
-            <th>返却期限</th>
-            <th>状泵</th>
+            <th>管理番号</th><th>商品名</th><th>取引先</th><th>返却期限</th><th>状態</th>
           </tr></thead>
           <tbody>{rows}</tbody>
         </table>
       </div>
     </body></html>
     """
-
-
-@router.get("/export.csv")
-def export_demo_csv(
-    request: Request, db: Session = Depends(get_db),
-    status: str = "", q: str = "",
-):
-    import csv, io
-    from fastapi.responses import StreamingResponse
-    from sqlalchemy.orm import joinedload as _jl
-    query = db.query(DemoUnit).options(_jl(DemoUnit.product))
-    if status:
-        query = query.filter(DemoUnit.status == status)
-    if q:
-        query = query.join(Product).filter(
-            or_(DemoUnit.unit_code.contains(q),
-                DemoUnit.serial_number.contains(q),
-                Product.name.contains(q))
-        )
-    rows = query.order_by(DemoUnit.id.desc()).all()
-    STATUS_MAP = {"available":"貸出可","on_loan":"貸出中","in_repair":"修理中","retired":"廃棄"}
-    buf = io.StringIO()
-    w = csv.writer(buf)
-    w.writerow(["管理番号","商品名","シリアル番号","ロット番号","ステータス","購入日","備考"])
-    for u in rows:
-        w.writerow([
-            u.unit_code,
-            u.product.name if u.product else "",
-            u.serial_number or "",
-            u.lot_number or "",
-            STATUS_MAP.get(u.status, u.status),
-            str(u.purchase_date or ""),
-            u.notes or "",
-        ])
-    return StreamingResponse(
-        iter([('\ufeff' + buf.getvalue()).encode("utf-8-sig")]),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=demo_units.csv"}
-    )

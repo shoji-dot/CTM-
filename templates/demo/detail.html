@@ -2,278 +2,318 @@
 {% block title %}{{ unit.unit_code }} - デモ器詳細{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-3">
+<div class="content">
 
-  <!-- ヘッダー -->
-  <div class="d-flex justify-content-between align-items-start mb-3">
+  <!-- ページヘッダー -->
+  <div class="page-header">
     <div>
-      <a href="/demo/" class="text-decoration-none text-muted small">← デモ器台帳</a>
-      <h2 class="mb-0 mt-1">🔬 {{ unit.unit_code }}</h2>
-      <p class="text-muted mb-0">{{ unit.product.name }}
-        {% if unit.serial_number %}<code class="ms-2">{{ unit.serial_number }}</code>{% endif %}
-      </p>
+      <a href="/demo/" class="link text-sm">← デモ器台帳</a>
+      <h1 class="page-title" style="margin-top:4px">🔬 {{ unit.unit_code }}</h1>
+      <div class="text-muted text-sm">{{ unit.product.name }}
+        {% if unit.serial_number %}<span class="mono" style="margin-left:8px">{{ unit.serial_number }}</span>{% endif %}
+      </div>
     </div>
-    <div class="d-flex gap-2">
-      {% if unit.status == "available" %}
+    <div class="header-actions">
+      {% if unit.status == "available" and not active_repair %}
         <a href="/demo/{{ unit.id }}/loan/new" class="btn btn-primary">📤 貸出登録</a>
       {% endif %}
-      {% if unit.status in ("available", "on_loan") %}
-        <a href="/demo/{{ unit.id }}/repair/new" class="btn btn-warning">🔧 故障登録</a>
+      {% if unit.status in ("available", "on_loan") and not active_repair %}
+        <a href="/demo/{{ unit.id }}/repair/new" class="btn" style="background:rgba(194,121,10,.12);color:var(--warning);border:1px solid rgba(194,121,10,.3)">🔧 故障登録</a>
       {% endif %}
       {% if unit.status != "retired" %}
-        <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#retireModal">🗑️ 廃棄登録</button>
+        <button class="btn btn-danger" onclick="document.getElementById('retireModal').style.display='flex'">🗑️ 廃棄</button>
       {% endif %}
-      <a href="/demo/{{ unit.id }}/edit" class="btn btn-outline-secondary">✏️ 編集</a>
+      <a href="/demo/{{ unit.id }}/edit" class="btn btn-ghost">✏️ 編集</a>
     </div>
   </div>
 
-  <div class="row g-3">
+  <!-- ══════════════════════════════════════════════
+       修理進行中ウィザード
+  ══════════════════════════════════════════════ -->
+  {% if active_repair %}
+  {% set r = active_repair %}
+  <div style="background:#fff;border:2px solid rgba(194,121,10,.35);border-radius:12px;padding:24px;margin-bottom:24px">
 
-    <!-- ═══════════ 左カラム：基本情報 ═══════════ -->
-    <div class="col-md-4">
-      <div class="card mb-3">
-        <div class="card-header"><strong>基本情報</strong></div>
-        <div class="card-body">
-          <table class="table table-sm table-borderless mb-0">
-            <tr><th class="text-muted" style="width:40%">管理番号</th>
-                <td><strong>{{ unit.unit_code }}</strong></td></tr>
-            <tr><th class="text-muted">製品名</th>
-                <td>{{ unit.product.name }}</td></tr>
-            <tr><th class="text-muted">シリアル番号</th>
-                <td><code>{{ unit.serial_number or "—" }}</code></td></tr>
-            <tr><th class="text-muted">ロット番号</th>
-                <td><code>{{ unit.lot_number or "—" }}</code></td></tr>
-            <tr><th class="text-muted">購入日</th>
-                <td>{{ unit.purchase_date.strftime('%Y/%m/%d') if unit.purchase_date else "—" }}</td></tr>
-            <tr><th class="text-muted">現在地</th>
-                <td>
-                  {% set loc_icon = {"own":"🏢","customer":"🏥","maker":"🏭","end_user":"👤"}.get(unit.location_type, "📍") %}
-                  {{ loc_icon }}
-                  {% if unit.location_type == "own" %}自社：{% elif unit.location_type == "customer" %}取引先：{% elif unit.location_type == "maker" %}製造元：{% elif unit.location_type == "end_user" %}エンドユーザー：{% endif %}
-                  <strong>{{ unit.location_name or "―" }}</strong>
-                </td></tr>
-            <tr><th class="text-muted">ステータス</th>
-                <td>
-                  {% if unit.status == "available" %}
-                    <span class="badge bg-success fs-6">✅ 貸出可</span>
-                  {% elif unit.status == "on_loan" %}
-                    <span class="badge bg-primary fs-6">📤 貸出中</span>
-                  {% elif unit.status == "in_repair" %}
-                    <span class="badge bg-warning text-dark fs-6">🔧 修理中</span>
-                  {% elif unit.status == "retired" %}
-                    <span class="badge bg-secondary fs-6">🗑️ 廃棄</span>
-                  {% endif %}
-                </td></tr>
-          </table>
-          {% if unit.notes %}
-          <hr>
-          <p class="small text-muted mb-0">{{ unit.notes }}</p>
-          {% endif %}
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:15px;font-weight:700;color:var(--warning)">🔧 修理フロー進行中</div>
+      <a href="/demo/{{ unit.id }}/repair/{{ r.id }}/edit" class="btn btn-ghost btn-sm">詳細編集</a>
+    </div>
+
+    <!-- ステップ表示 -->
+    <div style="display:flex;align-items:center;gap:0;margin-bottom:24px;overflow-x:auto">
+      <div style="display:flex;flex-direction:column;align-items:center;min-width:100px">
+        <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;background:#16a34a;color:#fff">✓</div>
+        <div style="font-size:11px;margin-top:6px;text-align:center;font-weight:600;color:#16a34a">故障報告</div>
+        <div style="font-size:10px;color:var(--text-muted)">{{ r.reported_date.strftime('%m/%d') }}</div>
+      </div>
+      <div style="flex:1;height:3px;background:{% if r.status in ('in_repair','completed','scrapped') %}#16a34a{% else %}var(--border){% endif %};min-width:30px;max-width:80px"></div>
+      <div style="display:flex;flex-direction:column;align-items:center;min-width:100px">
+        <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;
+          {% if r.status in ('in_repair','completed','scrapped') %}background:#16a34a;color:#fff{% else %}background:rgba(194,121,10,.15);color:var(--warning);border:2px dashed var(--warning){% endif %}">
+          {% if r.status in ('in_repair','completed','scrapped') %}✓{% else %}2{% endif %}
         </div>
+        <div style="font-size:11px;margin-top:6px;text-align:center;font-weight:600;color:{% if r.status in ('in_repair','completed','scrapped') %}#16a34a{% else %}var(--warning){% endif %}">メーカー送付</div>
+        <div style="font-size:10px;color:var(--text-muted)">{% if r.sent_date %}{{ r.sent_date.strftime('%m/%d') }}{% else %}—{% endif %}</div>
+      </div>
+      <div style="flex:1;height:3px;background:{% if r.status in ('completed','scrapped') %}#16a34a{% else %}var(--border){% endif %};min-width:30px;max-width:80px"></div>
+      <div style="display:flex;flex-direction:column;align-items:center;min-width:100px">
+        <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;
+          {% if r.status in ('completed','scrapped') %}background:#16a34a;color:#fff{% else %}background:var(--surface2);color:var(--text-muted);border:2px dashed var(--border){% endif %}">
+          {% if r.status in ('completed','scrapped') %}✓{% else %}3{% endif %}
+        </div>
+        <div style="font-size:11px;margin-top:6px;text-align:center;font-weight:600;color:{% if r.status in ('completed','scrapped') %}#16a34a{% else %}var(--text-muted){% endif %}">修理完了</div>
+        <div style="font-size:10px;color:var(--text-muted)">{% if r.repaired_date %}{{ r.repaired_date.strftime('%m/%d') }}{% else %}—{% endif %}</div>
+      </div>
+    </div>
+
+    <!-- 故障内容サマリー -->
+    <div style="background:var(--bg);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:13px">
+      <span class="text-muted">症状：</span>{{ r.symptom }}
+      {% if r.repair_vendor %}<span class="text-muted" style="margin-left:16px">送付先：</span>{{ r.repair_vendor }}{% endif %}
+      {% if r.staff_name %}<span class="text-muted" style="margin-left:16px">担当：</span>{{ r.staff_name }}{% endif %}
+    </div>
+
+    <!-- 次のアクション -->
+    {% if r.status == "pending" %}
+    <div style="border-top:1px solid var(--border);padding-top:20px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--warning)">▶ 次のステップ：メーカーへ送付する</div>
+      <form method="post" action="/demo/{{ unit.id }}/repair/{{ r.id }}/step-send"
+            style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end">
+        <div class="form-group">
+          <label class="label">送付先・修理業者</label>
+          <input type="text" name="repair_vendor" class="input" value="{{ r.repair_vendor or '' }}" placeholder="例：○○メーカー サービスセンター">
+        </div>
+        <div class="form-group">
+          <label class="label">送付日 <span class="required">*</span></label>
+          <input type="date" name="sent_date" class="input" value="{{ today.isoformat() }}" required>
+        </div>
+        <button type="submit" class="btn" style="background:var(--warning);color:#fff;white-space:nowrap">📦 送付済みにする →</button>
+      </form>
+    </div>
+
+    {% elif r.status == "in_repair" %}
+    <div style="border-top:1px solid var(--border);padding-top:20px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--accent)">▶ 次のステップ：修理結果を登録する</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+        <div style="background:rgba(22,163,74,.06);border:1px solid rgba(22,163,74,.25);border-radius:10px;padding:16px">
+          <div style="font-size:13px;font-weight:700;color:#16a34a;margin-bottom:12px">✅ 修理完了・デモ器を返却</div>
+          <form method="post" action="/demo/{{ unit.id }}/repair/{{ r.id }}/step-complete">
+            <div class="form-group" style="margin-bottom:10px">
+              <label class="label">修理完了日 <span class="required">*</span></label>
+              <input type="date" name="repaired_date" class="input" value="{{ today.isoformat() }}" required>
+            </div>
+            <div class="form-group" style="margin-bottom:10px">
+              <label class="label">修理費用（円）</label>
+              <input type="number" name="repair_cost" class="input" value="{{ r.repair_cost|int if r.repair_cost else '' }}" placeholder="0">
+            </div>
+            <div class="form-group" style="margin-bottom:12px">
+              <label class="label">備考</label>
+              <input type="text" name="notes" class="input" placeholder="特記事項があれば">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%">✅ 修理完了・貸出可に戻す</button>
+          </form>
+        </div>
+
+        <div style="background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.2);border-radius:10px;padding:16px">
+          <div style="font-size:13px;font-weight:700;color:var(--danger);margin-bottom:12px">🗑️ 修理不能・廃棄決定</div>
+          <form method="post" action="/demo/{{ unit.id }}/repair/{{ r.id }}/step-scrap">
+            <div class="form-group" style="margin-bottom:12px">
+              <label class="label">廃棄理由・備考</label>
+              <textarea name="notes" class="textarea" rows="4" placeholder="修理不能の理由など"></textarea>
+            </div>
+            <button type="submit" class="btn btn-danger" style="width:100%"
+              onclick="return confirm('このデモ器を廃棄決定します。よろしいですか？')">🗑️ 廃棄決定する</button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════
+       メインコンテンツ（2カラム）
+  ══════════════════════════════════════════════ -->
+  <div style="display:grid;grid-template-columns:320px 1fr;gap:20px;align-items:start">
+
+    <!-- 左カラム -->
+    <div>
+      <div class="detail-card" style="margin-bottom:16px">
+        <div class="card-title">基本情報</div>
+        <dl class="dl" style="grid-template-columns:80px 1fr">
+          <dt>管理番号</dt><dd><strong>{{ unit.unit_code }}</strong></dd>
+          <dt>製品名</dt><dd>{{ unit.product.name }}</dd>
+          <dt>シリアル</dt><dd><span class="mono">{{ unit.serial_number or "—" }}</span></dd>
+          <dt>ロット</dt><dd><span class="mono">{{ unit.lot_number or "—" }}</span></dd>
+          <dt>購入日</dt><dd>{{ unit.purchase_date.strftime('%Y/%m/%d') if unit.purchase_date else "—" }}</dd>
+          <dt>現在地</dt>
+          <dd>
+            {% set loc_icon = {"own":"🏢","customer":"🏥","maker":"🏭","end_user":"👤"}.get(unit.location_type, "📍") %}
+            {{ loc_icon }}
+            {% if unit.location_type == "own" %}自社：{% elif unit.location_type == "customer" %}取引先：{% elif unit.location_type == "maker" %}製造元：{% elif unit.location_type == "end_user" %}エンドユーザー：{% endif %}
+            <strong>{{ unit.location_name or "—" }}</strong>
+          </dd>
+          <dt>状態</dt>
+          <dd>
+            {% if unit.status == "available" %}<span class="badge" style="background:rgba(22,163,74,.15);color:#16a34a">✅ 貸出可</span>
+            {% elif unit.status == "on_loan" %}<span class="badge badge-sent">📤 貸出中</span>
+            {% elif unit.status == "in_repair" %}<span class="badge" style="background:rgba(194,121,10,.15);color:var(--warning)">🔧 修理中</span>
+            {% elif unit.status == "retired" %}<span class="badge badge-draft">🗑️ 廃棄</span>
+            {% endif %}
+          </dd>
+        </dl>
+        {% if unit.notes %}
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted)">{{ unit.notes }}</div>
+        {% endif %}
       </div>
 
-      <!-- 現在の貸出状況 -->
       {% if active_loan %}
       {% set days_left = (active_loan.due_date - today).days %}
-      <div class="card border-{{ 'danger' if days_left < 0 else ('warning' if days_left <= 3 else 'primary') }} mb-3">
-        <div class="card-header bg-{{ 'danger' if days_left < 0 else ('warning' if days_left <= 3 else 'primary') }}
-                    {{ 'text-white' if days_left >= 0 else 'text-white' }}">
-          <strong>📤 現在の貸出状況</strong>
-        </div>
-        <div class="card-body">
-          <table class="table table-sm table-borderless mb-3">
-            <tr><th class="text-muted">貸出先</th><td><strong>{{ active_loan.customer.name }}</strong></td></tr>
-            <tr><th class="text-muted">担当者</th><td>{{ active_loan.contact_name or "—" }}</td></tr>
-            <tr><th class="text-muted">貸出日</th><td>{{ active_loan.loan_date.strftime('%Y/%m/%d') }}</td></tr>
-            <tr><th class="text-muted">返却期限</th>
-                <td>
-                  <strong>{{ active_loan.due_date.strftime('%Y/%m/%d') }}</strong>
-                  {% if days_left < 0 %}
-                    <span class="badge bg-danger ms-1">{{ (-days_left) }}日超過</span>
-                  {% elif days_left == 0 %}
-                    <span class="badge bg-warning text-dark ms-1">今日が期限</span>
-                  {% elif days_left <= 7 %}
-                    <span class="badge bg-info text-dark ms-1">あと{{ days_left }}日</span>
-                  {% endif %}
-                </td></tr>
-            <tr><th class="text-muted">目的</th><td>{{ active_loan.purpose or "—" }}</td></tr>
-            <tr><th class="text-muted">出荷時状態</th><td>{{ active_loan.condition_out or "—" }}</td></tr>
-          </table>
-
-          <!-- 返却登録フォーム -->
-          <div class="border-top pt-3">
-            <p class="fw-bold mb-2">📥 返却登録</p>
-            <form method="post" action="/demo/{{ unit.id }}/loan/{{ active_loan.id }}/return">
-              <div class="mb-2">
-                <label class="form-label small">返却日</label>
-                <input type="date" name="returned_date" class="form-control form-control-sm"
-                       value="{{ today.isoformat() }}" required>
-              </div>
-              <div class="mb-2">
-                <label class="form-label small">返却時の状態</label>
-                <input type="text" name="condition_in" class="form-control form-control-sm"
-                       placeholder="例: 正常・外装キズあり">
-              </div>
-              <div class="mb-2">
-                <label class="form-label small">返却備考</label>
-                <input type="text" name="notes" class="form-control form-control-sm">
-              </div>
-              <button type="submit" class="btn btn-success btn-sm w-100">📥 返却完了</button>
-            </form>
-          </div>
+      <div class="detail-card" style="border-color:{% if days_left < 0 %}var(--danger){% elif days_left <= 3 %}var(--warning){% else %}var(--accent){% endif %}">
+        <div class="card-title" style="color:{% if days_left < 0 %}var(--danger){% elif days_left <= 3 %}var(--warning){% else %}var(--accent){% endif %}">📤 現在の貸出状況</div>
+        <dl class="dl" style="grid-template-columns:70px 1fr;margin-bottom:16px">
+          <dt>貸出先</dt><dd><strong>{{ active_loan.customer.name }}</strong></dd>
+          <dt>担当者</dt><dd>{{ active_loan.contact_name or "—" }}</dd>
+          <dt>貸出日</dt><dd>{{ active_loan.loan_date.strftime('%Y/%m/%d') }}</dd>
+          <dt>返却期限</dt>
+          <dd>
+            <strong>{{ active_loan.due_date.strftime('%Y/%m/%d') }}</strong>
+            {% if days_left < 0 %}<span class="badge badge-rejected" style="margin-left:6px">{{ (-days_left) }}日超過</span>
+            {% elif days_left == 0 %}<span class="badge" style="background:rgba(194,121,10,.15);color:var(--warning);margin-left:6px">今日が期限</span>
+            {% elif days_left <= 7 %}<span class="badge badge-sent" style="margin-left:6px">あと{{ days_left }}日</span>{% endif %}
+          </dd>
+          <dt>目的</dt><dd>{{ active_loan.purpose or "—" }}</dd>
+        </dl>
+        <div style="border-top:1px solid var(--border);padding-top:14px">
+          <div style="font-size:12px;font-weight:700;margin-bottom:10px">📥 返却登録</div>
+          <form method="post" action="/demo/{{ unit.id }}/loan/{{ active_loan.id }}/return">
+            <div class="form-group" style="margin-bottom:8px">
+              <label class="label">返却日</label>
+              <input type="date" name="returned_date" class="input" value="{{ today.isoformat() }}" required>
+            </div>
+            <div class="form-group" style="margin-bottom:8px">
+              <label class="label">返却時の状態</label>
+              <input type="text" name="condition_in" class="input" placeholder="例: 正常・外装キズあり">
+            </div>
+            <div class="form-group" style="margin-bottom:12px">
+              <label class="label">返却備考</label>
+              <input type="text" name="notes" class="input">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%">📥 返却完了</button>
+          </form>
         </div>
       </div>
       {% endif %}
     </div>
 
-    <!-- ═══════════ 右カラム：履歴 ═══════════ -->
-    <div class="col-md-8">
-
-      <!-- 貸出履歴 -->
-      <div class="card mb-3">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <strong>📋 貸出履歴</strong>
-          <span class="badge bg-secondary">{{ unit.loans|length }}件</span>
+    <!-- 右カラム -->
+    <div>
+      <div class="detail-card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="card-title" style="margin-bottom:0">📋 貸出履歴</div>
+          <span class="badge badge-draft">{{ unit.loans|length }}件</span>
         </div>
-        <div class="card-body p-0">
-          <table class="table table-sm table-hover mb-0">
-            <thead class="table-light">
-              <tr>
-                <th>貸出先</th>
-                <th>貸出日</th>
-                <th>返却期限</th>
-                <th>返却日</th>
-                <th>担当者</th>
-                <th>状態</th>
-              </tr>
-            </thead>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr>
+              <th>貸出先</th><th>貸出日</th><th>返却期限</th><th>返却日</th><th>担当者</th><th>状態</th>
+            </tr></thead>
             <tbody>
               {% for loan in unit.loans | sort(attribute='loan_date', reverse=True) %}
               <tr>
-                <td>{{ loan.customer.name }}<br>
-                  <small class="text-muted">{{ loan.contact_name or "" }}</small></td>
+                <td>{{ loan.customer.name }}<br><span class="text-muted text-sm">{{ loan.contact_name or "" }}</span></td>
                 <td>{{ loan.loan_date.strftime('%Y/%m/%d') }}</td>
                 <td>{{ loan.due_date.strftime('%Y/%m/%d') }}</td>
                 <td>{{ loan.returned_date.strftime('%Y/%m/%d') if loan.returned_date else "—" }}</td>
                 <td>{{ loan.staff_name or "—" }}</td>
                 <td>
-                  {% if loan.status == "returned" %}
-                    <span class="badge bg-success">返却済</span>
-                  {% elif loan.status == "overdue" %}
-                    <span class="badge bg-danger">期限超過</span>
-                  {% else %}
-                    <span class="badge bg-primary">貸出中</span>
-                  {% endif %}
+                  {% if loan.status == "returned" %}<span class="badge badge-accepted">返却済</span>
+                  {% elif loan.status == "overdue" %}<span class="badge badge-rejected">期限超過</span>
+                  {% else %}<span class="badge badge-sent">貸出中</span>{% endif %}
                 </td>
               </tr>
               {% else %}
-              <tr><td colspan="6" class="text-center text-muted py-3">貸出履歴なし</td></tr>
+              <tr><td colspan="6" class="empty">貸出履歴なし</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- 故障・修理履歴 -->
-      <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <strong>🔧 故障・修理履歴</strong>
-          <div>
-            <span class="badge bg-secondary">{{ unit.repairs|length }}件</span>
-            <a href="/demo/{{ unit.id }}/repair/new" class="btn btn-sm btn-outline-warning ms-2">＋ 故障登録</a>
+      <div class="detail-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="card-title" style="margin-bottom:0">🔧 故障・修理履歴</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="badge badge-draft">{{ unit.repairs|length }}件</span>
+            {% if not active_repair and unit.status != "retired" %}
+            <a href="/demo/{{ unit.id }}/repair/new" class="btn btn-ghost btn-sm">＋ 故障登録</a>
+            {% endif %}
           </div>
         </div>
-        <div class="card-body p-0">
-          <table class="table table-sm table-hover mb-0">
-            <thead class="table-light">
-              <tr>
-                <th>報告日</th>
-                <th>症状</th>
-                <th>修理業者</th>
-                <th>修理費</th>
-                <th>完了日</th>
-                <th>状態</th>
-                <th></th>
-              </tr>
-            </thead>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr>
+              <th>報告日</th><th>症状</th><th>修理業者</th><th>費用</th><th>完了日</th><th>状態</th><th></th>
+            </tr></thead>
             <tbody>
               {% for repair in unit.repairs | sort(attribute='reported_date', reverse=True) %}
-              <tr>
+              <tr {% if repair.status in ('pending','in_repair') %}style="background:rgba(194,121,10,.04)"{% endif %}>
                 <td>{{ repair.reported_date.strftime('%Y/%m/%d') }}</td>
-                <td>
-                  <span title="{{ repair.symptom }}">
-                    {{ repair.symptom[:30] }}{% if repair.symptom|length > 30 %}…{% endif %}
-                  </span>
-                  {% if repair.cause %}
-                    <br><small class="text-muted">原因: {{ repair.cause[:20] }}…</small>
-                  {% endif %}
-                </td>
+                <td><span title="{{ repair.symptom }}">{{ repair.symptom[:25] }}{% if repair.symptom|length > 25 %}…{% endif %}</span></td>
                 <td>{{ repair.repair_vendor or "—" }}</td>
                 <td>{{ "¥{:,.0f}".format(repair.repair_cost) if repair.repair_cost else "—" }}</td>
                 <td>{{ repair.repaired_date.strftime('%Y/%m/%d') if repair.repaired_date else "—" }}</td>
                 <td>
-                  {% if repair.status == "pending" %}
-                    <span class="badge bg-danger">未対応</span>
-                  {% elif repair.status == "in_repair" %}
-                    <span class="badge bg-warning text-dark">修理中</span>
-                  {% elif repair.status == "completed" %}
-                    <span class="badge bg-success">修理完了</span>
-                  {% elif repair.status == "scrapped" %}
-                    <span class="badge bg-secondary">廃棄</span>
-                  {% endif %}
+                  {% if repair.status == "pending" %}<span class="badge badge-rejected">未対応</span>
+                  {% elif repair.status == "in_repair" %}<span class="badge" style="background:rgba(194,121,10,.15);color:var(--warning)">修理中</span>
+                  {% elif repair.status == "completed" %}<span class="badge badge-accepted">修理完了</span>
+                  {% elif repair.status == "scrapped" %}<span class="badge badge-draft">廃棄</span>{% endif %}
                 </td>
-                <td>
-                  <a href="/demo/{{ unit.id }}/repair/{{ repair.id }}/edit"
-                     class="btn btn-sm btn-outline-secondary">編集</a>
-                </td>
+                <td><a href="/demo/{{ unit.id }}/repair/{{ repair.id }}/edit" class="btn btn-ghost btn-sm">編集</a></td>
               </tr>
               {% else %}
-              <tr><td colspan="7" class="text-center text-muted py-3">修理履歴なし</td></tr>
+              <tr><td colspan="7" class="empty">修理履歴なし</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
       </div>
+    </div>
 
-    </div><!-- /col -->
-  </div><!-- /row -->
+  </div>
 </div>
 
 <!-- 廃棄登録モーダル -->
-<div class="modal fade" id="retireModal" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header bg-danger text-white">
-        <h5 class="modal-title">🗑️ 廃棄登録</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <form method="post" action="/demo/{{ unit.id }}/retire">
-        <div class="modal-body">
-          <div class="alert alert-warning">
-            <strong>{{ unit.unit_code }}</strong>（{{ unit.product.name }}）を廃棄登録します。ステータスを「廃棄」に変更します。
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-bold">廃棄理由 <span class="text-danger">*</span></label>
-            <select name="retire_reason" class="form-select" required>
-              <option value="">-- 選択してください --</option>
-              <option value="修理不能">修理不能</option>
-              <option value="経年劣化">経年劣化</option>
-              <option value="破損">破損</option>
-              <option value="紛失">紛失</option>
-              <option value="その他">その他</option>
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">備考</label>
-            <textarea name="retire_notes" class="form-control" rows="2" placeholder="詳細・経緯など"></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">キャンセル</button>
-          <button type="submit" class="btn btn-danger">廃棄登録する</button>
-        </div>
-      </form>
+<div id="retireModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;width:100%;max-width:420px;margin:16px">
+    <div style="font-size:16px;font-weight:700;color:var(--danger);margin-bottom:16px">🗑️ 廃棄登録</div>
+    <div style="background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.2);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px">
+      <strong>{{ unit.unit_code }}</strong>（{{ unit.product.name }}）を廃棄登録します。
     </div>
+    <form method="post" action="/demo/{{ unit.id }}/retire">
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="label">廃棄理由 <span class="required">*</span></label>
+        <select name="retire_reason" class="select" required>
+          <option value="">-- 選択してください --</option>
+          <option value="修理不能">修理不能</option>
+          <option value="経年劣化">経年劣化</option>
+          <option value="破損">破損</option>
+          <option value="紛失">紛失</option>
+          <option value="その他">その他</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:20px">
+        <label class="label">備考</label>
+        <textarea name="retire_notes" class="textarea" rows="2" placeholder="詳細・経緯など"></textarea>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('retireModal').style.display='none'">キャンセル</button>
+        <button type="submit" class="btn btn-danger">廃棄登録する</button>
+      </div>
+    </form>
   </div>
 </div>
 {% endblock %}
