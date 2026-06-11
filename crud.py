@@ -197,7 +197,8 @@ def delete_product(db: Session, product_id: int):
     if sale_count > 0:
         raise HTTPException(400, f"この商品には売上が{sale_count}件あるため削除できません。")
     # [I8] 出荷履歴チェック
-    ship_count = db.query(Shipment).filter(Shipment.product_id == product_id).count()
+    from models import ShipmentItem
+    ship_count = db.query(ShipmentItem).filter(ShipmentItem.product_id == product_id).count()
     if ship_count > 0:
         raise HTTPException(400, f"この商品には出荷記録が{ship_count}件あるため削除できません。")
     db.delete(obj)
@@ -505,6 +506,15 @@ def create_shipment(db: Session, header: dict, items: list) -> Shipment:
     """
     from models import ShipmentItem
     header["shipment_number"] = _gen_shipment_number(db)
+    # shipment_type: itemsの種別から決定（demo優先、複数種あれば先頭採用）
+    type_priority = ["demo", "repair_sub", "sample", "sale"]
+    item_types = [it.get("shipment_type", "sale") for it in items]
+    for t in type_priority:
+        if t in item_types:
+            header["shipment_type"] = t
+            break
+    else:
+        header["shipment_type"] = item_types[0] if item_types else "sale"
     obj = Shipment(**header)
     db.add(obj)
     db.flush()
