@@ -21,12 +21,15 @@
     <div class="form-grid">
       <div class="form-group">
         <label class="label">取引先 <span class="required">*</span></label>
-        <select name="customer_id" class="select" required>
-          <option value="">選択してください</option>
-          {% for c in customers %}
-          <option value="{{ c.id }}" {% if sale and sale.customer_id == c.id %}selected{% endif %}>{{ c.name }}</option>
-          {% endfor %}
-        </select>
+        <div class="cac-wrap" style="position:relative">
+          <input type="text" id="customer_id_text" class="input" placeholder="顧客名で検索..."
+                 autocomplete="off"
+                 value="{{ sale.customer.name if sale and sale.customer else '' }}"
+                 oninput="customerAC(this,'customer_id','customer_id_dd')"
+                 onfocus="if(this.value.trim())customerAC(this,'customer_id','customer_id_dd')">
+          <input type="hidden" name="customer_id" id="customer_id" value="{{ sale.customer_id if sale else '' }}">
+          <div id="customer_id_dd" class="cac-dd" style="display:none;position:absolute;z-index:9999;background:white;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);width:100%;max-height:240px;overflow-y:auto"></div>
+        </div>
       </div>
 
       <div class="form-group">

@@ -151,6 +151,50 @@
     </div>
   </main>
   <script src="/static/js/main.js"></script>
+<script>
+/* ── 顧客オートコンプリート共通 ── */
+let _cacT = {};
+function customerAC(el, hiddenId, ddId) {
+  const q = el.value.trim();
+  const dd = document.getElementById(ddId);
+  clearTimeout(_cacT[hiddenId]);
+  if (!q) { dd.style.display = 'none'; return; }
+  _cacT[hiddenId] = setTimeout(() => {
+    fetch('/api/customers?q=' + encodeURIComponent(q) + '&limit=12')
+      .then(r => r.json()).then(items => {
+        dd.innerHTML = '';
+        if (!items.length) {
+          const d = document.createElement('div');
+          d.style.cssText = 'padding:10px 14px;color:#9ca3af;font-size:0.85rem';
+          d.textContent = '候補なし';
+          dd.appendChild(d);
+        } else {
+          items.forEach(c => {
+            const d = document.createElement('div');
+            d.style.cssText = 'padding:9px 14px;cursor:pointer;border-bottom:1px solid #f0f4f8;font-size:0.88rem';
+            d.innerHTML = '<span style="font-weight:500">' + c.name + '</span>'
+              + (c.cat_label ? '<span style="font-size:0.73rem;color:#aaa;margin-left:6px">' + c.cat_label + '</span>' : '');
+            d.addEventListener('mousedown', () => {
+              document.getElementById(hiddenId).value = c.id;
+              el.value = c.name;
+              dd.style.display = 'none';
+            });
+            d.addEventListener('mouseover', () => d.style.background = '#f0f9ff');
+            d.addEventListener('mouseout',  () => d.style.background = '');
+            dd.appendChild(d);
+          });
+        }
+        dd.style.display = 'block';
+      });
+  }, 200);
+}
+document.addEventListener('click', e => {
+  document.querySelectorAll('.cac-dd').forEach(dd => {
+    const wrap = dd.closest('.cac-wrap');
+    if (wrap && !wrap.contains(e.target)) dd.style.display = 'none';
+  });
+});
+</script>
 {% block scripts %}{% endblock %}
   <script>
     function toggleMenu() {

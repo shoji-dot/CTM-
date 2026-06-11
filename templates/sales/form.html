@@ -20,12 +20,25 @@
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div style="display:flex;flex-direction:column;gap:6px">
         <label style="font-size:0.8rem;font-weight:600;color:#5f6b7a">顧客 <span style="color:#e53935">*</span></label>
-        <select name="customer_id" required style="padding:9px 12px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.9rem">
-          <option value="">-- 選択 --</option>
-          {% for c in customers %}
-          <option value="{{ c.id }}" {% if shipment_item and shipment_item.shipment.customer_id==c.id %}selected{% elif quote and quote.customer_id==c.id %}selected{% endif %}>{{ c.name }}</option>
-          {% endfor %}
-        </select>
+        {% if shipment_item %}
+          {% set _init_cname = shipment_item.shipment.customer.name %}
+          {% set _init_cid = shipment_item.shipment.customer_id %}
+        {% elif quote and quote.customer_id %}
+          {% set _init_cname = quote.customer.name if quote.customer else "" %}
+          {% set _init_cid = quote.customer_id %}
+        {% else %}
+          {% set _init_cname = "" %}
+          {% set _init_cid = "" %}
+        {% endif %}
+        <div class="cac-wrap" style="position:relative">
+          <input type="text" id="customer_id_text" placeholder="顧客名で検索..." autocomplete="off"
+                 value="{{ _init_cname }}"
+                 style="padding:9px 12px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.9rem;width:100%;box-sizing:border-box"
+                 oninput="customerAC(this,'customer_id','customer_id_dd')"
+                 onfocus="if(this.value.trim())customerAC(this,'customer_id','customer_id_dd')">
+          <input type="hidden" name="customer_id" id="customer_id" value="{{ _init_cid }}">
+          <div id="customer_id_dd" class="cac-dd" style="display:none;position:absolute;z-index:9999;background:white;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);width:100%;max-height:240px;overflow-y:auto"></div>
+        </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px">
         <label style="font-size:0.8rem;font-weight:600;color:#5f6b7a">売上日 <span style="color:#e53935">*</span></label>

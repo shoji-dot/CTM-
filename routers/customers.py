@@ -1,10 +1,10 @@
 import io
 import csv
 from fastapi import APIRouter, Depends, Request, Form, UploadFile, File
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse, JSONResponse
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Staff
+from models import Staff, Customer
 import crud
 
 router = APIRouter()
@@ -64,6 +64,15 @@ def import_form(request: Request):
 
 
 VALID_CATEGORIES = {"hospital", "clinic", "doctor", "technician", "dealer", "supplier"}
+_CAT_LABELS = {"hospital":"病院","clinic":"クリニック","doctor":"医師","technician":"技士","dealer":"ディーラー","supplier":"取引先"}
+
+@router.get("/api/customers", response_class=JSONResponse)
+def api_search_customers(q: str = "", limit: int = 15, db: Session = Depends(get_db)):
+    query = db.query(Customer)
+    if q:
+        query = query.filter(Customer.name.contains(q))
+    items = query.order_by(Customer.name).limit(limit).all()
+    return JSONResponse([{"id": c.id, "name": c.name, "cat_label": _CAT_LABELS.get(c.category, "")} for c in items])
 
 @router.get("/customers/template")
 def download_template():

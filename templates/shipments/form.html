@@ -19,21 +19,25 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div>
           <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">取引先 <span style="color:#e53935">*</span></label>
-          <select name="customer_id" id="customer_id" required style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
-            <option value="">選択してください</option>
-            {% for c in customers %}
-            <option value="{{ c.id }}">{{ c.name }}</option>
-            {% endfor %}
-          </select>
+          <div class="cac-wrap" style="position:relative">
+            <input type="text" id="customer_id_text" placeholder="顧客名で検索..." autocomplete="off"
+                   style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem;box-sizing:border-box"
+                   oninput="customerAC(this,'customer_id','customer_id_dd')"
+                   onfocus="if(this.value.trim())customerAC(this,'customer_id','customer_id_dd')">
+            <input type="hidden" name="customer_id" id="customer_id" value="">
+            <div id="customer_id_dd" class="cac-dd" style="display:none;position:absolute;z-index:9999;background:white;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);width:100%;max-height:240px;overflow-y:auto"></div>
+          </div>
         </div>
         <div>
           <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">エンドユーザー</label>
-          <select name="end_user_id" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
-            <option value="">なし</option>
-            {% for c in customers %}
-            <option value="{{ c.id }}">{{ c.name }}</option>
-            {% endfor %}
-          </select>
+          <div class="cac-wrap" style="position:relative">
+            <input type="text" id="end_user_id_text" placeholder="エンドユーザー名で検索（任意）" autocomplete="off"
+                   style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem;box-sizing:border-box"
+                   oninput="customerAC(this,'end_user_id','end_user_id_dd')"
+                   onfocus="if(this.value.trim())customerAC(this,'end_user_id','end_user_id_dd')">
+            <input type="hidden" name="end_user_id" id="end_user_id" value="">
+            <div id="end_user_id_dd" class="cac-dd" style="display:none;position:absolute;z-index:9999;background:white;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);width:100%;max-height:240px;overflow-y:auto"></div>
+          </div>
         </div>
         <div>
           <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">出荷日 <span style="color:#e53935">*</span></label>
@@ -244,6 +248,11 @@ document.addEventListener('click', e => {
 });
 
 function prepareSubmit() {
+  if (!document.getElementById('customer_id').value) {
+    alert('取引先を選択してください。');
+    document.getElementById('customer_id_text').focus();
+    return false;
+  }
   const rows = [...document.querySelectorAll('#items_body tr.item-row')];
   if (!rows.length) { alert('明細を1行以上追加してください。'); return false; }
   const items = rows.map(row => {

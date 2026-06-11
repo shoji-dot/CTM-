@@ -14,23 +14,31 @@
     </div>
     {% endif %}
     <div class="form-grid">
+      {% set ns = namespace(cname="", cid="") %}
+      {% if prefill and prefill.customer_id %}
+        {% for c in customers %}{% if c.id == prefill.customer_id %}{% set ns.cname = c.name %}{% set ns.cid = c.id %}{% endif %}{% endfor %}
+      {% endif %}
       <div class="form-group span-2">
         <label class="label">顧客 <span class="required">*</span></label>
-        <select name="customer_id" class="select" required>
-          <option value="">顧客を選択...</option>
-          {% for c in customers %}
-          <option value="{{ c.id }}" {% if prefill and prefill.customer_id == c.id %}selected{% endif %}>{{ c.name }}（{{ "医療機器" if c.category == "medical" else "生ハム" }}）</option>
-          {% endfor %}
-        </select>
+        <div class="cac-wrap" style="position:relative">
+          <input type="text" id="customer_id_text" class="input" placeholder="顧客名で検索..."
+                 autocomplete="off" value="{{ ns.cname }}"
+                 oninput="customerAC(this,'customer_id','customer_id_dd')"
+                 onfocus="if(this.value.trim())customerAC(this,'customer_id','customer_id_dd')">
+          <input type="hidden" name="customer_id" id="customer_id" value="{{ ns.cid }}">
+          <div id="customer_id_dd" class="cac-dd" style="display:none;position:absolute;z-index:9999;background:white;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);width:100%;max-height:240px;overflow-y:auto"></div>
+        </div>
       </div>
       <div class="form-group span-2">
         <label class="label">エンドユーザー</label>
-        <select name="end_user_id" class="select">
-          <option value="">（なし）</option>
-          {% for c in customers %}
-          <option value="{{ c.id }}">{{ c.name }}</option>
-          {% endfor %}
-        </select>
+        <div class="cac-wrap" style="position:relative">
+          <input type="text" id="end_user_id_text" class="input" placeholder="エンドユーザー名で検索（任意）"
+                 autocomplete="off"
+                 oninput="customerAC(this,'end_user_id','end_user_id_dd')"
+                 onfocus="if(this.value.trim())customerAC(this,'end_user_id','end_user_id_dd')">
+          <input type="hidden" name="end_user_id" id="end_user_id" value="">
+          <div id="end_user_id_dd" class="cac-dd" style="display:none;position:absolute;z-index:9999;background:white;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);width:100%;max-height:240px;overflow-y:auto"></div>
+        </div>
       </div>
       <div class="form-group">
         <label class="label">有効期限</label>
@@ -66,10 +74,20 @@
     </div>
     <div class="form-actions">
       <a href="/quotes" class="btn btn-ghost">キャンセル</a>
-      <button type="submit" class="btn btn-primary">見積を作成</button>
+      <button type="submit" class="btn btn-primary" onclick="return validateQuoteForm()">見積を作成</button>
     </div>
   </form>
 </div>
+<script>
+function validateQuoteForm() {
+  if (!document.getElementById('customer_id').value) {
+    alert('顧客を選択してください。');
+    document.getElementById('customer_id_text').focus();
+    return false;
+  }
+  return true;
+}
+</script>
 <script>
 const products = { {% for p in products %}"{{ p.id }}": { price: {{ p.unit_price }}, unit: "{{ p.unit }}" },{% endfor %} };
 
