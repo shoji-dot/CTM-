@@ -594,7 +594,7 @@ async def demo_csv_import(
 ):
     """CSVで複数デモ器を一括登録。
     フォーマット（ヘッダー行あり）:
-      製品名,型番,シリアル番号,ロット番号,数量,登録日(YYYY-MM-DD),備考
+      製品名,型番,シリアル番号,ロット番号,数量,登録日,備考
     製品名・型番（SKU）どちらかで製品マスタを照合します。
     数量が2以上の場合、同じロット・製品で複数のDemoUnitを生成します。
     """
@@ -645,10 +645,15 @@ async def demo_csv_import(
 
         purchase_date = None
         if date_str:
-            try:
-                purchase_date = date.fromisoformat(date_str)
-            except ValueError:
-                errors.append(f"行{i}: 登録日の形式が不正です（YYYY-MM-DD）: {date_str}")
+            for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y/%m/%d", "%Y.%m.%d",
+                        "%Y-%m-%d", "%y-%m-%d", "%y/%m/%d"):
+                try:
+                    purchase_date = datetime.strptime(date_str, fmt).date()
+                    break
+                except ValueError:
+                    continue
+            if purchase_date is None:
+                errors.append(f"行{i}: 登録日の形式が不正です（例: 2026-06-11 または 2026/6/11）: {date_str}")
                 continue
 
         row_error = False
@@ -726,45 +731,7 @@ def send_alert_emails(db: Session = Depends(get_db)):
 
     import urllib.parse
     error_msg = urllib.parse.quote("; ".join(errors)) if errors else ""
-    mail_type = "error" if errors else "success"
-
     return RedirectResponse(
-        url=f"/demo/?mail_sent={sent_count}&mail_no_staff={len(no_staff_loans)}&mail_type={mail_type}&error_msg={error_msg}",
-        status_code=303
+        url=f"/demo/?mail_sent={sent_count}&mail_no_staff={len(no_staff_loans)}&mail_type={mail_type}",
+        status_code=303,
     )
-
-
-def _build_alert_html(staff_name: str, loans: list, today: date) -> str:
-    rows = ""
-    for loan in loans:
-        unit = loan.demo_unit
-        days = (loan.due_date - today).days
-        if days < 0:
-            badge = f'<span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:4px;font-weight:bold">⚠ {abs(days)}日超過</span>'
-        else:
-            badge = f'<span style="background:#fef9c3;color:#92400e;padding:2px 8px;border-radius:4px;font-weight:bold">残 {days}日</span>'
-
-        rows += f"""
-        <tr>
-          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb">{unit.unit_code if unit else "-"}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb">{unit.product.name if unit and unit.product else "-"}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb">{loan.customer.name if loan.customer else "-"}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb">{loan.due_date.strftime('%Y/%m/%d')}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb">{badge}</td>
-        </tr>
-        """
-
-    return f"""
-    <html><body style="font-family:sans-serif;color:#1f2937;background:#f9fafb">
-      <div style="max-width:640px;margin:32px auto;background:#fff;padding:32px">
-        <h2 style="color:#1d4ed8">デモ器返却アラート</h2>
-        <p>{staff_name} 様</p>
-        <table style="width:100%;border-collapse:collapse">
-          <thead><tr>
-            <th>管理番号</th><th>商品名</th><th>取引先</th><th>返却期限</th><th>状態</th>
-          </tr></thead>
-          <tbody>{rows}</tbody>
-        </table>
-      </div>
-    </body></html>
-    """
