@@ -44,6 +44,7 @@
     ※ SKUが既に登録済みの商品は上書き更新されます。
   </div>
   <form method="post" action="/products/csv-import" enctype="multipart/form-data">
+    <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
     <div class="form-group">
       <label class="label">CSVファイル <span class="required">*</span></label>
       <input type="file" name="file" accept=".csv" required class="input" style="padding:6px">
