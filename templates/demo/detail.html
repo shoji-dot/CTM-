@@ -146,6 +146,7 @@
         <dl class="dl" style="grid-template-columns:80px 1fr">
           <dt>管理番号</dt><dd><strong>{{ unit.unit_code }}</strong></dd>
           <dt>製品名</dt><dd>{{ unit.product.name }}</dd>
+          <dt>型式</dt><dd>{{ unit.product.model_spec or "—" }}</dd>
           <dt>シリアル</dt><dd><span class="mono">{{ unit.serial_number or "—" }}</span></dd>
           <dt>ロット</dt><dd><span class="mono">{{ unit.lot_number or "—" }}</span></dd>
           <dt>購入日</dt><dd>{{ unit.purchase_date.strftime('%Y/%m/%d') if unit.purchase_date else "—" }}</dd>
