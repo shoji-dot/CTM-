@@ -18,6 +18,7 @@
 </div>
 {% endif %}
 <form id="csv-form" method="post" action="/products/csv-import" enctype="multipart/form-data" style="display:none">
+  <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
   <input type="file" id="csv-file-input" name="file" accept=".csv">
 </form>
 <script>
