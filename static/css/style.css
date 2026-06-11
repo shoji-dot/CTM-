@@ -5,7 +5,7 @@
   --surface2: #f0f4f8;
   --border: #e2e8f0;
   --text: #1e2330;
-  --text-muted: #6b7280;
+  --text-muted: #4b5563;
   --accent: #4f8ef7;
   --accent-hover: #3b7de8;
   --success: #16a34a;
@@ -21,7 +21,7 @@
 
 /* ── Reset ─────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font); background: var(--bg); color: var(--text); display: flex; min-height: 100vh; font-size: 14px; line-height: 1.6; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); display: flex; min-height: 100vh; font-size: 15px; line-height: 1.6; }
 
 /* ── Sidebar ───────────────────────────────────────────── */
 .sidebar { width: 220px; min-height: 100vh; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; left: 0; top: 0; bottom: 0; z-index: 100; transition: transform .25s; }
@@ -90,7 +90,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); disp
 .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
 .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
 .stat-card.alert-card { border-color: var(--warning); background: rgba(245,166,35,.07); }
-.stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+.stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
 .stat-value { font-size: 32px; font-weight: 700; line-height: 1.1; }
 .stat-link { font-size: 11px; color: var(--accent); text-decoration: none; display: block; margin-top: 6px; }
 
@@ -100,8 +100,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); disp
 /* ── Table ─────────────────────────────────────────────── */
 .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .table { width: 100%; border-collapse: collapse; min-width: 500px; }
-.table th { text-align: left; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
-.table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.table th { text-align: left; font-size: 12px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .06em; padding: 10px 12px; border-bottom: 2px solid var(--border); white-space: nowrap; }
+.table td { padding: 12px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 14px; }
 .table tr:hover td { background: rgba(0,0,0,.025); }
 .table tfoot td { border-top: 2px solid var(--border); border-bottom: none; }
 .table .total-row td { font-size: 15px; padding: 14px 12px; }
@@ -137,7 +137,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); disp
 .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
 .btn-danger { background: rgba(247,111,111,.15); color: var(--danger); border: 1px solid rgba(247,111,111,.3); }
 .btn-danger:hover { background: rgba(247,111,111,.25); }
-.btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 5px; }
+.btn-sm { padding: 5px 12px; font-size: 13px; border-radius: 5px; }
 
 /* ── Forms ─────────────────────────────────────────────── */
 .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }

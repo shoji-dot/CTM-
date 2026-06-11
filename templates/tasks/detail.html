@@ -7,11 +7,11 @@
   margin-bottom: 1.5rem; flex-wrap: wrap;
 }
 .back-btn {
-  color: #8b91b8; text-decoration: none; font-size: 0.875rem;
+  color: var(--text-muted); text-decoration: none; font-size: 0.875rem;
   display: flex; align-items: center; gap: 0.4rem; transition: color 0.15s;
   white-space: nowrap; margin-top: 0.2rem;
 }
-.back-btn:hover { color: #e8eaf6; }
+.back-btn:hover { color: var(--text); }
 .task-title-area { flex: 1; }
 .task-title {
   font-size: 1.3rem; font-weight: 700; line-height: 1.4;
@@ -22,19 +22,19 @@
 @media(max-width:768px){ .layout { grid-template-columns: 1fr; } }
 
 .card {
-  background: #1a1d27; border: 1px solid #2e3250;
+  background: var(--surface); border: 1px solid var(--border);
   border-radius: 10px; overflow: hidden; margin-bottom: 1.25rem;
 }
 .card-header {
-  padding: 0.875rem 1.25rem; border-bottom: 1px solid #2e3250;
-  font-weight: 600; font-size: 0.85rem; color: #8b91b8;
+  padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--border);
+  font-weight: 600; font-size: 0.85rem; color: var(--text-muted);
   text-transform: uppercase; letter-spacing: 0.05em;
 }
 .card-body { padding: 1.25rem; }
 
 /* メタ情報 */
 .meta-item { margin-bottom: 1rem; }
-.meta-label { font-size: 0.72rem; color: #8b91b8; margin-bottom: 0.3rem; font-weight: 600; text-transform: uppercase; }
+.meta-label { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.3rem; font-weight: 600; text-transform: uppercase; }
 .meta-value { font-size: 0.875rem; }
 
 /* ステータス・優先度 */
@@ -42,23 +42,23 @@
   display: inline-flex; align-items: center; gap: 0.4rem;
   padding: 0.3rem 0.875rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
 }
-.status-todo { background: rgba(139,145,184,0.15); color: #8b91b8; }
-.status-in_progress { background: rgba(79,124,255,0.15); color: #4f7cff; }
+.status-todo { background: rgba(139,145,184,0.15); color: var(--text-muted); }
+.status-in_progress { background: rgba(79,124,255,0.15); color: var(--accent); }
 .status-done { background: rgba(52,211,153,0.15); color: #34d399; }
 .status-cancelled { background: rgba(75,85,99,0.3); color: #6b7280; }
-.priority-high { background: rgba(248,113,113,0.15); color: #f87171; }
+.priority-high { background: rgba(248,113,113,0.15); color: var(--danger); }
 .priority-medium { background: rgba(251,191,36,0.15); color: #fbbf24; }
 .priority-low { background: rgba(96,165,250,0.15); color: #60a5fa; }
 
 /* 編集フォーム */
 .edit-select, .edit-input {
   width: 100%; padding: 0.5rem 0.75rem;
-  background: #22263a; border: 1px solid #2e3250;
-  border-radius: 6px; color: #e8eaf6;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text);
   font-family: inherit; font-size: 0.875rem; outline: none;
   transition: border-color 0.15s;
 }
-.edit-select:focus, .edit-input:focus { border-color: #4f7cff; }
+.edit-select:focus, .edit-input:focus { border-color: var(--accent); }
 
 /* 説明 */
 .description-text {
@@ -69,21 +69,21 @@
 
 /* コメント */
 .comment-item {
-  padding: 0.875rem 0; border-bottom: 1px solid #2e3250;
+  padding: 0.875rem 0; border-bottom: 1px solid var(--border);
 }
 .comment-item:last-child { border-bottom: none; }
 .comment-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
 .comment-author { font-weight: 600; font-size: 0.85rem; }
-.comment-time { font-size: 0.72rem; color: #8b91b8; font-family: monospace; }
+.comment-time { font-size: 0.72rem; color: var(--text-muted); font-family: monospace; }
 .comment-body { font-size: 0.875rem; line-height: 1.6; color: #c5c8e0; white-space: pre-wrap; }
 
 .comment-form textarea {
   width: 100%; padding: 0.75rem;
-  background: #22263a; border: 1px solid #2e3250;
-  border-radius: 6px; color: #e8eaf6; font-family: inherit; font-size: 0.875rem;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-family: inherit; font-size: 0.875rem;
   resize: vertical; min-height: 80px; outline: none; transition: border-color 0.15s;
 }
-.comment-form textarea:focus { border-color: #4f7cff; }
+.comment-form textarea:focus { border-color: var(--accent); }
 
 /* ボタン */
 .btn {
@@ -92,11 +92,11 @@
   cursor: pointer; font-family: inherit; font-size: 0.85rem;
   font-weight: 500; text-decoration: none; transition: all 0.2s;
 }
-.btn-primary { background: #4f7cff; color: #fff; }
+.btn-primary { background: var(--accent); color: #fff; }
 .btn-primary:hover { background: #3d6ae8; }
-.btn-ghost { background: transparent; color: #8b91b8; border: 1px solid #2e3250; }
-.btn-ghost:hover { border-color: #4f7cff; color: #4f7cff; }
-.btn-danger { background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
+.btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.btn-danger { background: rgba(248,113,113,0.15); color: var(--danger); border: 1px solid rgba(248,113,113,0.2); }
 .btn-danger:hover { background: rgba(248,113,113,0.25); }
 .btn-sm { padding: 0.3rem 0.75rem; font-size: 0.78rem; }
 .btn-success { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.2); }
@@ -104,7 +104,7 @@
 
 .action-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
 
-.due-overdue { color: #f87171; font-weight: 600; }
+.due-overdue { color: var(--danger); font-weight: 600; }
 </style>
 
 <!-- ヘッダー -->

@@ -8,7 +8,7 @@
 .portal-greeting {
   font-size: 1.4rem; font-weight: 700; margin-bottom: 0.25rem;
 }
-.portal-date { font-size: 0.85rem; color: #8b91b8; }
+.portal-date { font-size: 0.85rem; color: var(--text-muted); }
 
 /* 統計カード */
 .stats-grid {
@@ -17,17 +17,17 @@
   gap: 1rem; margin-bottom: 1.5rem;
 }
 .stat-card {
-  background: #1a1d27; border: 1px solid #2e3250;
+  background: var(--surface); border: 1px solid var(--border);
   border-radius: 10px; padding: 1.25rem;
   text-decoration: none; color: inherit;
   transition: all 0.15s; display: block;
   border-top: 3px solid transparent;
 }
-.stat-card:hover { border-top-color: #4f7cff; transform: translateY(-2px); }
-.stat-card.alert-card { border-top-color: #f87171; }
-.stat-label { font-size: 0.72rem; color: #8b91b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+.stat-card:hover { border-top-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.stat-card.alert-card { border-top-color: var(--danger); }
+.stat-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
 .stat-value { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.25rem; font-family: monospace; }
-.stat-link { font-size: 0.75rem; color: #4f7cff; }
+.stat-link { font-size: 0.75rem; color: var(--accent); }
 
 /* ポータルグリッド */
 .portal-grid {
@@ -47,21 +47,21 @@
 
 /* カード */
 .pcard {
-  background: #1a1d27; border: 1px solid #2e3250;
+  background: var(--surface); border: 1px solid var(--border);
   border-radius: 10px; overflow: hidden;
 }
 .pcard-header {
-  padding: 0.875rem 1.25rem; border-bottom: 1px solid #2e3250;
+  padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between;
 }
 .pcard-title { font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem; }
-.pcard-link { font-size: 0.75rem; color: #4f7cff; text-decoration: none; }
+.pcard-link { font-size: 0.75rem; color: var(--accent); text-decoration: none; }
 .pcard-link:hover { text-decoration: underline; }
 .pcard-body { padding: 1rem 1.25rem; }
 
 /* お知らせ */
 .announce-item {
-  padding: 0.875rem 0; border-bottom: 1px solid #2e3250;
+  padding: 0.875rem 0; border-bottom: 1px solid var(--border);
 }
 .announce-item:last-child { border-bottom: none; }
 .announce-title {
@@ -72,37 +72,37 @@
   font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 4px;
   background: rgba(251,191,36,0.2); color: #fbbf24; font-weight: 700;
 }
-.announce-body { font-size: 0.8rem; color: #c5c8e0; line-height: 1.6; margin-bottom: 0.4rem; }
-.announce-meta { font-size: 0.7rem; color: #8b91b8; }
+.announce-body { font-size: 0.8rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 0.4rem; }
+.announce-meta { font-size: 0.7rem; color: var(--text-muted); }
 
 /* タスクサマリー */
 .task-summary-row {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0.625rem 0; border-bottom: 1px solid #2e3250;
+  padding: 0.625rem 0; border-bottom: 1px solid var(--border);
   text-decoration: none; color: inherit; transition: background 0.1s;
 }
 .task-summary-row:last-child { border-bottom: none; }
-.task-summary-row:hover { color: #4f7cff; }
+.task-summary-row:hover { color: var(--accent); }
 .task-title-text { font-size: 0.85rem; font-weight: 500; flex: 1; }
-.task-due-text { font-size: 0.72rem; color: #8b91b8; font-family: monospace; margin-left: 0.5rem; }
-.task-due-text.overdue { color: #f87171; font-weight: 600; }
+.task-due-text { font-size: 0.72rem; color: var(--text-muted); font-family: monospace; margin-left: 0.5rem; }
+.task-due-text.overdue { color: var(--danger); font-weight: 600; }
 .priority-dot {
   width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-right: 0.625rem;
 }
-.dot-high { background: #f87171; }
+.dot-high { background: var(--danger); }
 .dot-medium { background: #fbbf24; }
 .dot-low { background: #60a5fa; }
 
 /* 承認サマリー */
 .approval-item {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0.625rem 0; border-bottom: 1px solid #2e3250;
+  padding: 0.625rem 0; border-bottom: 1px solid var(--border);
   text-decoration: none; color: inherit; transition: color 0.1s;
 }
 .approval-item:last-child { border-bottom: none; }
-.approval-item:hover { color: #4f7cff; }
+.approval-item:hover { color: var(--accent); }
 .approval-title { font-size: 0.85rem; font-weight: 500; flex: 1; }
-.approval-type { font-size: 0.7rem; color: #8b91b8; }
+.approval-type { font-size: 0.7rem; color: var(--text-muted); }
 .approval-step {
   font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 10px;
   background: rgba(251,191,36,0.15); color: #fbbf24; font-weight: 600; white-space: nowrap;
@@ -110,33 +110,33 @@
 
 /* オンライン */
 .online-panel {
-  background: #1a1d27; border: 1px solid #2e3250; border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
   padding: 1rem 1.25rem; margin-bottom: 1.25rem;
 }
-.online-panel-title { font-size: 0.8rem; font-weight: 600; color: #8b91b8; margin-bottom: 0.75rem; }
+.online-panel-title { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.75rem; }
 .online-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .online-item {
   display: flex; align-items: center; gap: 0.4rem;
   padding: 0.3rem 0.75rem; border-radius: 20px; font-size: 0.78rem;
-  background: #22263a; border: 1px solid #2e3250;
+  background: var(--surface2); border: 1px solid var(--border);
 }
 .online-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .online-dot.online { background: #34d399; box-shadow: 0 0 4px #34d399; }
-.online-dot.offline { background: #4b5563; }
+.online-dot.offline { background: var(--text-muted); }
 .is-offline { opacity: 0.5; }
 
 /* 投稿フォーム */
-.announce-form { display: none; padding: 1rem 1.25rem; border-top: 1px solid #2e3250; }
+.announce-form { display: none; padding: 1rem 1.25rem; border-top: 1px solid var(--border); }
 .announce-form.open { display: block; }
 .form-control {
   width: 100%; padding: 0.6rem 0.875rem;
-  background: #22263a; border: 1px solid #2e3250;
-  border-radius: 6px; color: #e8eaf6;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text);
   font-family: inherit; font-size: 0.875rem; outline: none;
   margin-bottom: 0.625rem; transition: border-color 0.15s;
 }
-.form-control:focus { border-color: #4f7cff; }
-.form-row-check { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; font-size: 0.8rem; color: #8b91b8; }
+.form-control:focus { border-color: var(--accent); }
+.form-row-check { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; font-size: 0.8rem; color: var(--text-muted); }
 .form-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
 .btn {
   display: inline-flex; align-items: center; gap: 0.4rem;
@@ -144,18 +144,18 @@
   cursor: pointer; font-family: inherit; font-size: 0.8rem;
   font-weight: 500; transition: all 0.2s;
 }
-.btn-primary { background: #4f7cff; color: #fff; }
-.btn-primary:hover { background: #3d6ae8; }
-.btn-ghost { background: transparent; color: #8b91b8; border: 1px solid #2e3250; }
-.btn-ghost:hover { border-color: #4f7cff; color: #4f7cff; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
 .btn-sm { padding: 0.3rem 0.75rem; font-size: 0.75rem; }
 .btn-danger-sm {
-  background: transparent; color: #f87171; border: none;
+  background: transparent; color: var(--danger); border: none;
   cursor: pointer; font-size: 0.7rem; padding: 0; font-family: inherit;
 }
 .btn-danger-sm:hover { text-decoration: underline; }
 
-.empty-msg { text-align: center; padding: 1.5rem; color: #4b5563; font-size: 0.8rem; }
+.empty-msg { text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.8rem; }
 /* ── お気に入り資料 ───────────────────────────────────── */
 .fav-item {
   display: flex; align-items: center; gap: 10px;

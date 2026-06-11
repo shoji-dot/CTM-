@@ -3,11 +3,11 @@
 {% block content %}
 <style>
 :root {
-  --task-high: #f87171;
+  --task-high: var(--danger);
   --task-medium: #fbbf24;
   --task-low: #60a5fa;
-  --task-todo: #8b91b8;
-  --task-inprogress: #4f7cff;
+  --task-todo: var(--text-muted);
+  --task-inprogress: var(--accent);
   --task-done: #34d399;
   --task-cancelled: #4b5563;
 }
@@ -27,16 +27,16 @@
   padding: 0.4rem 1rem; border-radius: 20px;
   font-size: 0.8rem; font-weight: 600; cursor: pointer;
   border: 2px solid transparent; transition: all 0.15s;
-  background: #1e2235;
+  background: var(--surface2);
 }
 .summary-chip:hover { border-color: currentColor; }
 .summary-chip.active { border-color: currentColor; }
 .chip-todo { color: var(--task-todo); }
 .chip-inprogress { color: var(--task-inprogress); }
 .chip-done { color: var(--task-done); }
-.chip-all { color: #e8eaf6; }
+.chip-all { color: var(--text); }
 .chip-count {
-  background: rgba(255,255,255,0.1);
+  background: rgba(0,0,0,0.07);
   padding: 0.1rem 0.5rem; border-radius: 10px;
   font-family: monospace;
 }
@@ -47,11 +47,11 @@
 }
 .filter-select, .filter-input {
   padding: 0.4rem 0.75rem;
-  background: #1a1d27; border: 1px solid #2e3250;
-  border-radius: 6px; color: #e8eaf6;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text);
   font-family: inherit; font-size: 0.8rem; outline: none;
 }
-.filter-select:focus, .filter-input:focus { border-color: #4f7cff; }
+.filter-select:focus, .filter-input:focus { border-color: var(--accent); }
 
 /* カンバンボード */
 .kanban {
@@ -62,8 +62,8 @@
 @media(max-width:768px){ .kanban { grid-template-columns: 1fr; } }
 
 .kanban-col {
-  background: #1a1d27;
-  border: 1px solid #2e3250;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
   min-height: 200px;
@@ -72,19 +72,19 @@
   padding: 0.875rem 1rem;
   font-weight: 700; font-size: 0.85rem;
   display: flex; align-items: center; justify-content: space-between;
-  border-bottom: 1px solid #2e3250;
+  border-bottom: 1px solid var(--border);
 }
 .kanban-col-body { padding: 0.75rem; display: flex; flex-direction: column; gap: 0.625rem; }
 
 /* タスクカード */
 .task-card {
-  background: #22263a; border: 1px solid #2e3250;
+  background: var(--surface2); border: 1px solid var(--border);
   border-radius: 8px; padding: 0.875rem;
   cursor: pointer; transition: all 0.15s;
   text-decoration: none; color: inherit; display: block;
   border-left: 3px solid transparent;
 }
-.task-card:hover { border-color: #4f7cff; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.task-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
 .task-card.high { border-left-color: var(--task-high); }
 .task-card.medium { border-left-color: var(--task-medium); }
 .task-card.low { border-left-color: var(--task-low); }
@@ -98,9 +98,9 @@
 .priority-medium { background: rgba(251,191,36,0.2); color: var(--task-medium); }
 .priority-low { background: rgba(96,165,250,0.2); color: var(--task-low); }
 
-.task-assignee { font-size: 0.72rem; color: #8b91b8; }
+.task-assignee { font-size: 0.72rem; color: var(--text-muted); }
 .task-due {
-  font-size: 0.7rem; color: #8b91b8; margin-left: auto;
+  font-size: 0.7rem; color: var(--text-muted); margin-left: auto;
   font-family: monospace;
 }
 .task-due.overdue { color: var(--task-high); font-weight: 600; }
@@ -126,20 +126,20 @@
 }
 .modal-overlay.open { display: flex; }
 .modal {
-  background: #1a1d27; border: 1px solid #2e3250;
+  background: var(--surface); border: 1px solid var(--border);
   border-radius: 12px; padding: 2rem; width: 520px; max-width: 95vw;
   max-height: 90vh; overflow-y: auto;
 }
 .modal-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 1.5rem; }
 .form-group { margin-bottom: 1.1rem; }
-.form-label { display: block; font-size: 0.78rem; color: #8b91b8; margin-bottom: 0.35rem; font-weight: 500; }
+.form-label { display: block; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.35rem; font-weight: 500; }
 .form-control {
   width: 100%; padding: 0.6rem 0.875rem;
-  background: #22263a; border: 1px solid #2e3250;
-  border-radius: 6px; color: #e8eaf6;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text);
   font-family: inherit; font-size: 0.875rem; outline: none; transition: border-color 0.15s;
 }
-.form-control:focus { border-color: #4f7cff; }
+.form-control:focus { border-color: var(--accent); }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 .form-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem; }
 .btn {
@@ -148,10 +148,10 @@
   cursor: pointer; font-family: inherit; font-size: 0.875rem;
   font-weight: 500; text-decoration: none; transition: all 0.2s;
 }
-.btn-primary { background: #4f7cff; color: #fff; }
-.btn-primary:hover { background: #3d6ae8; }
-.btn-ghost { background: transparent; color: #8b91b8; border: 1px solid #2e3250; }
-.btn-ghost:hover { border-color: #4f7cff; color: #4f7cff; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
 
 .empty-col { text-align: center; padding: 2rem 1rem; color: #4b5563; font-size: 0.8rem; }
 </style>

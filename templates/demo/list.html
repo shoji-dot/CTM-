@@ -31,8 +31,8 @@ async function uploadCsv(input) {
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="mb-0">🔬 デモ器台帳</h2>
     <div class="d-flex gap-2">
-      <a href="/static/demo_import_template.csv" download class="btn btn-outline-secondary btn-sm">⬇ CSVテンプレート</a>
-      <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('csvFileInput').click()">📂 CSV一括登録</button>
+      <a href="/static/demo_import_template.csv" download class="btn btn-ghost btn-sm">⬇ CSVテンプレート</a>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('csvFileInput').click()">📂 CSV一括登録</button>
       <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="uploadCsv(this)">
       <a href="/demo/new" class="btn btn-primary">＋ デモ器登録</a>
     </div>
@@ -41,8 +41,7 @@ async function uploadCsv(input) {
 <!-- メール送信ボタン -->
 <form method="post" action="/demo/send-alert-emails" style="margin-bottom:1rem">
   <button type="submit"
-          onclick="return confirm('アラート対象の担当営業にメールを送信しますか？')"
-          style="background:#2563eb;color:#fff;padding:8px 20px;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold">
+          onclick="return confirm('アラート対象の担当営業にメールを送信しますか？')" class="btn btn-primary">
     📧 アラートメール送信
   </button>
 </form>
@@ -119,7 +118,7 @@ async function uploadCsv(input) {
               {% endif %}
             </td>
             <td>
-              <a href="/demo/{{ loan.demo_unit_id }}" class="btn btn-sm btn-outline-primary">詳細</a>
+              <a href="/demo/{{ loan.demo_unit_id }}" class="btn btn-primary btn-sm">詳細</a>
             </td>
           </tr>
           {% endfor %}
@@ -145,7 +144,7 @@ async function uploadCsv(input) {
             </td>
             <td><span class="badge bg-primary">出荷中</span></td>
             <td>
-              <a href="/shipments/{{ ship.id }}" class="btn btn-sm btn-outline-secondary">詳細</a>
+              <a href="/shipments/{{ ship.id }}" class="btn btn-ghost btn-sm">詳細</a>
             </td>
           </tr>
           {% endfor %}
@@ -175,10 +174,10 @@ async function uploadCsv(input) {
           </select>
         </div>
         <div class="col-auto">
-          <button type="submit" class="btn btn-sm btn-outline-secondary">🔍 絞込</button>
-          <a href="/demo/" class="btn btn-sm btn-link">クリア</a>
+          <button type="submit" class="btn btn-ghost btn-sm">🔍 絞込</button>
+          <a href="/demo/" class="btn btn-ghost btn-sm">クリア</a>
           <a href="/demo/export.csv?status={{ status_filter }}&q={{ q }}"
-             class="btn btn-sm btn-outline-secondary">⬇ CSV</a>
+             class="btn btn-ghost btn-sm">⬇ CSV</a>
         </div>
       </form>
     </div>
@@ -257,7 +256,7 @@ async function uploadCsv(input) {
               {% endif %}
             </td>
             <td>
-              <a href="/demo/{{ unit.id }}" class="btn btn-sm btn-outline-primary">詳細</a>
+              <a href="/demo/{{ unit.id }}" class="btn btn-primary btn-sm">詳細</a>
             </td>
           </tr>
           {% else %}
