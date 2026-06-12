@@ -522,6 +522,14 @@ def create_shipment(db: Session, header: dict, items: list) -> Shipment:
     db.flush()
     type_label = {"sale": "販売出荷", "demo": "デモ貸出", "sample": "サンプル出荷", "repair_sub": "修理代替品出荷"}
     for i, item_data in enumerate(items, start=1):
+        # demo/repair_sub: デモ器ステータスが available か確認
+        demo_unit_id = item_data.get("demo_unit_id") or None
+        if item_data["shipment_type"] in ("demo", "repair_sub") and demo_unit_id:
+            from models import DemoUnit
+            du = db.query(DemoUnit).filter(DemoUnit.id == demo_unit_id).first()
+            if du and du.status != "available":
+                status_label = {"on_loan": "貸出中", "in_repair": "修理中", "retired": "廃棄済"}.get(du.status, du.status)
+                raise ValueError(f"デモ器 {du.unit_code} は現在「{status_label}」のため選択できません")
         item = ShipmentItem(
             shipment_id=obj.id,
             line_no=i,
@@ -531,7 +539,7 @@ def create_shipment(db: Session, header: dict, items: list) -> Shipment:
             serial_number=item_data.get("serial_number") or None,
             lot_number=item_data.get("lot_number") or None,
             expiry_date=item_data.get("expiry_date") or None,
-            demo_unit_id=item_data.get("demo_unit_id") or None,
+            demo_unit_id=demo_unit_id,
         )
         db.add(item)
         db.flush()
@@ -630,11 +638,11 @@ def validate_inventory_item(db: Session, product_id: int,
 
 # ── デモ器検索（デモ貸出・修理代替品用）─────────────────────
 def search_demo_units(db: Session, q: str = "", product_id: int = None):
-    """デモ器台帳を型番・管理番号・シリアル番号で検索"""
+    """デモ器台帳を型番・管理番号・シリアル番号で検索（貸出可のみ）"""
     from models import DemoUnit
     from sqlalchemy.orm import joinedload
     query = db.query(DemoUnit).options(joinedload(DemoUnit.product)).filter(
-        DemoUnit.status != "retired"
+        DemoUnit.status == "available"
     )
     if product_id:
         query = query.filter(DemoUnit.product_id == product_id)
