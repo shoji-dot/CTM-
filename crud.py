@@ -527,9 +527,13 @@ def create_shipment(db: Session, header: dict, items: list) -> Shipment:
         if item_data["shipment_type"] in ("demo", "repair_sub") and demo_unit_id:
             from models import DemoUnit
             du = db.query(DemoUnit).filter(DemoUnit.id == demo_unit_id).first()
-            if du and du.status != "available":
-                status_label = {"on_loan": "貸出中", "in_repair": "修理中", "retired": "廃棄済"}.get(du.status, du.status)
-                raise ValueError(f"デモ器 {du.unit_code} は現在「{status_label}」のため選択できません")
+            if du:
+                if du.status != "available":
+                    status_label = {"on_loan": "貸出中", "in_repair": "修理中", "retired": "廃棄済"}.get(du.status, du.status)
+                    raise ValueError(f"デモ器 {du.unit_code} は現在「{status_label}」のため選択できません")
+                # 出荷登録時にデモ器ステータスを貸出中に更新
+                du.status = "on_loan"
+                db.flush()
         item = ShipmentItem(
             shipment_id=obj.id,
             line_no=i,
@@ -571,10 +575,16 @@ def return_shipment(db: Session, shipment_id: int, returned_date: date):
         return None
     obj.returned_date = returned_date
     obj.status = "returned"
-    # demo/repair_sub の返却入庫
+    # demo/repair_sub の返却処理
     for item in obj.items:
         if item.shipment_type in ("demo", "repair_sub"):
             move_inventory(db, item.product_id, "in", item.quantity, reason="返却入庫")
+            # デモ器ステータスを貸出可に戻す
+            if item.demo_unit_id:
+                from models import DemoUnit
+                du = db.query(DemoUnit).filter(DemoUnit.id == item.demo_unit_id).first()
+                if du and du.status == "on_loan":
+                    du.status = "available"
     db.commit()
     db.refresh(obj)
     return obj
