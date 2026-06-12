@@ -515,6 +515,8 @@ def create_shipment(db: Session, header: dict, items: list) -> Shipment:
             break
     else:
         header["shipment_type"] = item_types[0] if item_types else "sale"
+    # quantity: 全明細の数量合計
+    header["quantity"] = sum(it.get("quantity", 1) for it in items)
     obj = Shipment(**header)
     db.add(obj)
     db.flush()

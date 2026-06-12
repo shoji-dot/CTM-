@@ -147,6 +147,7 @@ def _run_migrations():
             "ALTER TABLE demo_units ADD COLUMN IF NOT EXISTS location_type VARCHAR(50) DEFAULT 'own'",
             "ALTER TABLE demo_units ADD COLUMN IF NOT EXISTS location_name VARCHAR(200) DEFAULT 'CTM本社'",
             "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS shipment_type VARCHAR(20)",
+            "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS quantity INTEGER NOT NULL DEFAULT 1",
             "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS contact_name VARCHAR(100)",
             # ── RepairRecord staff_name カラム ──
             "ALTER TABLE repair_records ADD COLUMN IF NOT EXISTS staff_name VARCHAR(100)",

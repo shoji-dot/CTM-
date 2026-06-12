@@ -164,6 +164,7 @@ class Shipment(Base):
     return_due_date = Column(Date, nullable=True)   # デモ・代替品用
     returned_date = Column(Date, nullable=True)
     shipment_type = Column(String(20), nullable=True)   # sale/demo/sample/repair_sub
+    quantity      = Column(Integer, nullable=False, default=1)
     status        = Column(String(20), default="shipped")
     contact_name  = Column(String(100), nullable=True)   # 取引先担当者
     notes         = Column(Text, nullable=True)
