@@ -14,6 +14,7 @@
   {% endif %}
 
   <form method="post" action="/sales/new" style="background:white;border:1px solid #dde3ea;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:18px">
+    <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
     <input type="hidden" name="shipment_item_id" value="{{ shipment_item.id if shipment_item else '' }}">
     <input type="hidden" name="quote_id" value="{{ quote.id if quote else '' }}">
 
@@ -87,24 +88,3 @@
 {% endblock %}
 {% block scripts %}
 <script>
-const TAX_RATE = {{ tax_rate }} / 100;
-function fmt(n) { return '¥' + Math.round(n).toLocaleString(); }
-function calcTotal() {
-  const qty = parseFloat(document.getElementById('quantity').value) || 0;
-  const price = parseFloat(document.getElementById('unit_price').value) || 0;
-  const sub = qty * price;
-  const tax = Math.round(sub * TAX_RATE);
-  document.getElementById('preview-subtotal').textContent = fmt(sub);
-  document.getElementById('preview-tax').textContent = fmt(tax);
-  document.getElementById('preview-total').textContent = fmt(sub + tax);
-}
-function updatePrice() {
-  const sel = document.getElementById('product_id');
-  const opt = sel.options[sel.selectedIndex];
-  const price = opt.dataset.price || 0;
-  document.getElementById('unit_price').value = price;
-  calcTotal();
-}
-window.onload = () => { updatePrice(); calcTotal(); };
-</script>
-{% endblock %}

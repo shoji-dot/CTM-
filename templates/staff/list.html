@@ -24,6 +24,7 @@
           <a href="/staff/{{ s.id }}/edit" class="btn btn-sm btn-ghost">編集</a>
           {% if s.id != current.id %}
           <form method="post" action="/staff/{{ s.id }}/delete" style="display:inline" onsubmit="return confirm('削除しますか？')">
+            <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
             <button class="btn btn-sm btn-danger">削除</button>
           </form>
           {% endif %}

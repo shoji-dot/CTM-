@@ -27,6 +27,8 @@
       <tr style="border-bottom:1px solid #f0f4f8"><td style="padding:8px 0;color:#5f6b7a;width:130px">出荷日</td><td style="padding:8px 0;font-weight:600">{{ shipment.shipped_date }}</td></tr>
       {% if shipment.return_due_date %}<tr style="border-bottom:1px solid #f0f4f8"><td style="padding:8px 0;color:#5f6b7a">返却期限</td><td style="padding:8px 0;font-weight:600">{{ shipment.return_due_date }}</td></tr>{% endif %}
       {% if shipment.returned_date %}<tr style="border-bottom:1px solid #f0f4f8"><td style="padding:8px 0;color:#5f6b7a">返却日</td><td style="padding:8px 0;font-weight:600">{{ shipment.returned_date }}</td></tr>{% endif %}
+      {% if shipment.contact_name %}<tr style="border-bottom:1px solid #f0f4f8"><td style="padding:8px 0;color:#5f6b7a">取引先担当者</td><td style="padding:8px 0">{{ shipment.contact_name }}</td></tr>{% endif %}
+      {% if shipment.end_user_contact %}<tr style="border-bottom:1px solid #f0f4f8"><td style="padding:8px 0;color:#5f6b7a">エンドユーザー担当者</td><td style="padding:8px 0">{{ shipment.end_user_contact }}</td></tr>{% endif %}
       {% if shipment.staff_name %}<tr style="border-bottom:1px solid #f0f4f8"><td style="padding:8px 0;color:#5f6b7a">担当者</td><td style="padding:8px 0">{{ shipment.staff_name }}</td></tr>{% endif %}
       {% if shipment.notes %}<tr><td style="padding:8px 0;color:#5f6b7a">備考</td><td style="padding:8px 0">{{ shipment.notes }}</td></tr>{% endif %}
     </table>
@@ -81,12 +83,14 @@
     {% set has_demo = shipment.items | selectattr("shipment_type","in",["demo","repair_sub"]) | list %}
     {% if shipment.status == "shipped" and has_demo %}
     <form method="post" action="/shipments/{{ shipment.id }}/return" style="display:flex;gap:8px;align-items:center">
+      <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
       <input type="date" name="returned_date" value="{{ today }}" style="padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.85rem">
       <button type="submit" style="padding:9px 16px;background:#059669;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer">↩ 返却登録</button>
     </form>
     {% endif %}
     {% if shipment.status == "shipped" %}
     <form method="post" action="/shipments/{{ shipment.id }}/complete">
+      <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
       <button type="submit" style="padding:9px 16px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer">✓ 完了にする</button>
     </form>
     {% endif %}

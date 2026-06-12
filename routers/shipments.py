@@ -117,9 +117,10 @@ async def create_shipment(request: Request, db: Session = Depends(get_db)):
         "end_user_id":    int(end_user_id_str) if end_user_id_str else None,
         "shipped_date":   date.fromisoformat(shipped_date_str) if shipped_date_str else date.today(),
         "return_due_date": date.fromisoformat(return_due_str) if return_due_str else None,
-        "contact_name":   form_data.get("contact_name") or None,
-        "notes":          form_data.get("notes") or None,
-        "staff_name":     form_data.get("staff_name") or None,
+        "contact_name":      form_data.get("contact_name") or None,
+        "end_user_contact":  form_data.get("end_user_contact") or None,
+        "notes":             form_data.get("notes") or None,
+        "staff_name":        form_data.get("staff_name") or None,
     }
 
     # 明細（JSON配列で受け取る）

@@ -67,6 +67,7 @@
         <td class="actions">
           <a href="/quotes/{{ q.id }}" class="btn btn-sm btn-ghost">詳細</a>
           <form method="post" action="/quotes/{{ q.id }}/delete" style="display:inline" onsubmit="return confirm('削除しますか？')">
+            <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
             <button class="btn btn-sm btn-danger">削除</button>
           </form>
         </td>

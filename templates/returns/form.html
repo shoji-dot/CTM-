@@ -14,6 +14,7 @@
 
 <div class="form-card">
   <form method="post" action="/returns/new">
+    <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
     {% if sale %}
     <input type="hidden" name="sale_id" value="{{ sale.id }}">
     {% endif %}
@@ -65,19 +66,4 @@
 
       <div class="form-group" style="display:flex;align-items:center;gap:8px;padding-top:24px">
         <input type="checkbox" name="restock" value="1" id="restock" style="width:18px;height:18px">
-        <label for="restock" class="label" style="margin:0;cursor:pointer">在庫に戻す（入庫処理）</label>
-      </div>
-    </div>
-
-    <div class="form-group">
-      <label class="label">備考</label>
-      <textarea name="notes" class="textarea" rows="3" placeholder="追記事項があれば入力"></textarea>
-    </div>
-
-    <div class="d-flex gap-2">
-      <button type="submit" class="btn btn-primary">返品登録</button>
-      <a href="/returns/" class="btn btn-ghost">キャンセル</a>
-    </div>
-  </form>
-</div>
-{% endblock %}
+        <label for="restock" class="labe

@@ -7,6 +7,7 @@
 </div>
 <div class="form-card">
   <form method="post" action="/quotes/new" id="quoteForm">
+    <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
     {% if prefill and prefill.repair_id %}
     <input type="hidden" name="repair_id" value="{{ prefill.repair_id }}">
     <div class="detail-card" style="margin-bottom:16px;border-left:4px solid #3b82f6;background:#eff6ff;">
@@ -105,38 +106,4 @@ function calcTotal() {
   document.querySelectorAll(".quote-item-row").forEach(row => {
     const pid = row.querySelector(".product-select").value;
     const qty = parseInt(row.querySelector(".qty-input").value) || 0;
-    const dr = parseFloat(row.querySelector(".discount-input").value) || 100;
-    const priceEl = row.querySelector(".item-price");
-    if (pid && products[pid]) {
-      const subtotal = products[pid].price * qty * (dr / 100);
-      total += subtotal;
-      priceEl.textContent = "¥" + subtotal.toLocaleString(undefined, {maximumFractionDigits: 0})
-                          + "（" + dr + "%掛）";
-    } else {
-      priceEl.textContent = "―";
-    }
-  });
-  document.getElementById("totalAmount").textContent =
-    "¥" + total.toLocaleString(undefined, {maximumFractionDigits: 0});
-}
-
-function addRow() {
-  const container = document.getElementById("itemsContainer");
-  const first = container.querySelector(".quote-item-row");
-  const clone = first.cloneNode(true);
-  clone.querySelector(".product-select").value = "";
-  clone.querySelector(".qty-input").value = 1;
-  clone.querySelector(".discount-input").value = 100;
-  clone.querySelector(".item-price").textContent = "―";
-  clone.querySelector(".product-select").onchange = function() { updatePrice(this); };
-  clone.querySelector(".qty-input").onchange = calcTotal;
-  clone.querySelector(".discount-input").onchange = calcTotal;
-  container.appendChild(clone);
-}
-
-function removeRow(btn) {
-  const rows = document.querySelectorAll(".quote-item-row");
-  if (rows.length > 1) { btn.closest(".quote-item-row").remove(); calcTotal(); }
-}
-</script>
-{% endblock %}
+    const dr = parseFloa

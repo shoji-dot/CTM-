@@ -110,6 +110,7 @@
 <div class="detail-card" style="margin-top:16px;">
   <h2 class="detail-card-title">工程期限の変更</h2>
   <form method="post" action="/repairs/{{ repair.id }}/set-deadline" style="display:flex;align-items:flex-end;gap:12px;">
+    <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
     <div class="form-group" style="margin:0;">
       <label class="label">期限日</label>
       <input type="date" name="step_deadline" class="input" value="{{ repair.step_deadline or '' }}" style="width:160px;">
@@ -124,6 +125,7 @@
 <div class="detail-card" style="margin-top:16px;">
   <h2 class="detail-card-title">次のアクション：{{ next_label }}</h2>
   <form method="post" action="/repairs/{{ repair.id }}/advance">
+    <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
 
     {% if next_status == "inspecting" %}
     <div class="form-row">

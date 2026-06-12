@@ -12,110 +12,62 @@
     {% if unit.serial_number %}<code class="ms-2">{{ unit.serial_number }}</code>{% endif %}
   </div>
 
-  <!-- バリデーションエラー表示 -->
-  <div id="form-error" class="alert alert-danger d-none mb-3">
-    <strong>⚠️ エラー：</strong><span id="form-error-msg"></span>
-  </div>
-
   <div class="card">
     <div class="card-body">
-      <form method="post" id="loan-form">
+      <form method="post" id="loan-form" onsubmit="return validateLoan()">
+        <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
 
-        <!-- ══════════════════════════════════
-             貸出先（顧客）
-        ══════════════════════════════════ -->
-        <div class="mb-4">
-          <label class="form-label fw-bold">
-            貸出先（顧客） <span class="text-danger">*</span>
-          </label>
-
-          <div class="input-group mb-1">
-            <span class="input-group-text">🔍</span>
-            <input type="text" id="customer-search" class="form-control"
-                   placeholder="① 顧客名を入力して絞り込み..."
-                   autocomplete="off">
-            <button type="button" class="btn btn-outline-secondary"
-                    onclick="clearField('customer')">✕</button>
-          </div>
-
-          <div id="customer-candidates" class="list-group mb-2"
-               style="display:none; max-height:200px; overflow-y:auto;"></div>
-
-          <div id="customer-selected" class="alert alert-success py-2 mb-2 d-none">
-            ✅ <strong id="customer-selected-name"></strong> を選択中
-          </div>
-
-          <input type="hidden" name="customer_id" id="customer-id">
-
-          <div class="form-text text-muted mb-2">
-            ① 検索欄に入力→候補から選択　③ 下のリストから選択
-          </div>
-
-          <button type="button" class="btn btn-sm btn-outline-secondary"
-                  onclick="toggleFullList('customer')">
-            📋 ③ 全顧客リストから選ぶ
-          </button>
-          <select id="customer-full-list" class="form-select mt-2" style="display:none"
-                  onchange="selectFromDropdown('customer', this)">
-            <option value="">-- 選択してください --</option>
-            {% for c in customers %}
-            <option value="{{ c.id }}">{{ c.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <!-- ══════════════════════════════════
-             エンドユーザー
-        ══════════════════════════════════ -->
-        <div class="mb-4">
-          <label class="form-label fw-bold">
-            エンドユーザー
-            <span class="text-muted fw-normal small">（実使用者が貸出先と異なる場合）</span>
-          </label>
-
-          <div class="input-group mb-1">
-            <span class="input-group-text">🔍</span>
-            <input type="text" id="enduser-search" class="form-control"
-                   placeholder="① エンドユーザー名を入力して絞り込み..."
-                   autocomplete="off">
-            <button type="button" class="btn btn-outline-secondary"
-                    onclick="clearField('enduser')">✕</button>
-          </div>
-
-          <div id="enduser-candidates" class="list-group mb-2"
-               style="display:none; max-height:200px; overflow-y:auto;"></div>
-
-          <div id="enduser-selected" class="alert alert-success py-2 mb-2 d-none">
-            ✅ <strong id="enduser-selected-name"></strong> を選択中
-          </div>
-
-          <input type="hidden" name="end_user_id" id="enduser-id">
-
-          <div class="form-text text-muted mb-2">
-            未選択の場合は貸出先と同じとして扱われます
-          </div>
-
-          <button type="button" class="btn btn-sm btn-outline-secondary"
-                  onclick="toggleFullList('enduser')">
-            📋 ③ 全顧客リストから選ぶ
-          </button>
-          <select id="enduser-full-list" class="form-select mt-2" style="display:none"
-                  onchange="selectFromDropdown('enduser', this)">
-            <option value="">-- 選択してください（任意）--</option>
-            {% for c in customers %}
-            <option value="{{ c.id }}">{{ c.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <hr class="my-3">
-
+        <!-- 貸出先（顧客） -->
         <div class="mb-3">
-          <label class="form-label fw-bold">担当者名</label>
+          <label class="form-label fw-bold">貸出先（顧客） <span class="text-danger">*</span></label>
+          <div class="cac-wrap" style="position:relative">
+            <input type="text" id="customer_id_text" class="form-control"
+                   placeholder="顧客名で検索..."
+                   autocomplete="off"
+                   oninput="customerAC(this,'customer_id','customer_id_dd')"
+                   onfocus="if(this.value.trim())customerAC(this,'customer_id','customer_id_dd')">
+            <input type="hidden" name="customer_id" id="customer_id">
+            <div id="customer_id_dd" class="cac-dd"
+                 style="display:none;position:absolute;z-index:9999;background:white;
+                        border:1px solid #dde3ea;border-radius:8px;
+                        box-shadow:0 4px 12px rgba(0,0,0,.12);
+                        width:100%;max-height:240px;overflow-y:auto"></div>
+          </div>
+          <div class="form-text text-muted">顧客名を入力すると候補が表示されます</div>
+        </div>
+
+        <!-- 取引先担当者 -->
+        <div class="mb-3">
+          <label class="form-label fw-bold">取引先担当者</label>
           <input type="text" name="contact_name" class="form-control"
                  placeholder="先方の担当者名">
         </div>
 
+        <!-- エンドユーザー -->
+        <div class="mb-3">
+          <label class="form-label fw-bold">
+            エンドユーザー
+            <span class="text-muted fw-normal small">（実使用者が貸出先と異なる場合）</span>
+          </label>
+          <div class="cac-wrap" style="position:relative">
+            <input type="text" id="end_user_id_text" class="form-control"
+                   placeholder="エンドユーザー名で検索（任意）"
+                   autocomplete="off"
+                   oninput="customerAC(this,'end_user_id','end_user_id_dd')"
+                   onfocus="if(this.value.trim())customerAC(this,'end_user_id','end_user_id_dd')">
+            <input type="hidden" name="end_user_id" id="end_user_id">
+            <div id="end_user_id_dd" class="cac-dd"
+                 style="display:none;position:absolute;z-index:9999;background:white;
+                        border:1px solid #dde3ea;border-radius:8px;
+                        box-shadow:0 4px 12px rgba(0,0,0,.12);
+                        width:100%;max-height:240px;overflow-y:auto"></div>
+          </div>
+          <div class="form-text text-muted">未選択の場合は貸出先と同じとして扱われます</div>
+        </div>
+
+        <hr class="my-3">
+
+        <!-- 貸出日・返却期限 -->
         <div class="row g-3 mb-3">
           <div class="col-6">
             <label class="form-label fw-bold">貸出日 <span class="text-danger">*</span></label>
@@ -152,9 +104,7 @@
         </div>
 
         <div class="d-flex gap-2">
-          <button type="button" class="btn btn-primary" onclick="submitForm()">
-            📤 貸出登録する
-          </button>
+          <button type="submit" class="btn btn-primary">📤 貸出登録する</button>
           <a href="/demo/{{ unit.id }}" class="btn btn-outline-secondary">キャンセル</a>
         </div>
 
@@ -166,177 +116,13 @@
 
 {% block scripts %}
 <script>
-// 顧客データをサーバーサイドで生成（data属性経由で渡す）
-</script>
-
-<!-- 顧客データをdata属性で埋め込む（JS文字列エスケープ問題を回避） -->
-<div id="customer-data" style="display:none">
-  {% for c in customers %}
-  <span data-id="{{ c.id }}" data-name="{{ c.name }}"></span>
-  {% endfor %}
-</div>
-
-<script>
-// ══════════════════════════════════════════
-// DOMから顧客データを読み込む（文字化け・エスケープ問題なし）
-// ══════════════════════════════════════════
-const CUSTOMERS = Array.from(
-  document.querySelectorAll('#customer-data span')
-).map(el => ({
-  id:   el.dataset.id,
-  name: el.dataset.name
-}));
-
-// ══════════════════════════════════════════
-// 検索セットアップ
-// ══════════════════════════════════════════
-function setupSearch(prefix) {
-  const searchInput = document.getElementById(prefix + '-search');
-  const candidates  = document.getElementById(prefix + '-candidates');
-  const hiddenId    = document.getElementById(prefix + '-id');
-  const selectedBox = document.getElementById(prefix + '-selected');
-
-  searchInput.addEventListener('input', function () {
-    const q = this.value.trim();
-
-    // 選択済みをリセット
-    hiddenId.value = '';
-    selectedBox.classList.add('d-none');
-
-    if (q.length === 0) {
-      candidates.style.display = 'none';
-      candidates.innerHTML = '';
-      return;
-    }
-
-    const matched = CUSTOMERS.filter(function(c) {
-      return c.name.indexOf(q) !== -1;
-    });
-
-    candidates.style.display = 'block';
-
-    if (matched.length === 0) {
-      candidates.innerHTML =
-        '<div class="list-group-item list-group-item-danger">' +
-        '⚠️ 「' + escHtml(q) + '」は顧客登録にありません' +
-        '</div>';
-      return;
-    }
-
-    // data属性にIDと名前を持たせてonclickは使わない
-    candidates.innerHTML = matched.map(function(c) {
-      return '<button type="button"' +
-             ' class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"' +
-             ' data-cid="' + c.id + '"' +
-             ' data-cname="' + escAttr(c.name) + '">' +
-             escHtml(c.name) +
-             '<span class="badge bg-primary rounded-pill">選択</span>' +
-             '</button>';
-    }).join('');
-
-    // イベントはinnerHTMLではなくaddEventListenerで付ける
-    Array.from(candidates.querySelectorAll('button')).forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        selectItem(prefix, this.dataset.cid, this.dataset.cname);
-      });
-    });
-  });
-
-  // フォーカスが外れたら候補を閉じる（少し遅延）
-  searchInput.addEventListener('blur', function () {
-    setTimeout(function() {
-      candidates.style.display = 'none';
-    }, 200);
-  });
-  searchInput.addEventListener('focus', function () {
-    if (candidates.children.length > 0) {
-      candidates.style.display = 'block';
-    }
-  });
-}
-
-// ══════════════════════════════════════════
-// 選択処理（共通）
-// ══════════════════════════════════════════
-function selectItem(prefix, id, name) {
-  document.getElementById(prefix + '-id').value            = id;
-  document.getElementById(prefix + '-search').value        = name;
-  document.getElementById(prefix + '-selected-name').textContent = name;
-  document.getElementById(prefix + '-selected').classList.remove('d-none');
-  document.getElementById(prefix + '-candidates').style.display = 'none';
-  // ③ プルダウンも同期
-  var list = document.getElementById(prefix + '-full-list');
-  if (list) list.value = id;
-}
-
-// ✕ クリア
-function clearField(prefix) {
-  document.getElementById(prefix + '-search').value = '';
-  document.getElementById(prefix + '-id').value     = '';
-  document.getElementById(prefix + '-selected').classList.add('d-none');
-  document.getElementById(prefix + '-candidates').style.display = 'none';
-  document.getElementById(prefix + '-candidates').innerHTML = '';
-  var list = document.getElementById(prefix + '-full-list');
-  if (list) list.value = '';
-}
-
-// ③ プルダウンから選択
-function selectFromDropdown(prefix, selectEl) {
-  var id   = selectEl.value;
-  var name = selectEl.options[selectEl.selectedIndex].text;
-  if (!id) return;
-  selectItem(prefix, id, name);
-}
-
-// 折りたたみトグル
-function toggleFullList(prefix) {
-  var el = document.getElementById(prefix + '-full-list');
-  el.style.display = (el.style.display === 'none' || el.style.display === '')
-    ? 'block' : 'none';
-}
-
-// ══════════════════════════════════════════
-// フォーム送信バリデーション
-// ══════════════════════════════════════════
-function submitForm() {
-  var customerId = document.getElementById('customer-id').value;
-  var errorBox   = document.getElementById('form-error');
-  var errorMsg   = document.getElementById('form-error-msg');
-
-  if (!customerId) {
-    errorMsg.textContent =
-      '貸出先（顧客）を選択してください。顧客登録にない場合はまず顧客登録を行ってください。';
-    errorBox.classList.remove('d-none');
-    document.getElementById('customer-search').focus();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    return;
+function validateLoan() {
+  if (!document.getElementById('customer_id').value) {
+    alert('貸出先（顧客）を選択してください。');
+    document.getElementById('customer_id_text').focus();
+    return false;
   }
-
-  errorBox.classList.add('d-none');
-  document.getElementById('loan-form').submit();
+  return true;
 }
-
-// ══════════════════════════════════════════
-// エスケープ関数
-// ══════════════════════════════════════════
-function escHtml(str) {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-function escAttr(str) {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-// ══════════════════════════════════════════
-// 初期化
-// ══════════════════════════════════════════
-setupSearch('customer');
-setupSearch('enduser');
 </script>
 {% endblock %}

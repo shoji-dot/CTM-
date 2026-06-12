@@ -59,6 +59,7 @@
       {% else %}
       <div class="action-buttons">
         <form method="post" action="/quotes/{{ quote.id }}/status" style="display:inline">
+          <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
           <select name="status" class="select">
             <option value="draft" {{ "selected" if quote.status == "draft" }}>下書き</option>
             <option value="sent" {{ "selected" if quote.status == "sent" }}>送付済</option>
@@ -86,6 +87,7 @@
         <h3 style="margin:0 0 12px;font-size:16px;">承認の確認</h3>
         <p style="font-size:13px;color:#666;margin-bottom:16px;">この見積を承認します。コメントを入力できます。</p>
         <form method="post" action="/quotes/{{ quote.id }}/accept">
+          <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
           <textarea name="approval_comment" class="textarea" rows="3" placeholder="承認コメント（任意）" style="width:100%;margin-bottom:12px;"></textarea>
           <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button type="button" class="btn btn-ghost" onclick="document.getElementById('approveModal').style.display='none'">キャンセル</button>
@@ -101,6 +103,7 @@
         <h3 style="margin:0 0 12px;font-size:16px;color:#c0392b;">承認の取消</h3>
         <p style="font-size:13px;color:#666;margin-bottom:16px;">承認を取消します。理由を入力してください。</p>
         <form method="post" action="/quotes/{{ quote.id }}/cancel_approval">
+          <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
           <textarea name="cancel_comment" class="textarea" rows="3" placeholder="取消理由（必須）" required style="width:100%;margin-bottom:12px;"></textarea>
           <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button type="button" class="btn btn-ghost" onclick="document.getElementById('cancelModal').style.display='none'">キャンセル</button>

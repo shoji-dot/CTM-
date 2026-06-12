@@ -36,6 +36,7 @@
       {% if sale.status == 'confirmed' %}
       <a href="/invoices/new?customer_id={{ sale.customer_id }}" style="padding:10px 18px;background:#f57c00;color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.88rem">📄 請求書を作成</a>
       <form method="post" action="/sales/{{ sale.id }}/delete" onsubmit="return confirm('削除しますか？')">
+        <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
         <button type="submit" style="padding:10px 18px;background:transparent;color:#e53935;border:1.5px solid #e53935;border-radius:8px;font-weight:600;font-size:0.88rem;cursor:pointer">削除</button>
       </form>
       {% endif %}

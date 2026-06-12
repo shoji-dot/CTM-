@@ -7,6 +7,7 @@
 </div>
 <div class="form-card">
   <form method="post" action="/repairs/new">
+    <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
     <div class="form-section">
       <h2 class="form-section-title">受付情報</h2>
       <div class="form-row">
@@ -69,38 +70,4 @@
     <div class="form-section">
       <h2 class="form-section-title">修理代替品（出荷済みの修理代替品と紐づける場合）</h2>
       <div class="form-group">
-        <label class="label">修理代替品出荷</label>
-        <select name="replacement_shipment_id" class="select">
-          <option value="">（紐づけなし）</option>
-          {% for s in rep_shipments %}
-          <option value="{{ s.id }}">{{ s.shipment_number }} — {{ s.product_name }} / {{ s.customer_name }}{% if s.serial_number %} / {{ s.serial_number }}{% endif %}</option>
-          {% endfor %}
-        </select>
-        <p class="form-hint">種別「修理代替品」かつ出荷中の出荷が表示されます</p>
-      </div>
-    </div>
-
-    <div class="form-section">
-      <div class="form-group">
-        <label class="label">備考</label>
-        <textarea name="notes" class="textarea" rows="2"></textarea>
-      </div>
-    </div>
-
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary" onclick="return checkRepairCustomer()">受付登録</button>
-      <a href="/repairs/" class="btn btn-ghost">キャンセル</a>
-    </div>
-  </form>
-<script>
-function checkRepairCustomer() {
-  if (!document.getElementById('customer_id').value) {
-    alert('顧客を選択してください。');
-    document.getElementById('customer_id_text').focus();
-    return false;
-  }
-  return true;
-}
-</script>
-</div>
-{% endblock %}
+        <label class="labe

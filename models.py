@@ -166,8 +166,9 @@ class Shipment(Base):
     shipment_type = Column(String(20), nullable=True)   # sale/demo/sample/repair_sub
     quantity      = Column(Integer, nullable=False, default=1)
     status        = Column(String(20), default="shipped")
-    contact_name  = Column(String(100), nullable=True)   # 取引先担当者
-    notes         = Column(Text, nullable=True)
+    contact_name       = Column(String(100), nullable=True)   # 取引先担当者
+    end_user_contact   = Column(String(100), nullable=True)   # エンドユーザー担当者
+    notes              = Column(Text, nullable=True)
     staff_name    = Column(String(100), nullable=True)
     created_at    = Column(DateTime, default=now_jst)
     customer  = relationship("Customer", foreign_keys=[customer_id])

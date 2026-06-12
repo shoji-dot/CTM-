@@ -12,11 +12,22 @@
   {% endif %}
 
   <form method="post" action="/shipments/new" onsubmit="return prepareSubmit()">
+    <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
+
+    <!-- 明細追加ボタン（最上部） -->
+    <div style="background:white;border:1px solid #dde3ea;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:0.82rem;font-weight:600;color:#5f6b7a;white-space:nowrap">明細追加：</span>
+      <button type="button" onclick="addRow('sale')"       style="padding:7px 14px;background:#1a73e8;color:white;border:none;border-radius:6px;font-size:0.85rem;cursor:pointer;font-weight:600">＋ 販売</button>
+      <button type="button" onclick="addRow('sample')"     style="padding:7px 14px;background:#0d9488;color:white;border:none;border-radius:6px;font-size:0.85rem;cursor:pointer;font-weight:600">＋ サンプル</button>
+      <button type="button" onclick="addRow('demo')"       style="padding:7px 14px;background:#7c3aed;color:white;border:none;border-radius:6px;font-size:0.85rem;cursor:pointer;font-weight:600">＋ デモ貸出</button>
+      <button type="button" onclick="addRow('repair_sub')" style="padding:7px 14px;background:#b45309;color:white;border:none;border-radius:6px;font-size:0.85rem;cursor:pointer;font-weight:600">＋ 修理代替品</button>
+    </div>
 
     <!-- ヘッダー -->
     <div style="background:white;border:1px solid #dde3ea;border-radius:12px;padding:20px;margin-bottom:16px">
       <h2 style="font-size:1rem;font-weight:700;margin:0 0 16px">出荷ヘッダー</h2>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <!-- 取引先 -->
         <div>
           <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">取引先 <span style="color:#e53935">*</span></label>
           <div class="cac-wrap" style="position:relative">
@@ -28,6 +39,12 @@
             <div id="customer_id_dd" class="cac-dd" style="display:none;position:absolute;z-index:9999;background:white;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);width:100%;max-height:240px;overflow-y:auto"></div>
           </div>
         </div>
+        <!-- 取引先担当者 -->
+        <div>
+          <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">取引先担当者</label>
+          <input type="text" name="contact_name" placeholder="取引先の担当者名" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem;box-sizing:border-box">
+        </div>
+        <!-- エンドユーザー -->
         <div>
           <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">エンドユーザー</label>
           <div class="cac-wrap" style="position:relative">
@@ -39,22 +56,27 @@
             <div id="end_user_id_dd" class="cac-dd" style="display:none;position:absolute;z-index:9999;background:white;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);width:100%;max-height:240px;overflow-y:auto"></div>
           </div>
         </div>
+        <!-- エンドユーザー担当者 -->
+        <div>
+          <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">エンドユーザー担当者</label>
+          <input type="text" name="end_user_contact" placeholder="エンドユーザーの担当者名" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem;box-sizing:border-box">
+        </div>
+        <!-- 出荷日 -->
         <div>
           <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">出荷日 <span style="color:#e53935">*</span></label>
           <input type="date" name="shipped_date" value="{{ today }}" required style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
         </div>
+        <!-- 返却期限（デモ・代替品のみ表示） -->
         <div id="return_due_wrap" style="display:none">
           <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">返却期限</label>
           <input type="date" name="return_due_date" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
         </div>
+        <!-- 担当者（自社） -->
         <div>
           <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">担当者（自社）</label>
           <input type="text" name="staff_name" placeholder="担当者名" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
         </div>
-        <div>
-          <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">取引先担当者</label>
-          <input type="text" name="contact_name" placeholder="取引先の担当者名" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
-        </div>
+        <!-- 備考 -->
         <div>
           <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">備考</label>
           <input type="text" name="notes" placeholder="備考" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
@@ -62,18 +84,9 @@
       </div>
     </div>
 
-    <!-- 明細 -->
+    <!-- 明細テーブル -->
     <div style="background:white;border:1px solid #dde3ea;border-radius:12px;padding:20px;margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <h2 style="font-size:1rem;font-weight:700;margin:0">明細</h2>
-        <div style="display:flex;gap:8px">
-          <button type="button" onclick="addRow('sale')"    style="padding:6px 12px;background:#1a73e8;color:white;border:none;border-radius:6px;font-size:0.82rem;cursor:pointer">＋ 販売</button>
-          <button type="button" onclick="addRow('sample')"  style="padding:6px 12px;background:#0d9488;color:white;border:none;border-radius:6px;font-size:0.82rem;cursor:pointer">＋ サンプル</button>
-          <button type="button" onclick="addRow('demo')"    style="padding:6px 12px;background:#7c3aed;color:white;border:none;border-radius:6px;font-size:0.82rem;cursor:pointer">＋ デモ貸出</button>
-          <button type="button" onclick="addRow('repair_sub')" style="padding:6px 12px;background:#b45309;color:white;border:none;border-radius:6px;font-size:0.82rem;cursor:pointer">＋ 修理代替品</button>
-        </div>
-      </div>
-
+      <h2 style="font-size:1rem;font-weight:700;margin:0 0 14px">明細</h2>
       <table style="width:100%;border-collapse:collapse;font-size:0.85rem" id="items_table">
         <thead>
           <tr style="background:#f8fafc;border-bottom:2px solid #dde3ea">
