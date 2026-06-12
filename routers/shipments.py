@@ -149,6 +149,8 @@ async def create_shipment(request: Request, db: Session = Depends(get_db)):
             "demo_unit_id":  int(it["demo_unit_id"]) if it.get("demo_unit_id") else None,
         })
 
+    # NOTE: デモ器購入日 <= 出荷日 のバリデーションは意図的に未実装。
+    # 運用上の矛盾は認識済みだが、制約の必要性が確定するまで追加しない。(2026-06-12)
     try:
         crud.create_shipment(db, header, items)
     except Exception as e:
