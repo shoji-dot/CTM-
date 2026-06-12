@@ -19,8 +19,9 @@
       <span style="font-size:0.82rem;font-weight:600;color:#5f6b7a;white-space:nowrap">明細追加：</span>
       <button type="button" onclick="addRow('sale')"       style="padding:7px 14px;background:#1a73e8;color:white;border:none;border-radius:6px;font-size:0.85rem;cursor:pointer;font-weight:600">＋ 販売</button>
       <button type="button" onclick="addRow('sample')"     style="padding:7px 14px;background:#0d9488;color:white;border:none;border-radius:6px;font-size:0.85rem;cursor:pointer;font-weight:600">＋ サンプル</button>
-      <button type="button" onclick="addRow('demo')"       style="padding:7px 14px;background:#7c3aed;color:white;border:none;border-radius:6px;font-size:0.85rem;cursor:pointer;font-weight:600">＋ デモ貸出</button>
+      <button type="button" id="btn_demo" onclick="addRow('demo')"       style="padding:7px 14px;background:#7c3aed;color:white;border:none;border-radius:6px;font-size:0.85rem;cursor:pointer;font-weight:600">＋ デモ貸出</button>
       <button type="button" onclick="addRow('repair_sub')" style="padding:7px 14px;background:#b45309;color:white;border:none;border-radius:6px;font-size:0.85rem;cursor:pointer;font-weight:600">＋ 修理代替品</button>
+      <span style="font-size:0.75rem;color:#9ca3af;margin-left:4px">（Enterで選択・↑↓で候補移動・Tabで次フィールド）</span>
     </div>
 
     <!-- ヘッダー -->
@@ -42,7 +43,7 @@
         <!-- 取引先担当者 -->
         <div>
           <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">取引先担当者</label>
-          <input type="text" name="contact_name" placeholder="取引先の担当者名" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem;box-sizing:border-box">
+          <input type="text" name="contact_name" id="contact_name" placeholder="取引先の担当者名" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem;box-sizing:border-box">
         </div>
         <!-- エンドユーザー -->
         <div>
@@ -59,27 +60,27 @@
         <!-- エンドユーザー担当者 -->
         <div>
           <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">エンドユーザー担当者</label>
-          <input type="text" name="end_user_contact" placeholder="エンドユーザーの担当者名" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem;box-sizing:border-box">
+          <input type="text" name="end_user_contact" id="end_user_contact" placeholder="エンドユーザーの担当者名" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem;box-sizing:border-box">
         </div>
         <!-- 出荷日 -->
         <div>
           <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">出荷日 <span style="color:#e53935">*</span></label>
-          <input type="date" name="shipped_date" value="{{ today }}" required style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
+          <input type="date" name="shipped_date" id="shipped_date" value="{{ today }}" required style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
         </div>
         <!-- 返却期限（デモ・代替品のみ表示） -->
         <div id="return_due_wrap" style="display:none">
           <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">返却期限</label>
-          <input type="date" name="return_due_date" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
+          <input type="date" name="return_due_date" id="return_due_date" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
         </div>
         <!-- 担当者（自社） -->
         <div>
           <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">担当者（自社）</label>
-          <input type="text" name="staff_name" placeholder="担当者名" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
+          <input type="text" name="staff_name" id="staff_name" placeholder="担当者名" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
         </div>
         <!-- 備考 -->
         <div>
           <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">備考</label>
-          <input type="text" name="notes" placeholder="備考" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
+          <input type="text" name="notes" id="notes" placeholder="備考" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
         </div>
       </div>
     </div>
@@ -107,7 +108,7 @@
 
     <input type="hidden" name="items_json" id="items_json">
     <div style="display:flex;gap:10px">
-      <button type="submit" style="padding:10px 24px;background:#1a73e8;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer">📦 出荷登録</button>
+      <button type="submit" id="submit_btn" style="padding:10px 24px;background:#1a73e8;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer">📦 出荷登録</button>
       <a href="/shipments" style="padding:10px 18px;border:1.5px solid #dde3ea;border-radius:8px;color:#5f6b7a;text-decoration:none;font-weight:600">キャンセル</a>
     </div>
   </form>
@@ -124,13 +125,20 @@
 .type-demo      { background:#ede9fe;color:#5b21b6 }
 .type-repair_sub{ background:#fef3c7;color:#92400e }
 input.item-input { padding:5px 8px;border:1.5px solid #dde3ea;border-radius:6px;font-size:0.83rem;width:100% }
+/* キーボードナビゲーション ハイライト */
+.ac-kb-active { background:#e8f0fe !important; outline:2px solid #1a73e8; }
+.dd-kb-active { background:#f0f4ff !important; outline:2px solid #7c3aed; }
 </style>
 
+{% endblock %}
+
+{% block scripts %}
 <script>
 const TYPE_LABELS = { sale:"販売", sample:"サンプル", demo:"デモ貸出", repair_sub:"修理代替品" };
 let rowCount = 0;
 let currentSearchRow = null;
 let searchTimer = null;
+let ddHighlightIdx = -1;  // 商品検索ドロップダウンのハイライト位置
 
 function updateReturnDue() {
   const rows = document.querySelectorAll('#items_body tr.item-row');
@@ -162,17 +170,22 @@ function addRow(type) {
       <input type="text" class="item-input" id="search_${id}"
              placeholder="${isDemoType ? 'デモ器名・管理番号・S.N' : '商品名・S.N・ロット番号'}"
              oninput="onSearchInput(${id}, '${type}')"
-             onfocus="onSearchInput(${id}, '${type}')"
+             onfocus="onSearchFocus(${id}, '${type}')"
              autocomplete="off">
       <div id="selected_${id}" style="font-size:0.78rem;color:#5f6b7a;margin-top:3px;display:none"></div>
     </td>
-    <td><input type="number" class="item-input" id="qty_${id}" value="1" min="1" style="width:60px;text-align:center"></td>
+    <td><input type="number" class="item-input" id="qty_${id}" value="1" min="1" style="width:60px;text-align:center"
+               onkeydown="onQtyKeydown(event, ${id})"></td>
     <td>${isDemoType ? '―' : `<input type="date" class="item-input" id="expiry_${id}" style="font-size:0.78rem">`}</td>
-    <td><button type="button" onclick="removeRow(${id})" style="background:none;border:none;color:#e53935;cursor:pointer;font-size:1rem">×</button></td>
+    <td><button type="button" onclick="removeRow(${id})" style="background:none;border:none;color:#e53935;cursor:pointer;font-size:1rem" tabindex="-1">×</button></td>
   `;
   document.getElementById('items_body').appendChild(tr);
   updateReturnDue();
-  document.getElementById(`search_${id}`).focus();
+
+  // 検索フィールドにキーボードナビゲーション追加
+  const searchEl = document.getElementById(`search_${id}`);
+  searchEl.addEventListener('keydown', e => onSearchKeydown(e, id, type));
+  searchEl.focus();
 }
 
 function removeRow(id) {
@@ -184,10 +197,16 @@ function removeRow(id) {
   updateReturnDue();
 }
 
+function onSearchFocus(id, type) {
+  const q = document.getElementById(`search_${id}`).value.trim();
+  if (q) onSearchInput(id, type);
+}
+
 function onSearchInput(id, type) {
   clearTimeout(searchTimer);
   const q = document.getElementById(`search_${id}`).value.trim();
   currentSearchRow = id;
+  ddHighlightIdx = -1;
   searchTimer = setTimeout(() => {
     const isDemoType = (type === 'demo' || type === 'repair_sub');
     const url = isDemoType
@@ -199,12 +218,15 @@ function onSearchInput(id, type) {
 
 function showDropdown(id, type, items) {
   const input = document.getElementById(`search_${id}`);
+  if (!input) return;
   const rect = input.getBoundingClientRect();
   const dd = document.getElementById('search_dropdown');
   dd.style.display = 'block';
   dd.style.left = (window.scrollX + rect.left) + 'px';
   dd.style.top  = (window.scrollY + rect.bottom + 2) + 'px';
   dd.style.width = Math.max(360, rect.width) + 'px';
+  dd.dataset.rowId = id;
+  dd.dataset.rowType = type;
 
   const isDemoType = (type === 'demo' || type === 'repair_sub');
 
@@ -212,7 +234,7 @@ function showDropdown(id, type, items) {
     dd.innerHTML = '<div style="padding:12px 16px;color:#9ca3af;font-size:0.85rem">候補が見つかりません</div>';
     return;
   }
-  dd.innerHTML = items.map(it => {
+  dd.innerHTML = items.map((it, idx) => {
     let main, sub;
     if (isDemoType) {
       main = `<strong>${it.product_name}</strong> <span style="color:#7c3aed;font-size:0.78rem">【${it.status_label}】</span>`;
@@ -221,14 +243,92 @@ function showDropdown(id, type, items) {
       main = `<strong>${it.product_name}</strong>`;
       sub  = `S.N：${it.serial_number||'―'}　ロット：${it.lot_number||'―'}　入庫日：${it.moved_at||'―'}`;
     }
-    const data = encodeURIComponent(JSON.stringify(it));
-    return `<div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f0f4f8"
-                 onmousedown="selectItem(${id},'${type}',${JSON.stringify(it).replace(/"/g,'&quot;')})"
-                 onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background=''">
+    const dataAttr = JSON.stringify(it).replace(/"/g,'&quot;');
+    return `<div data-dd-idx="${idx}" data-item='${JSON.stringify(it).replace(/'/g,"&#39;")}'
+                 style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f0f4f8"
+                 onmousedown="selectItemFromDD(this)"
+                 onmouseover="ddHover(this)" onmouseout="ddUnhover(this)">
               <div style="font-size:0.85rem">${main}</div>
               <div style="font-size:0.75rem;color:#5f6b7a">${sub}</div>
             </div>`;
   }).join('');
+  ddHighlightIdx = -1;
+}
+
+function ddHover(el)   { el.style.background = '#f0f4f8'; }
+function ddUnhover(el) {
+  const idx = parseInt(el.dataset.ddIdx);
+  el.style.background = idx === ddHighlightIdx ? '#f0f4ff' : '';
+}
+
+function ddSetHighlight(idx) {
+  const dd = document.getElementById('search_dropdown');
+  const items = dd.querySelectorAll('[data-dd-idx]');
+  items.forEach(el => {
+    const i = parseInt(el.dataset.ddIdx);
+    el.classList.toggle('dd-kb-active', i === idx);
+    el.style.background = '';
+  });
+  if (items[idx]) items[idx].scrollIntoView({block:'nearest'});
+  ddHighlightIdx = idx;
+}
+
+function selectItemFromDD(el) {
+  const id   = parseInt(document.getElementById('search_dropdown').dataset.rowId);
+  const type = document.getElementById('search_dropdown').dataset.rowType;
+  const it   = JSON.parse(el.dataset.item);
+  selectItem(id, type, it);
+}
+
+function onSearchKeydown(e, id, type) {
+  const dd = document.getElementById('search_dropdown');
+  const visible = dd.style.display !== 'none' && dd.dataset.rowId == id;
+  const items = visible ? [...dd.querySelectorAll('[data-dd-idx]')] : [];
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (!visible) { onSearchFocus(id, type); return; }
+    ddSetHighlight(Math.min(ddHighlightIdx + 1, items.length - 1));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    ddSetHighlight(Math.max(ddHighlightIdx - 1, 0));
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (visible && items.length) {
+      const target = ddHighlightIdx >= 0 ? items[ddHighlightIdx] : (items.length === 1 ? items[0] : null);
+      if (target) { selectItemFromDD(target); return; }
+    }
+    // 候補未選択のままEnter → フォームsubmit阻止、何もしない
+  } else if (e.key === 'Tab') {
+    if (visible && items.length === 1) {
+      e.preventDefault();
+      selectItemFromDD(items[0]);
+    } else if (visible && ddHighlightIdx >= 0) {
+      e.preventDefault();
+      selectItemFromDD(items[ddHighlightIdx]);
+    } else {
+      dd.style.display = 'none';
+    }
+  } else if (e.key === 'Escape') {
+    dd.style.display = 'none';
+  }
+}
+
+function onQtyKeydown(e, id) {
+  // Enterキーで出荷登録ボタンへフォーカス（または次の検索フィールドへ）
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const rows = [...document.querySelectorAll('#items_body tr.item-row')];
+    const myIdx = rows.findIndex(r => r.id === `row_${id}`);
+    if (myIdx < rows.length - 1) {
+      // 次の明細の検索フィールドへ
+      const nextId = rows[myIdx + 1].id.replace('row_', '');
+      const nextSearch = document.getElementById(`search_${nextId}`);
+      if (nextSearch) { nextSearch.focus(); return; }
+    }
+    // 最後の明細 → 出荷登録ボタンへ
+    document.getElementById('submit_btn').focus();
+  }
 }
 
 function selectItem(id, type, it) {
@@ -256,12 +356,91 @@ function selectItem(id, type, it) {
     if (expEl && it.expiry_date) expEl.value = it.expiry_date;
   }
   document.getElementById('search_dropdown').style.display = 'none';
+  ddHighlightIdx = -1;
+  // 選択後、数量フィールドへフォーカス
+  setTimeout(() => {
+    const qty = document.getElementById(`qty_${id}`);
+    if (qty) { qty.focus(); qty.select(); }
+  }, 0);
 }
 
 document.addEventListener('click', e => {
   if (!e.target.closest('#search_dropdown') && !e.target.closest('.item-input')) {
     document.getElementById('search_dropdown').style.display = 'none';
   }
+});
+
+// ==================== customerAC キーボードナビゲーション ====================
+function addAcKeyboard(inputId, ddId, hiddenId) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  input.addEventListener('keydown', function(e) {
+    const dd = document.getElementById(ddId);
+    if (!dd || dd.style.display === 'none') return;
+    const items = [...dd.querySelectorAll('div[style*="cursor:pointer"],' +
+      'div[style*="cursor: pointer"]')].filter(d => d.textContent.trim());
+    if (!items.length) return;
+
+    const current = dd.querySelector('.ac-kb-active');
+    let idx = current ? items.indexOf(current) : -1;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (current) current.classList.remove('ac-kb-active');
+      idx = Math.min(idx + 1, items.length - 1);
+      items[idx].classList.add('ac-kb-active');
+      items[idx].scrollIntoView({block:'nearest'});
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (current) current.classList.remove('ac-kb-active');
+      idx = Math.max(idx - 1, 0);
+      items[idx].classList.add('ac-kb-active');
+      items[idx].scrollIntoView({block:'nearest'});
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (current) current.dispatchEvent(new MouseEvent('mousedown', {bubbles:true}));
+      else if (items.length === 1) items[0].dispatchEvent(new MouseEvent('mousedown', {bubbles:true}));
+    } else if (e.key === 'Tab') {
+      if (current) {
+        e.preventDefault();
+        current.dispatchEvent(new MouseEvent('mousedown', {bubbles:true}));
+      } else if (items.length === 1) {
+        e.preventDefault();
+        items[0].dispatchEvent(new MouseEvent('mousedown', {bubbles:true}));
+      } else {
+        dd.style.display = 'none';
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      dd.style.display = 'none';
+    }
+  });
+}
+
+// DOMContentLoaded後にACキーボードを設定
+document.addEventListener('DOMContentLoaded', () => {
+  addAcKeyboard('customer_id_text', 'customer_id_dd', 'customer_id');
+  addAcKeyboard('end_user_id_text', 'end_user_id_dd', 'end_user_id');
+
+  // 取引先Enterキー後、取引先担当者へ（ACが閉じていた場合）
+  document.getElementById('customer_id_text').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      const dd = document.getElementById('customer_id_dd');
+      if (!dd || dd.style.display === 'none') {
+        e.preventDefault();
+        document.getElementById('contact_name').focus();
+      }
+    }
+  });
+  document.getElementById('end_user_id_text').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      const dd = document.getElementById('end_user_id_dd');
+      if (!dd || dd.style.display === 'none') {
+        e.preventDefault();
+        document.getElementById('end_user_contact').focus();
+      }
+    }
+  });
 });
 
 function prepareSubmit() {

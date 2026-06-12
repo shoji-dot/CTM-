@@ -579,12 +579,18 @@ def return_shipment(db: Session, shipment_id: int, returned_date: date):
     for item in obj.items:
         if item.shipment_type in ("demo", "repair_sub"):
             move_inventory(db, item.product_id, "in", item.quantity, reason="返却入庫")
-            # デモ器ステータスを貸出可に戻す
+            # デモ器ステータスを貸出可に戻す（他アクティブ出荷がない場合のみ）
             if item.demo_unit_id:
                 from models import DemoUnit
                 du = db.query(DemoUnit).filter(DemoUnit.id == item.demo_unit_id).first()
                 if du and du.status == "on_loan":
-                    du.status = "available"
+                    other = db.query(ShipmentItem).join(Shipment).filter(
+                        ShipmentItem.demo_unit_id == item.demo_unit_id,
+                        ShipmentItem.shipment_id != obj.id,
+                        Shipment.status.in_(["shipped", "pending"]),
+                    ).first()
+                    if not other:
+                        du.status = "available"
     db.commit()
     db.refresh(obj)
     return obj
@@ -606,11 +612,17 @@ def delete_shipment(db: Session, shipment_id: int):
     if obj:
         if obj.status in ("shipped", "pending"):
             for item in obj.items:
-                # デモ器ステータスを available に戻す
+                # デモ器ステータスを available に戻す（他アクティブ出荷がない場合のみ）
                 if item.shipment_type in ("demo", "repair_sub") and item.demo_unit_id:
                     du = db.query(DemoUnit).filter(DemoUnit.id == item.demo_unit_id).first()
                     if du and du.status == "on_loan":
-                        du.status = "available"
+                        other = db.query(ShipmentItem).join(Shipment).filter(
+                            ShipmentItem.demo_unit_id == item.demo_unit_id,
+                            ShipmentItem.shipment_id != obj.id,
+                            Shipment.status.in_(["shipped", "pending"]),
+                        ).first()
+                        if not other:
+                            du.status = "available"
                 # 通常在庫は返庫
                 elif item.shipment_type not in ("demo", "repair_sub"):
                     move_inventory(db, item.product_id, "in", item.quantity, reason="出荷取消")
