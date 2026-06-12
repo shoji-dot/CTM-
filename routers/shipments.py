@@ -187,3 +187,10 @@ async def return_shipment(shipment_id: int, request: Request, db: Session = Depe
 def complete_shipment(shipment_id: int, db: Session = Depends(get_db)):
     crud.complete_shipment(db, shipment_id)
     return RedirectResponse(f"/shipments/{shipment_id}", status_code=303)
+
+
+# ── 削除 ──────────────────────────────────────────────
+@router.post("/shipments/{shipment_id}/delete")
+def delete_shipment(shipment_id: int, db: Session = Depends(get_db)):
+    crud.delete_shipment(db, shipment_id)
+    return RedirectResponse("/shipments", status_code=303)

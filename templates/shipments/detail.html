@@ -79,7 +79,7 @@
   </div>
 
   <!-- アクション -->
-  <div style="display:flex;gap:10px;flex-wrap:wrap">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
     {% set has_demo = shipment.items | selectattr("shipment_type","in",["demo","repair_sub"]) | list %}
     {% if shipment.status == "shipped" and has_demo %}
     <form method="post" action="/shipments/{{ shipment.id }}/return" style="display:flex;gap:8px;align-items:center">
@@ -94,6 +94,15 @@
       <button type="submit" style="padding:9px 16px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer">✓ 完了にする</button>
     </form>
     {% endif %}
+    <!-- 削除ボタン（確認ダイアログあり） -->
+    <form method="post" action="/shipments/{{ shipment.id }}/delete"
+          onsubmit="return confirm('この出荷記録を削除しますか？\nデモ器は貸出可に戻されます。\nこの操作は取り消せません。')">
+      <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
+      <button type="submit"
+              style="padding:9px 16px;background:white;color:#dc2626;border:1.5px solid #dc2626;border-radius:8px;font-weight:600;cursor:pointer">
+        🗑 削除
+      </button>
+    </form>
   </div>
 </div>
 {% endblock %}

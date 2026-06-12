@@ -152,6 +152,16 @@ def _run_migrations():
             "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS end_user_contact VARCHAR(100)",
             # ── RepairRecord staff_name カラム ──
             "ALTER TABLE repair_records ADD COLUMN IF NOT EXISTS staff_name VARCHAR(100)",
+            # ── デモ器ステータス修復（出荷中なのにavailableのまま残っている旧データ対応） ──
+            """UPDATE demo_units SET status = 'on_loan'
+               WHERE id IN (
+                   SELECT DISTINCT si.demo_unit_id
+                   FROM shipment_items si
+                   JOIN shipments s ON s.id = si.shipment_id
+                   WHERE si.demo_unit_id IS NOT NULL
+                     AND s.status IN ('shipped', 'pending')
+               )
+               AND status = 'available'""",
         ]
     else:
         stmts = [

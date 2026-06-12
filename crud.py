@@ -601,12 +601,18 @@ def complete_shipment(db: Session, shipment_id: int):
 
 
 def delete_shipment(db: Session, shipment_id: int):
-    from models import ShipmentItem
+    from models import ShipmentItem, DemoUnit
     obj = db.query(Shipment).filter(Shipment.id == shipment_id).first()
     if obj:
-        if obj.status == "shipped":
+        if obj.status in ("shipped", "pending"):
             for item in obj.items:
-                if item.shipment_type not in ("demo", "repair_sub"):
+                # デモ器ステータスを available に戻す
+                if item.shipment_type in ("demo", "repair_sub") and item.demo_unit_id:
+                    du = db.query(DemoUnit).filter(DemoUnit.id == item.demo_unit_id).first()
+                    if du and du.status == "on_loan":
+                        du.status = "available"
+                # 通常在庫は返庫
+                elif item.shipment_type not in ("demo", "repair_sub"):
                     move_inventory(db, item.product_id, "in", item.quantity, reason="出荷取消")
         db.delete(obj)
         db.commit()
@@ -714,48 +720,3 @@ def get_expiry_alerts(db: Session, days: int = 30):
         })
     return alerts
 
-
-def get_expiry_alerts(db, days: int = 30):
-    """使用期限がdays日以内 or 期限切れの入庫ロットを返す（在庫あり商品のみ）"""
-    from datetime import date, timedelta
-    from models import InventoryHistory, Inventory
-    today = date.today()
-    threshold = today + timedelta(days=days)
-
-    stocked_ids = {r.product_id for r in db.query(Inventory).filter(Inventory.current_stock > 0).all()}
-    if not stocked_ids:
-        return []
-
-    rows = (
-        db.query(InventoryHistory)
-        .filter(
-            InventoryHistory.movement_type == "in",
-            InventoryHistory.expiry_date.isnot(None),
-            InventoryHistory.product_id.in_(stocked_ids),
-        )
-        .order_by(InventoryHistory.expiry_date)
-        .all()
-    )
-
-    alerts = []
-    seen = set()
-    for r in rows:
-        try:
-            exp = date.fromisoformat(str(r.expiry_date)[:10])
-        except (ValueError, TypeError):
-            continue
-        if exp > threshold:
-            continue
-        key = (r.product_id, str(exp))
-        if key in seen:
-            continue
-        seen.add(key)
-        alerts.append({
-            "product_id":   r.product_id,
-            "product_name": r.product.name if r.product else "",
-            "lot_number":   r.lot_number or "",
-            "expiry_date":  exp,
-            "days_left":    (exp - today).days,
-            "is_expired":   exp < today,
-        })
-    return alerts
