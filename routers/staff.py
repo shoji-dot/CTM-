@@ -2,34 +2,37 @@ from fastapi import APIRouter, Depends, Request, Form, Cookie
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
-from collections import defaultdict
 from database import get_db
-from models import Staff, Quote, Customer
+from models import Staff, Quote, Customer, Task, Material, MaterialVersion, Favorite, TaskComment
+from auth import hash_password, verify_password, verify_and_update_password, create_session_token, get_current_staff, now_jst
+import crud
 
-# [I7] ログイン試行制限: {login_id: (失敗回数, 最終失敗時刻)}
-_login_attempts: dict = defaultdict(lambda: {"count": 0, "last_fail": None})
+# [B2] ログイン試行制限（DB永続化）
 _MAX_ATTEMPTS = 5
-_LOCK_MINUTES = 5
+_LOCK_MINUTES = 15  # ロック時間を5分→15分に強化
 
-def _check_login_locked(login_id: str) -> bool:
-    """True=ロック中。ロック期間を過ぎていればカウントをリセットしてFalseを返す。"""
-    rec = _login_attempts[login_id]
-    if rec["count"] >= _MAX_ATTEMPTS and rec["last_fail"]:
-        elapsed = datetime.now() - rec["last_fail"]
-        if elapsed < timedelta(minutes=_LOCK_MINUTES):
-            return True
-        # ロック期間経過 → リセット
-        _login_attempts[login_id] = {"count": 0, "last_fail": None}
+
+def _is_locked(staff: Staff) -> bool:
+    """True=ロック中。ロック期限切れなら False を返す（DBはログイン成功時にリセット）。"""
+    if staff.locked_until and staff.locked_until > now_jst():
+        return True
     return False
 
-def _record_fail(login_id: str):
-    _login_attempts[login_id]["count"] += 1
-    _login_attempts[login_id]["last_fail"] = datetime.now()
 
-def _clear_fail(login_id: str):
-    _login_attempts[login_id] = {"count": 0, "last_fail": None}
-from auth import hash_password, verify_password, create_session_token, get_current_staff, now_jst
-import crud
+def _record_fail_db(staff: Staff, db: Session) -> int:
+    """失敗カウントをインクリメント。上限到達時はロックタイムを設定。残り試行回数を返す。"""
+    staff.failed_attempts = (staff.failed_attempts or 0) + 1
+    remaining = max(0, _MAX_ATTEMPTS - staff.failed_attempts)
+    if staff.failed_attempts >= _MAX_ATTEMPTS:
+        staff.locked_until = now_jst() + timedelta(minutes=_LOCK_MINUTES)
+    db.commit()
+    return remaining
+
+
+def _clear_fail_db(staff: Staff, db: Session):
+    staff.failed_attempts = 0
+    staff.locked_until = None
+    db.commit()
 
 router = APIRouter()
 from templates_config import templates
@@ -48,24 +51,39 @@ def login_form(request: Request):
 
 @router.post("/login")
 def login(request: Request, login_id: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
-    # [I7] ロック中チェック
-    if _check_login_locked(login_id):
-        return templates.TemplateResponse(request, "auth/login.html", {
-            "error": f"ログイン試行が{_MAX_ATTEMPTS}回連続で失敗しました。{_LOCK_MINUTES}分後に再試行してください。"
-        })
+    # [B2] ユーザーを先に取得してDB側でロック確認
     staff = db.query(Staff).filter(Staff.login_id == login_id, Staff.is_active == True).first()
-    if not staff or not verify_password(password, staff.password_hash):
-        _record_fail(login_id)
-        rec = _login_attempts[login_id]
-        remaining = _MAX_ATTEMPTS - rec["count"]
+
+    # アカウントが存在しない場合も同じメッセージを返す（ユーザー列挙防止）
+    if not staff:
+        return templates.TemplateResponse(request, "auth/login.html", {
+            "error": "IDまたはパスワードが正しくありません"
+        })
+
+    # ロック中チェック
+    if _is_locked(staff):
+        remaining_sec = int((staff.locked_until - now_jst()).total_seconds())
+        remaining_min = max(1, remaining_sec // 60)
+        return templates.TemplateResponse(request, "auth/login.html", {
+            "error": f"ログインがロックされています。約{remaining_min}分後に再試行してください。"
+        })
+
+    # パスワード検証（sha256_crypt → bcrypt 自動移行）
+    valid, new_hash = verify_and_update_password(password, staff.password_hash)
+    if not valid:
+        remaining = _record_fail_db(staff, db)
         msg = "IDまたはパスワードが正しくありません"
-        if remaining <= 2 and remaining > 0:
-            msg += f"（あと{remaining}回失敗するとロックされます）"
-        elif remaining <= 0:
+        if remaining == 0:
             msg = f"ログインをロックしました。{_LOCK_MINUTES}分後に再試行してください。"
+        elif remaining <= 2:
+            msg += f"（あと{remaining}回失敗するとロックされます）"
         return templates.TemplateResponse(request, "auth/login.html", {"error": msg})
-    # 認証成功 → 失敗カウントをリセット
-    _clear_fail(login_id)
+
+    # 認証成功 → 失敗カウントをリセット・ハッシュ移行があれば保存
+    _clear_fail_db(staff, db)
+    if new_hash:
+        staff.password_hash = new_hash
+        db.commit()
     token = create_session_token(staff.id)
     response = RedirectResponse("/", status_code=303)
     response.set_cookie("session", token, max_age=60*60*8, httponly=True, samesite="lax", secure=True)
@@ -179,16 +197,35 @@ def delete_staff(staff_id: int, request: Request, db: Session = Depends(get_db))
     if staff.id == current.id:
         return RedirectResponse("/staff?error=" + urlquote("自分自身は削除できません"), status_code=303)
     # 整合性チェック: 関連データが存在する場合は削除不可
-    quote_count = db.query(Quote).filter(Quote.created_by_id == staff_id).count()
-    customer_count = db.query(Customer).filter(Customer.staff_id == staff_id).count()
-    errors = []
-    if quote_count:
-        errors.append(f"見積もり {quote_count} 件")
-    if customer_count:
-        errors.append(f"担当顧客 {customer_count} 件")
+    from sqlalchemy import text as sqla_text
+    checks = [
+        ("見積もり(作成)",    db.query(Quote).filter(Quote.created_by_id == staff_id).count()),
+        ("見積もり(承認)",    db.query(Quote).filter(Quote.approved_by_id == staff_id).count()),
+        ("担当顧客",          db.query(Customer).filter(Customer.staff_id == staff_id).count()),
+        ("タスク(担当)",      db.query(Task).filter(Task.assignee_id == staff_id).count()),
+        ("タスク(作成)",      db.query(Task).filter(Task.created_by == staff_id).count()),
+        ("タスクコメント",    db.query(TaskComment).filter(TaskComment.staff_id == staff_id).count()),
+        ("資材(アップロード)",db.query(Material).filter(Material.uploaded_by == staff_id).count()),
+        ("資材バージョン",    db.query(MaterialVersion).filter(MaterialVersion.uploaded_by == staff_id).count()),
+        ("お気に入り",        db.query(Favorite).filter(Favorite.staff_id == staff_id).count()),
+    ]
+    # raw SQL テーブル（ORM モデル外）
+    for tbl, col in [("documents", "uploaded_by"), ("approval_logs", "approver_id"), ("notifications", "recipient_id")]:
+        try:
+            row = db.execute(sqla_text(f"SELECT COUNT(*) FROM {tbl} WHERE {col}=:sid"), {"sid": staff_id}).scalar()
+            checks.append((tbl, row or 0))
+        except Exception:
+            pass  # テーブルが存在しない環境ではスキップ
+
+    errors = [f"{label} {cnt}件" for label, cnt in checks if cnt]
     if errors:
-        msg = urlquote(f"削除できません。関連データあり：{', '.join(errors)}")
+        msg = urlquote("削除できません。関連データあり: " + ", ".join(errors))
         return RedirectResponse(f"/staff?error={msg}", status_code=303)
-    db.delete(staff)
-    db.commit()
+    try:
+        db.delete(staff)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        msg = urlquote(f"削除エラー: {e}")
+        return RedirectResponse(f"/staff?error={msg}", status_code=303)
     return RedirectResponse("/staff", status_code=303)
