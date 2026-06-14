@@ -6,6 +6,9 @@ from utils import now_jst
 from datetime import datetime
 from sqlalchemy import text
 from database import SessionLocal
+from logging_config import get_logger
+
+logger = get_logger(__name__)
 
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
@@ -52,7 +55,7 @@ def send_email(to_email: str, subject: str, body: str, html_body: str = None) ->
             server.send_message(msg)
         return True
     except Exception as e:
-        print(f"メール送信エラー: {e}")
+        logger.error("メール送信エラー: %s", e, exc_info=True)
         return False
 
 
@@ -98,11 +101,11 @@ def process_pending_notifications():
                 )
                 sent_count += 1
         db.commit()
-        print(f"通知送信完了: {sent_count}件")
+        logger.info("通知送信完了: %d件", sent_count)
         return sent_count
     except Exception as e:
         db.rollback()
-        print(f"[process_pending_notifications] {e}")
+        logger.error("[process_pending_notifications] %s", e, exc_info=True)
         return 0
     finally:
         db.close()
@@ -141,6 +144,6 @@ def send_reminders():
                 db.commit()
             except Exception as e:
                 db.rollback()
-                print(f"[reminder] {e}")
+                logger.error("[reminder] %s", e, exc_info=True)
     finally:
         db.close()

@@ -2,6 +2,9 @@ from utils import now_jst
 from datetime import datetime, date
 from fastapi import HTTPException
 from sqlalchemy import or_
+from logging_config import get_logger
+
+logger = get_logger(__name__)
 
 # ── [I4] ページネーションユーティリティ ──────────────────────────────────────
 from dataclasses import dataclass
@@ -423,7 +426,7 @@ def create_quote(db: Session, customer_id: int, valid_until: date, notes: str, i
                     quote.approval_doc_id = doc_id
                     db.commit()
         except Exception as e:
-            print(f"[warn] 承認フロー自動登録に失敗: {e}")
+            logger.warning("[warn] 承認フロー自動登録に失敗: %s", e, exc_info=True)
 
     return quote
 
