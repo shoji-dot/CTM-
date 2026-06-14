@@ -1,5 +1,6 @@
 import os
 import shutil
+from pathlib import Path
 from utils import now_jst
 from datetime import datetime
 from typing import Optional
@@ -9,11 +10,26 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from database import get_db
+from logging_config import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/approval", tags=["approval"])
 
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), 'uploads', 'documents')
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+UPLOAD_DIR = Path(__file__).parent / "uploads" / "documents"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _safe_resolve_doc(file_path_str: str) -> Path:
+    """DBから取得したfile_pathがUPLOAD_DIR内を指すか検証する。"""
+    resolved = Path(file_path_str).resolve()
+    if not resolved.is_relative_to(UPLOAD_DIR.resolve()):
+        logger.warning(
+            "[security] 承認ドキュメントへのパストラバーサル試行: %s -> %s",
+            file_path_str, resolved,
+        )
+        raise HTTPException(status_code=403, detail="アクセスが拒否されました")
+    return resolved
 
 from templates_config import templates as templates_approval
 
@@ -203,7 +219,10 @@ def download_document(doc_id: int, db: Session = Depends(get_db)):
     if not row:
         raise HTTPException(404, "ドキュメントが見つかりません")
     r = _row(row)
-    return FileResponse(r['file_path'], filename=r['file_name'])
+    safe_path = _safe_resolve_doc(r['file_path'])  # [Medium-1] パストラバーサル対策
+    if not safe_path.exists():
+        raise HTTPException(404, "ファイルが見つかりません")
+    return FileResponse(str(safe_path), filename=r['file_name'])
 
 
 # ─── 承認フロー申請 ───────────────────────────────────

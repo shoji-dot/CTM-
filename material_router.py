@@ -5,6 +5,9 @@ from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Redirect
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, text as _sa_text
 from database import SessionLocal, get_db
+from logging_config import get_logger
+
+logger = get_logger(__name__)
 from models import (
     Material, MaterialCategory, MaterialTag, MaterialTagRelation,
     MaterialVersion, Favorite
@@ -15,6 +18,21 @@ router    = APIRouter(prefix="/materials", tags=["materials"])
 
 UPLOAD_DIR = Path(__file__).parent / "uploads" / "materials"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# [Medium-1] パストラバーサル対策
+_APP_ROOT = Path(__file__).parent.resolve()
+
+def _safe_resolve(file_path_str: str) -> Path:
+    """DBから取得したfile_pathがUPLOAD_DIR内を指すか検証する。"""
+    resolved = (_APP_ROOT / file_path_str).resolve()
+    if not resolved.is_relative_to(UPLOAD_DIR.resolve()):
+        logger.warning(
+            "[security] パストラバーサル試行を検知: %s -> %s",
+            file_path_str, resolved,
+        )
+        raise HTTPException(status_code=403, detail="アクセスが拒否されました")
+    return resolved
 
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt"}
 
@@ -68,7 +86,7 @@ def _dropbox_get_link(dropbox_path: str) -> str:
         link = dbx.files_get_temporary_link(remote_path)
         return link.link
     except Exception as e:
-        print(f"[Dropbox] get_link error: {e}")
+        logger.error("[Dropbox] get_link error: %s", e, exc_info=True)
         return ""
 
 
@@ -384,7 +402,7 @@ async def serve_file(request: Request, material_id: int):
             raise HTTPException(status_code=404, detail="Dropboxからリンクを取得できませんでした")
         return RedirectResponse(url=link)
 
-    path = Path(__file__).parent / file_path_str
+    path = _safe_resolve(file_path_str)   # [Medium-1] パストラバーサル対策
     if not path.exists():
         raise HTTPException(status_code=404)
     media_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
@@ -412,7 +430,7 @@ async def download_file(request: Request, material_id: int):
             raise HTTPException(status_code=404, detail="Dropboxからリンクを取得できませんでした")
         return RedirectResponse(url=link)
 
-    path = Path(__file__).parent / file_path_str
+    path = _safe_resolve(file_path_str)   # [Medium-1] パストラバーサル対策
     if not path.exists():
         raise HTTPException(status_code=404)
     media_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
