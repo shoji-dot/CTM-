@@ -13,3 +13,4 @@ installer_output/
 .ctm_github_token
 .env
 *.db
+backups/
