@@ -35,8 +35,16 @@ def run_migrations_online() -> None:
     cfg = config.get_section(config.config_ini_section, {})
     cfg["sqlalchemy.url"] = get_url()
     connectable = engine_from_config(cfg, prefix="sqlalchemy.", poolclass=pool.NullPool)
+    url = get_url()
+    is_sqlite = url.startswith("sqlite")
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            # SQLite は ALTER TABLE をサポートしないため batch モードを使用
+            render_as_batch=is_sqlite,
+        )
         with context.begin_transaction():
             context.run_migrations()
 

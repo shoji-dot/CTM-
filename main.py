@@ -6,6 +6,10 @@ from sqlalchemy.orm import Session
 import sys, os, pathlib
 sys.path.insert(0, os.path.dirname(__file__))
 
+from logging_config import setup_logging, get_logger
+setup_logging()
+logger = get_logger(__name__)
+
 import models
 from models import Base
 from database import engine, get_db, SessionLocal
@@ -29,165 +33,7 @@ from sqlalchemy import text as _sa_text
 
 models.Base.metadata.create_all(bind=engine)
 
-# 起動時マイグレーション（列追加・既存は無視）
-def _run_migrations():
-    is_pg = "postgresql" in str(engine.url)
-    if is_pg:
-        stmts = [
-            # ── テーブル新規作成（存在しない場合のみ） ──
-            """CREATE TABLE IF NOT EXISTS announcements (
-                id SERIAL PRIMARY KEY,
-                title TEXT NOT NULL,
-                body TEXT NOT NULL,
-                author_id INTEGER NOT NULL REFERENCES staffs(id),
-                is_pinned BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT NOW(),
-                updated_at TIMESTAMP DEFAULT NOW()
-            )""",
-            """CREATE TABLE IF NOT EXISTS document_types (
-                id SERIAL PRIMARY KEY,
-                name TEXT NOT NULL UNIQUE,
-                description TEXT,
-                is_active BOOLEAN DEFAULT TRUE,
-                created_at TIMESTAMP DEFAULT NOW()
-            )""",
-            """CREATE TABLE IF NOT EXISTS documents (
-                id SERIAL PRIMARY KEY,
-                title TEXT NOT NULL,
-                document_type_id INTEGER NOT NULL REFERENCES document_types(id),
-                file_path TEXT NOT NULL,
-                file_name TEXT NOT NULL,
-                file_size INTEGER,
-                mime_type TEXT,
-                status TEXT NOT NULL DEFAULT 'draft',
-                uploaded_by INTEGER NOT NULL REFERENCES staffs(id),
-                current_step INTEGER DEFAULT 0,
-                comment TEXT,
-                created_at TIMESTAMP DEFAULT NOW(),
-                updated_at TIMESTAMP DEFAULT NOW()
-            )""",
-            """CREATE TABLE IF NOT EXISTS approval_flows (
-                id SERIAL PRIMARY KEY,
-                document_type_id INTEGER NOT NULL REFERENCES document_types(id),
-                name TEXT NOT NULL,
-                is_active BOOLEAN DEFAULT TRUE,
-                created_at TIMESTAMP DEFAULT NOW()
-            )""",
-            """CREATE TABLE IF NOT EXISTS approval_steps (
-                id SERIAL PRIMARY KEY,
-                flow_id INTEGER NOT NULL REFERENCES approval_flows(id),
-                step_order INTEGER NOT NULL,
-                step_name TEXT NOT NULL,
-                approver_id INTEGER REFERENCES staffs(id),
-                approver_role TEXT,
-                required_level INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT NOW()
-            )""",
-            """CREATE TABLE IF NOT EXISTS approval_logs (
-                id SERIAL PRIMARY KEY,
-                document_id INTEGER NOT NULL REFERENCES documents(id),
-                step_order INTEGER NOT NULL,
-                approver_id INTEGER NOT NULL REFERENCES staffs(id),
-                action TEXT NOT NULL,
-                comment TEXT,
-                created_at TIMESTAMP DEFAULT NOW()
-            )""",
-            """CREATE TABLE IF NOT EXISTS notifications (
-                id SERIAL PRIMARY KEY,
-                document_id INTEGER,
-                recipient_id INTEGER NOT NULL REFERENCES staffs(id),
-                type TEXT NOT NULL,
-                is_sent BOOLEAN DEFAULT FALSE,
-                sent_at TIMESTAMP,
-                created_at TIMESTAMP DEFAULT NOW(),
-                resource_type TEXT,
-                resource_id INTEGER,
-                message TEXT DEFAULT '',
-                link TEXT DEFAULT ''
-            )""",
-            """CREATE TABLE IF NOT EXISTS customer_memos (
-                id SERIAL PRIMARY KEY,
-                hospital TEXT NOT NULL,
-                doctor_name TEXT,
-                memo TEXT,
-                staff_id INTEGER REFERENCES staffs(id),
-                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-            )""",
-            # ── 列追加（既存テーブルへ） ──
-            "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS approval_doc_id INTEGER",
-            "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS created_by_id INTEGER REFERENCES staffs(id)",
-            "ALTER TABLE products ADD COLUMN IF NOT EXISTS alert_enabled BOOLEAN NOT NULL DEFAULT TRUE",
-            "ALTER TABLE staffs ADD COLUMN IF NOT EXISTS position VARCHAR(100)",
-            "ALTER TABLE staffs ADD COLUMN IF NOT EXISTS approval_level INTEGER DEFAULT 0",
-            # [C5] 承認・取消カラム追加
-            "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS approved_by_id INTEGER REFERENCES staffs(id)",
-            "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP",
-            "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS approval_comment TEXT",
-            "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS cancelled_by_id INTEGER REFERENCES staffs(id)",
-            "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS cancel_comment TEXT",
-            "ALTER TABLE quotes ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP",
-            # ── ShipmentItem マイグレーション ──
-            """CREATE TABLE IF NOT EXISTS shipment_items (
-                id            SERIAL PRIMARY KEY,
-                shipment_id   INTEGER NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
-                line_no       INTEGER NOT NULL DEFAULT 1,
-                shipment_type VARCHAR(20) NOT NULL,
-                product_id    INTEGER NOT NULL REFERENCES products(id),
-                quantity      INTEGER NOT NULL DEFAULT 1,
-                serial_number VARCHAR(100),
-                lot_number    VARCHAR(100),
-                expiry_date   DATE,
-                demo_unit_id  INTEGER REFERENCES demo_units(id)
-            )""",
-            "CREATE INDEX IF NOT EXISTS ix_shipment_items_shipment_id ON shipment_items(shipment_id)",
-            "CREATE INDEX IF NOT EXISTS ix_shipment_items_product_id  ON shipment_items(product_id)",
-            "ALTER TABLE sales ADD COLUMN IF NOT EXISTS shipment_item_id INTEGER REFERENCES shipment_items(id)",
-            # ── DemoUnit 所在地カラム ──
-            "ALTER TABLE demo_units ADD COLUMN IF NOT EXISTS location_type VARCHAR(50) DEFAULT 'own'",
-            "ALTER TABLE demo_units ADD COLUMN IF NOT EXISTS location_name VARCHAR(200) DEFAULT 'CTM本社'",
-            "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS shipment_type VARCHAR(20)",
-            "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS quantity INTEGER NOT NULL DEFAULT 1",
-            "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS contact_name VARCHAR(100)",
-            "ALTER TABLE shipments ADD COLUMN IF NOT EXISTS end_user_contact VARCHAR(100)",
-            # ── RepairRecord staff_name カラム ──
-            "ALTER TABLE repair_records ADD COLUMN IF NOT EXISTS staff_name VARCHAR(100)",
-            # ── デモ器ステータス修復（出荷中なのにavailableのまま残っている旧データ対応） ──
-            """UPDATE demo_units SET status = 'on_loan'
-               WHERE id IN (
-                   SELECT DISTINCT si.demo_unit_id
-                   FROM shipment_items si
-                   JOIN shipments s ON s.id = si.shipment_id
-                   WHERE si.demo_unit_id IS NOT NULL
-                     AND s.status IN ('shipped', 'pending')
-               )
-               AND status = 'available'""",
-        ]
-    else:
-        stmts = [
-            "ALTER TABLE quotes ADD COLUMN approval_doc_id INTEGER",
-            "ALTER TABLE quotes ADD COLUMN created_by_id INTEGER",
-            "ALTER TABLE products ADD COLUMN alert_enabled BOOLEAN NOT NULL DEFAULT TRUE",
-            "ALTER TABLE staffs ADD COLUMN position VARCHAR(100)",
-            "ALTER TABLE staffs ADD COLUMN approval_level INTEGER DEFAULT 0",
-            # [C5] 承認・取消カラム追加
-            "ALTER TABLE quotes ADD COLUMN approved_by_id INTEGER",
-            "ALTER TABLE quotes ADD COLUMN approved_at DATETIME",
-            "ALTER TABLE quotes ADD COLUMN approval_comment TEXT",
-            "ALTER TABLE quotes ADD COLUMN cancelled_by_id INTEGER",
-            "ALTER TABLE quotes ADD COLUMN cancel_comment TEXT",
-            "ALTER TABLE quotes ADD COLUMN cancelled_at DATETIME",
-        ]
-    with engine.connect() as conn:
-        for stmt in stmts:
-            try:
-                conn.execute(_sa_text(stmt))
-                conn.commit()
-            except Exception:
-                pass
-
-_run_migrations()
-
+# [High-3] マイグレーションは Alembic に一本化済み。_run_migrations() を廃止。
 # Alembicマイグレーション（__file__基準でalembic.iniを解決）
 def _run_alembic():
     try:
@@ -196,9 +42,9 @@ def _run_alembic():
         ini_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "alembic.ini")
         cfg = Config(ini_path)
         command.upgrade(cfg, "head")
-        print("[alembic] upgrade head: OK")
+        logger.info("[alembic] upgrade head: OK")
     except Exception as e:
-        print(f"[alembic] migration skipped: {e}")
+        logger.error("[alembic] migration failed: %s", e, exc_info=True)
 
 _run_alembic()
 
@@ -214,7 +60,7 @@ def _seed_material_categories():
             db.commit()
     except Exception as e:
         db.rollback()
-        print(f"[seed categories] {e}")
+        logger.error("[seed categories] %s", e, exc_info=True)
     finally:
         db.close()
 
@@ -312,8 +158,11 @@ async def lifespan(app: FastAPI):
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.triggers.cron import CronTrigger
     from zoneinfo import ZoneInfo
+    from backup_service import run_backup
     scheduler = BackgroundScheduler(timezone=ZoneInfo("Asia/Tokyo"))
     scheduler.add_job(_send_expiry_alert_job, CronTrigger(hour=8, minute=0))
+    # [B1] 毎日 02:00 JST に自動バックアップ
+    scheduler.add_job(run_backup, CronTrigger(hour=2, minute=0))
     scheduler.start()
     yield
     scheduler.shutdown()
@@ -436,6 +285,18 @@ app.include_router(notif_router)
 app.include_router(repair_router)
 app.include_router(returns_router)
 app.include_router(update_router)
+
+
+@app.post("/api/admin/backup")
+async def manual_backup(request: Request):
+    """管理者専用: 手動バックアップ実行"""
+    from fastapi import HTTPException
+    from backup_service import run_backup
+    current = request.state.staff
+    if current.get("role") != "admin":
+        raise HTTPException(403, "管理者のみ実行できます")
+    result = run_backup()
+    return result
 
 
 @app.post("/api/announcements")

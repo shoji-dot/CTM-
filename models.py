@@ -23,6 +23,9 @@ class Staff(Base):
     position = Column(String(100), nullable=True)
     approval_level = Column(Integer, default=0)
     created_at = Column(DateTime, default=now_jst)
+    # [B2] ログイン試行制限（DB永続化）
+    failed_attempts = Column(Integer, default=0, nullable=False, server_default="0")
+    locked_until = Column(DateTime, nullable=True)
 
 
 class Customer(Base):
