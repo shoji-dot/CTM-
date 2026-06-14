@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from database import get_db
 from models import Staff, Quote, Customer, Task, Material, MaterialVersion, Favorite, TaskComment
-from auth import hash_password, verify_password, create_session_token, get_current_staff, now_jst
+from auth import hash_password, verify_password, verify_and_update_password, create_session_token, get_current_staff, now_jst
 import crud
 
 # [B2] ログイン試行制限（DB永続化）
@@ -68,8 +68,9 @@ def login(request: Request, login_id: str = Form(...), password: str = Form(...)
             "error": f"ログインがロックされています。約{remaining_min}分後に再試行してください。"
         })
 
-    # パスワード検証
-    if not verify_password(password, staff.password_hash):
+    # パスワード検証（bcrypt自動移行対応）
+    valid, new_hash = verify_and_update_password(password, staff.password_hash)
+    if not valid:
         remaining = _record_fail_db(staff, db)
         msg = "IDまたはパスワードが正しくありません"
         if remaining == 0:
@@ -78,7 +79,9 @@ def login(request: Request, login_id: str = Form(...), password: str = Form(...)
             msg += f"（あと{remaining}回失敗するとロックされます）"
         return templates.TemplateResponse(request, "auth/login.html", {"error": msg})
 
-    # 認証成功 → 失敗カウントをリセット
+    # 認証成功 → 旧アルゴリズム(sha256_crypt)はbcryptへ自動再ハッシュ
+    if new_hash:
+        staff.password_hash = new_hash
     _clear_fail_db(staff, db)
     token = create_session_token(staff.id)
     response = RedirectResponse("/", status_code=303)

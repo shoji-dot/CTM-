@@ -12,7 +12,7 @@ if not SECRET_KEY:
     raise RuntimeError("環境変数 SECRET_KEY が未設定です。.env を確認してください。")
 SESSION_MAX_AGE = 60 * 60 * 8  # 8時間
 
-pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt", "sha256_crypt"], deprecated="auto")
 serializer = URLSafeTimedSerializer(SECRET_KEY)
 
 
@@ -22,6 +22,11 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
+
+
+def verify_and_update_password(plain: str, hashed: str) -> tuple[bool, str | None]:
+    """パスワード検証。旧アルゴリズム(sha256_crypt)の場合はbcryptで再ハッシュしたハッシュを返す。"""
+    return pwd_context.verify_and_update(plain, hashed)
 
 
 def create_session_token(staff_id: int) -> str:
