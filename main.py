@@ -48,6 +48,28 @@ def _run_alembic():
 
 _run_alembic()
 
+# Alembicが失敗した場合のセーフネット：staffsテーブルに必要カラムを保証する
+def _ensure_staff_security_columns():
+    """フfailed_attempts / locked_until が存在しない場合に直接追加する（冪等）。"""
+    from sqlalchemy import text as _text
+    db = SessionLocal()
+    try:
+        db.execute(_text(
+            "ALTER TABLE staffs ADD COLUMN IF NOT EXISTS failed_attempts INTEGER NOT NULL DEFAULT 0"
+        ))
+        db.execute(_text(
+            "ALTER TABLE staffs ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP"
+        ))
+        db.commit()
+        logger.info("[startup] staff security columns: OK")
+    except Exception as e:
+        db.rollback()
+        logger.warning("[startup] _ensure_staff_security_columns: %s", e)
+    finally:
+        db.close()
+
+_ensure_staff_security_columns()
+
 # デフォルトカテゴリの初期投入（空の場合のみ）
 def _seed_material_categories():
     from models import MaterialCategory
