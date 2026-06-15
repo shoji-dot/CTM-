@@ -88,5 +88,7 @@ async function bulkDelete() {
       {% endfor %}
     </tbody>
   </table>
+  {%- set _extra_params = "search=" ~ search ~ "&category=" ~ category %}
+  {% include "_pagination.html" %}
 </div>
 {% endblock %}

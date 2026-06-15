@@ -70,11 +70,13 @@ def api_demo_units(q: str = "", product_id: int = None, db: Session = Depends(ge
 @router.get("/shipments", response_class=HTMLResponse)
 def list_shipments(request: Request, status: str = "", shipment_type: str = "",
                    q: str = "", serial: str = "", lot: str = "",
-                   db: Session = Depends(get_db)):
-    shipments = crud.get_shipments(db, status=status, shipment_type=shipment_type,
-                                   q_text=q, serial=serial, lot=lot)
+                   page: int = 1, db: Session = Depends(get_db)):
+    shipments_query = crud.get_shipments_query(db, status=status, shipment_type=shipment_type,
+                                               q_text=q, serial=serial, lot=lot)
+    pagination = crud.paginate(shipments_query, page=page, per_page=50)
     return templates.TemplateResponse(request, "shipments/list.html", {
-        "shipments": shipments,
+        "shipments": pagination.items,
+        "pagination": pagination,
         "status": status, "shipment_type": shipment_type,
         "q": q, "serial": serial, "lot": lot,
         "shipment_types": SHIPMENT_TYPES,

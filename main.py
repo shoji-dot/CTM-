@@ -430,6 +430,19 @@ async def delete_announcement(
     return {"result": "ok"}
 
 
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc):
+    return templates.TemplateResponse(
+        request, "errors/404.html", {}, status_code=404
+    )
+
+@app.exception_handler(500)
+async def server_error_handler(request: Request, exc):
+    return templates.TemplateResponse(
+        request, "errors/500.html", {}, status_code=500
+    )
+
+
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db)):
     return _dashboard_inner(request, db)

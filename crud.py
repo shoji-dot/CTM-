@@ -490,6 +490,39 @@ def get_shipments(db: Session, status: str = "", shipment_type: str = "",
     return q.distinct().order_by(Shipment.id.desc()).all()
 
 
+def get_shipments_query(db: Session, status: str = "", shipment_type: str = "",
+                        q_text: str = "", serial: str = "", lot: str = ""):
+    """ページネーション用にQueryオブジェクトを返す版"""
+    from sqlalchemy import or_
+    from models import ShipmentItem
+    from sqlalchemy.orm import joinedload
+    q = db.query(Shipment).options(
+        joinedload(Shipment.items).joinedload(ShipmentItem.product),
+        joinedload(Shipment.customer),
+    ).join(Customer, Shipment.customer_id == Customer.id, isouter=True)
+    if status:
+        q = q.filter(Shipment.status == status)
+    if shipment_type:
+        q = q.join(ShipmentItem, Shipment.id == ShipmentItem.shipment_id, isouter=True)\
+             .filter(ShipmentItem.shipment_type == shipment_type)
+    if q_text:
+        like = f"%{q_text}%"
+        q = q.join(ShipmentItem, Shipment.id == ShipmentItem.shipment_id, isouter=True)\
+             .join(Product, ShipmentItem.product_id == Product.id, isouter=True)\
+             .filter(or_(
+                 Shipment.shipment_number.ilike(like),
+                 Customer.name.ilike(like),
+                 Product.name.ilike(like),
+             ))
+    if serial:
+        q = q.join(ShipmentItem, Shipment.id == ShipmentItem.shipment_id, isouter=True)\
+             .filter(ShipmentItem.serial_number.ilike(f"%{serial}%"))
+    if lot:
+        q = q.join(ShipmentItem, Shipment.id == ShipmentItem.shipment_id, isouter=True)\
+             .filter(ShipmentItem.lot_number.ilike(f"%{lot}%"))
+    return q.distinct().order_by(Shipment.id.desc())
+
+
 def get_shipment(db: Session, shipment_id: int):
     from models import ShipmentItem
     from sqlalchemy.orm import joinedload
