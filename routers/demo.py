@@ -574,8 +574,14 @@ def demo_delete(unit_id: int, request: Request, db: Session = Depends(get_db)):
     unit = db.query(DemoUnit).filter(DemoUnit.id == unit_id).first()
     if not unit:
         raise HTTPException(404)
-    db.delete(unit)
-    db.commit()
+    if unit.status == "on_loan":
+        return RedirectResponse("/demo/?error=貸出中のデモ器は削除できません", status_code=303)
+    try:
+        db.delete(unit)
+        db.commit()
+    except Exception:
+        db.rollback()
+        return RedirectResponse("/demo/?error=削除に失敗しました", status_code=303)
     return RedirectResponse("/demo/", status_code=303)
 
 
@@ -591,12 +597,18 @@ async def demo_bulk_delete(request: Request, db: Session = Depends(get_db)):
     for uid in ids:
         unit = db.query(DemoUnit).filter(DemoUnit.id == int(uid)).first()
         if unit:
+            if unit.status == "on_loan":
+                errors.append(f"ID {uid}: 貸出中のため削除不可")
+                continue
             try:
                 db.delete(unit)
                 deleted += 1
             except Exception as e:
                 errors.append(f"ID {uid}: {str(e)}")
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
     return JSONResponse({"deleted": deleted, "errors": errors})
 
 

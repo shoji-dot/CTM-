@@ -23,7 +23,10 @@ BACKUP_DIR = Path(__file__).parent / "backups"
 BACKUP_DIR.mkdir(exist_ok=True)
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./sales_app.db")
-DROPBOX_TOKEN = os.environ.get("DROPBOX_ACCESS_TOKEN", "")
+DROPBOX_TOKEN         = os.environ.get("DROPBOX_ACCESS_TOKEN", "")   # 旧: short-lived token（後方互換）
+DROPBOX_REFRESH_TOKEN = os.environ.get("DROPBOX_REFRESH_TOKEN", "")
+DROPBOX_APP_KEY       = os.environ.get("DROPBOX_APP_KEY", "")
+DROPBOX_APP_SECRET    = os.environ.get("DROPBOX_APP_SECRET", "")
 DROPBOX_BACKUP_FOLDER = "/CTM_backups"
 RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "7"))
 
@@ -123,13 +126,27 @@ def _backup_sqlite() -> "Path | None":
 
 # ── Dropbox アップロード ─────────────────────────────────────────────────────────
 
+def _get_dropbox_client():
+    """refresh token 優先、なければ access token にフォールバック。"""
+    import dropbox
+    if DROPBOX_REFRESH_TOKEN and DROPBOX_APP_KEY and DROPBOX_APP_SECRET:
+        return dropbox.Dropbox(
+            oauth2_refresh_token=DROPBOX_REFRESH_TOKEN,
+            app_key=DROPBOX_APP_KEY,
+            app_secret=DROPBOX_APP_SECRET,
+        )
+    if DROPBOX_TOKEN:
+        logger.warning("[backup] DROPBOX_REFRESH_TOKEN 未設定。短期トークンで接続します（期限切れ注意）")
+        return dropbox.Dropbox(DROPBOX_TOKEN)
+    return None
+
+
 def _upload_to_dropbox(local_path: Path) -> bool:
-    if not DROPBOX_TOKEN:
-        logger.warning("[backup] DROPBOX_ACCESS_TOKEN 未設定のため Dropbox アップロードをスキップ")
+    dbx = _get_dropbox_client()
+    if not dbx:
+        logger.warning("[backup] Dropbox 認証情報が未設定のためアップロードをスキップ")
         return False
     try:
-        import dropbox
-        dbx = dropbox.Dropbox(DROPBOX_TOKEN)
         remote = f"{DROPBOX_BACKUP_FOLDER}/{local_path.name}"
         with open(local_path, "rb") as f:
             dbx.files_upload(f.read(), remote, mode=dropbox.files.WriteMode.overwrite)

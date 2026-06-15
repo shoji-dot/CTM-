@@ -112,8 +112,12 @@ def create_document_type(body: DocumentTypeCreate, db: Session = Depends(get_db)
 
 @router.delete("/document-types/{type_id}")
 def delete_document_type(type_id: int, db: Session = Depends(get_db)):
-    db.execute(text("UPDATE document_types SET is_active=FALSE WHERE id=:i"), {"i": type_id})
-    db.commit()
+    try:
+        db.execute(text("UPDATE document_types SET is_active=FALSE WHERE id=:i"), {"i": type_id})
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(500, "削除に失敗しました")
     return {"result": "ok"}
 
 
@@ -155,7 +159,11 @@ async def upload_document(
          "uploader": uploaded_by}
     )
     doc_id = result.scalar()
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(500, "ドキュメント登録に失敗しました")
     return {"id": doc_id, "status": "draft", "message": "アップロード完了"}
 
 
@@ -257,7 +265,11 @@ def submit_document(doc_id: int, submitter_id: int, db: Session = Depends(get_db
     if first_step['approver_id']:
         create_notification(db, doc_id, first_step['approver_id'], 'approval_request')
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(500, "申請処理に失敗しました")
     return {"result": "申請完了", "status": "in_review", "next_step": 1}
 
 
@@ -347,7 +359,11 @@ def approval_action(doc_id: int, body: ApprovalAction, db: Session = Depends(get
         db.execute(text("UPDATE documents SET updated_at=:t WHERE id=:i"), {"t": now(), "i": doc_id})
         result = {"result": "コメント追加", "status": "in_review"}
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(500, "承認処理に失敗しました")
     return result
 
 
@@ -387,7 +403,11 @@ def create_flow(body: FlowCreate, db: Session = Depends(get_db)):
         {"d": body.document_type_id, "n": body.name}
     )
     new_id = result.scalar()
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(500, "フロー作成に失敗しました")
     return {"id": new_id}
 
 @router.post("/flows/steps")
@@ -403,7 +423,11 @@ def add_step(body: StepCreate, db: Session = Depends(get_db)):
          "ai": body.approver_id, "ar": body.approver_role, "rl": body.required_level}
     )
     new_id = result.scalar()
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(500, "ステップ追加に失敗しました")
     return {"id": new_id}
 
 @router.get("/flows/{flow_id}/steps")
@@ -422,14 +446,22 @@ def get_flow_steps(flow_id: int, db: Session = Depends(get_db)):
 
 @router.delete("/flows/steps/{step_id}")
 def delete_step(step_id: int, db: Session = Depends(get_db)):
-    db.execute(text("DELETE FROM approval_steps WHERE id=:i"), {"i": step_id})
-    db.commit()
+    try:
+        db.execute(text("DELETE FROM approval_steps WHERE id=:i"), {"i": step_id})
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(500, "ステップ削除に失敗しました")
     return {"result": "ok"}
 
 @router.delete("/flows/{flow_id}")
 def delete_flow(flow_id: int, db: Session = Depends(get_db)):
-    db.execute(text("UPDATE approval_flows SET is_active=FALSE WHERE id=:i"), {"i": flow_id})
-    db.commit()
+    try:
+        db.execute(text("UPDATE approval_flows SET is_active=FALSE WHERE id=:i"), {"i": flow_id})
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(500, "フロー削除に失敗しました")
     return {"result": "ok"}
 
 
