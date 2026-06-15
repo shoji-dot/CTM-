@@ -2,18 +2,13 @@
 backup_service.py
 ─────────────────
 PostgreSQL / SQLite のバックアップを実行し、Dropbox にアップロードする。
+pg_dump 不要、psycopg2 で純Python実装。
 
 スケジュール: main.py の lifespan で毎日 02:00 JST に呼び出す。
 手動実行:     /api/admin/backup  (POST, admin only)
-
-環境変数:
-  DATABASE_URL         - Railway が自動設定。なければ SQLite にフォールバック。
-  DROPBOX_ACCESS_TOKEN - Dropbox へのアップロードに必要。未設定時はローカル保存のみ。
-  BACKUP_RETENTION_DAYS - ローカルバックアップの保持日数（デフォルト 7 日）
 """
 
 import os
-import subprocess
 import logging
 import gzip
 import shutil
@@ -36,37 +31,77 @@ def _now_jst() -> datetime:
     return datetime.now(ZoneInfo("Asia/Tokyo"))
 
 
-# ── PostgreSQL バックアップ ────────────────────────────────────────────────────
+# ── PostgreSQL バックアップ（psycopg2 純Python）───────────────────────
 
-def _backup_postgres(db_url: str) -> Path | None:
-    """pg_dump で .sql.gz を生成して返す。失敗時は None。"""
+def _val_to_sql(v) -> str:
+    """Python値を SQL リテラルに変換する。"""
+    if v is None:
+        return "NULL"
+    if isinstance(v, bool):
+        return "TRUE" if v else "FALSE"
+    if isinstance(v, (int, float)):
+        return str(v)
+    if isinstance(v, datetime):
+        return f"\'{v.isoformat()}\'"
+    escaped = str(v).replace("\\", "\\\\").replace("\'", "\'\'"  )
+    return f"\'{escaped}\'"
+
+
+def _backup_postgres(db_url: str) -> "Path | None":
+    """psycopg2 で全テーブルの INSERT ステートメントを生成して .sql.gz で保存。"""
     ts = _now_jst().strftime("%Y%m%d_%H%M%S")
     dest = BACKUP_DIR / f"backup_{ts}.sql.gz"
     try:
-        proc = subprocess.run(
-            ["pg_dump", "--no-password", db_url],
-            capture_output=True,
-            timeout=120,
-        )
-        if proc.returncode != 0:
-            logger.error("[backup] pg_dump failed: %s", proc.stderr.decode(errors="replace"))
-            return None
+        import psycopg2
+        conn = psycopg2.connect(db_url)
+        cur = conn.cursor()
+
+        # public スキーマの全テーブル名を取得
+        cur.execute("""
+            SELECT tablename FROM pg_tables
+            WHERE schemaname = 'public'
+            ORDER BY tablename
+        """)
+        tables = [row[0] for row in cur.fetchall()]
+
+        lines = [
+            f"-- CTM販喲管理システム バックアップ",
+            f"-- 生成日時: {_now_jst().isoformat()}",
+            f"-- テーブル数: {len(tables)}",
+            "",
+        ]
+
+        for table in tables:
+            cur.execute(f'SELECT * FROM "{table}" LIMIT 0')
+            cols = [desc[0] for desc in cur.description]
+            cur.execute(f'SELECT * FROM "{table}"')
+            rows = cur.fetchall()
+            lines.append(f"-- [{table}] {len(rows)}行")
+            if rows:
+                col_list = ", ".join(f'"{c}"' for c in cols)
+                for row in rows:
+                    vals = ", ".join(_val_to_sql(v) for v in row)
+                    lines.append(f'INSERT INTO "{table}" ({col_list}) VALUES ({vals});')
+            lines.append("")
+
+        conn.close()
+
+        content = "\n".join(lines).encode("utf-8")
         with gzip.open(dest, "wb") as f:
-            f.write(proc.stdout)
+            f.write(content)
+
         size_kb = dest.stat().st_size // 1024
         logger.info("[backup] PostgreSQL dump OK: %s (%d KB)", dest.name, size_kb)
         return dest
-    except FileNotFoundError:
-        logger.error("[backup] pg_dump コマンドが見つかりません。postgresql-client をインストールしてください。")
-        return None
+
     except Exception as e:
-        logger.error("[backup] pg_dump exception: %s", e)
+        logger.error("[backup] PostgreSQL backup exception: %s", e, exc_info=True)
         return None
 
 
-# ── SQLite バックアップ ───────────────────────────────────────────────────────
+# ── SQLite バックアップ ───────────────────────────────────────────────
 
-def _backup_sqlite() -> Path | None:
+def _backup_sqlite() -> "Path | None":
     """SQLite ファイルを .db.gz にコピーして返す。"""
     db_path = Path(__file__).parent / "sales_app.db"
     if not db_path.exists():
@@ -85,10 +120,9 @@ def _backup_sqlite() -> Path | None:
         return None
 
 
-# ── Dropbox アップロード ──────────────────────────────────────────────────────
+# ── Dropbox アップロード ─────────────────────────────────────────────────────────
 
 def _upload_to_dropbox(local_path: Path) -> bool:
-    """バックアップファイルを Dropbox にアップロード。成功 True / 失敗 False。"""
     if not DROPBOX_TOKEN:
         logger.warning("[backup] DROPBOX_ACCESS_TOKEN 未設定のため Dropbox アップロードをスキップ")
         return False
@@ -97,11 +131,7 @@ def _upload_to_dropbox(local_path: Path) -> bool:
         dbx = dropbox.Dropbox(DROPBOX_TOKEN)
         remote = f"{DROPBOX_BACKUP_FOLDER}/{local_path.name}"
         with open(local_path, "rb") as f:
-            dbx.files_upload(
-                f.read(),
-                remote,
-                mode=dropbox.files.WriteMode.overwrite,
-            )
+            dbx.files_upload(f.read(), remote, mode=dropbox.files.WriteMode.overwrite)
         logger.info("[backup] Dropbox upload OK: %s", remote)
         return True
     except Exception as e:
@@ -109,7 +139,7 @@ def _upload_to_dropbox(local_path: Path) -> bool:
         return False
 
 
-# ── 古いローカルバックアップを削除 ────────────────────────────────────────────
+# ── 古いローカルバックアップを削除 ───────────────────────────────────────────────
 
 def _purge_old_backups():
     cutoff = _now_jst() - timedelta(days=RETENTION_DAYS)
@@ -123,13 +153,9 @@ def _purge_old_backups():
             logger.warning("[backup] 削除失敗: %s (%s)", f.name, e)
 
 
-# ── メイン実行関数 ────────────────────────────────────────────────────────────
+# ── メイン実行関数 ───────────────────────────────────────────────────────────────
 
 def run_backup() -> dict:
-    """
-    バックアップを実行して結果を返す。
-    Returns: {"success": bool, "file": str | None, "dropbox": bool}
-    """
     logger.info("[backup] バックアップ開始")
     _purge_old_backups()
 

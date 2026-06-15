@@ -197,55 +197,66 @@ async def upload_material(
                 results.append({"file": f.filename, "status": "skipped", "reason": "ファイル形式が拡張子と一致しません"})
                 continue
 
-            unique_name = f"{uuid.uuid4().hex}{suffix}"
-            dest = UPLOAD_DIR / unique_name
-            dest.write_bytes(content)
-            display_title = title or Path(f.filename).stem
-            
-            # Dropbox upload
-            if DROPBOX_TOKEN:
-                file_path_str = _dropbox_upload(content, unique_name)
-                if not file_path_str:
+            # ファイルごとに独立したトランザクション＋ロールバック
+            dest: Path | None = None
+            try:
+                unique_name = f"{uuid.uuid4().hex}{suffix}"
+                dest = UPLOAD_DIR / unique_name
+                dest.write_bytes(content)
+                display_title = title or Path(f.filename).stem
+
+                # Dropbox upload
+                if DROPBOX_TOKEN:
+                    file_path_str = _dropbox_upload(content, unique_name)
+                    if not file_path_str:
+                        file_path_str = str(dest.relative_to(Path(__file__).parent))
+                else:
                     file_path_str = str(dest.relative_to(Path(__file__).parent))
-            else:
-                file_path_str = str(dest.relative_to(Path(__file__).parent))
 
-            material = Material(
-                title=display_title,
-                description=description,
-                category_id=category_id or None,
-                file_path=file_path_str,
-                file_name=f.filename,
-                file_type=suffix,
-                file_size=len(content),
-                uploaded_by=staff_id,
-            )
-            db.add(material)
-            db.flush()
+                material = Material(
+                    title=display_title,
+                    description=description,
+                    category_id=category_id or None,
+                    file_path=file_path_str,
+                    file_name=f.filename,
+                    file_type=suffix,
+                    file_size=len(content),
+                    uploaded_by=staff_id,
+                )
+                db.add(material)
+                db.flush()
 
-            for tag_name in [t.strip() for t in tags.split(",") if t.strip()]:
-                tag_obj = db.query(MaterialTag).filter(MaterialTag.name == tag_name).first()
-                if not tag_obj:
-                    tag_obj = MaterialTag(name=tag_name)
-                    db.add(tag_obj)
-                    db.flush()
-                db.add(MaterialTagRelation(material_id=material.id, tag_id=tag_obj.id))
+                for tag_name in [t.strip() for t in tags.split(",") if t.strip()]:
+                    tag_obj = db.query(MaterialTag).filter(MaterialTag.name == tag_name).first()
+                    if not tag_obj:
+                        tag_obj = MaterialTag(name=tag_name)
+                        db.add(tag_obj)
+                        db.flush()
+                    db.add(MaterialTagRelation(material_id=material.id, tag_id=tag_obj.id))
 
-            db.add(MaterialVersion(
-                material_id=material.id,
-                version=1,
-                file_path=file_path_str,
-                file_name=f.filename,
-                file_size=len(content),
-                uploaded_by=staff_id,
-                note="初版",
-            ))
-            db.commit()
-            results.append({"file": f.filename, "status": "ok", "material_id": material.id})
+                db.add(MaterialVersion(
+                    material_id=material.id,
+                    version=1,
+                    file_path=file_path_str,
+                    file_name=f.filename,
+                    file_size=len(content),
+                    uploaded_by=staff_id,
+                    note="初版",
+                ))
+                db.commit()
+                results.append({"file": f.filename, "status": "ok", "material_id": material.id})
 
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+            except Exception as e:
+                db.rollback()
+                # DBロールバック後、書き込み済みファイルをクリーンアップ
+                if dest is not None:
+                    try:
+                        dest.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                logger.error("[upload] ファイル処理失敗: %s - %s", f.filename, e, exc_info=True)
+                results.append({"file": f.filename, "status": "error", "reason": str(e)})
+
     finally:
         db.close()
 
@@ -256,13 +267,24 @@ async def upload_material(
 async def update_material_version(request: Request, material_id: int, note: str = Form(""), file: UploadFile = File(...)):
     staff_id = _staff_id(request)
     db = get_db()
+    dest: Path | None = None
     try:
         material = db.query(Material).filter(Material.id == material_id).first()
         if not material:
             raise HTTPException(status_code=404)
 
         suffix = Path(file.filename).suffix.lower()
+        if suffix not in ALLOWED_EXTENSIONS:
+            raise HTTPException(status_code=400, detail="非対応ファイル形式です")
+
         content = await file.read()
+        if len(content) > MAX_FILE_SIZE_MB * 1024 * 1024:
+            raise HTTPException(status_code=400, detail=f"ファイルサイズが{MAX_FILE_SIZE_MB}MBを超えています")
+
+        # [I8] マジックバイト検証（拡張子偽装を検出）
+        if not _validate_file_magic(content, suffix):
+            raise HTTPException(status_code=400, detail="ファイル形式が拡張子と一致しません")
+
         unique_name = f"{uuid.uuid4().hex}{suffix}"
         dest = UPLOAD_DIR / unique_name
         dest.write_bytes(content)
@@ -278,7 +300,6 @@ async def update_material_version(request: Request, material_id: int, note: str 
         material.file_path = rel_path
         material.file_name = file.filename
         material.file_size = len(content)
-        material.ai_summary = ai_summary
         material.version = new_ver
 
         db.add(MaterialVersion(
@@ -295,6 +316,13 @@ async def update_material_version(request: Request, material_id: int, note: str 
         raise
     except Exception as e:
         db.rollback()
+        # DBロールバック後、書き込み済みファイルをクリーンアップ
+        if dest is not None:
+            try:
+                dest.unlink(missing_ok=True)
+            except Exception:
+                pass
+        logger.error("[update_version] 失敗: material_id=%s - %s", material_id, e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
@@ -507,6 +535,7 @@ async def edit_category(request: Request, cat_id: int, name: str = Form(...)):
 async def import_from_approval(request: Request, document_id: int, category_id: int = Form(0), tags: str = Form("")):
     staff_id = _staff_id(request)
     db = get_db()
+    dest: Path | None = None
     try:
         doc_row = db.execute(_sa_text("SELECT * FROM documents WHERE id=:id"), {"id": document_id}).fetchone()
         if not doc_row:
@@ -528,7 +557,6 @@ async def import_from_approval(request: Request, document_id: int, category_id: 
             material.file_path = rel_path
             material.file_name = doc["file_name"]
             material.file_size = file_size
-            material.ai_summary = ai_summary
             material.version = new_ver
             db.add(MaterialVersion(
                 material_id=material.id,
@@ -580,6 +608,13 @@ async def import_from_approval(request: Request, document_id: int, category_id: 
         raise
     except Exception as e:
         db.rollback()
+        # DBロールバック後、コピー済みファイルをクリーンアップ
+        if dest is not None:
+            try:
+                dest.unlink(missing_ok=True)
+            except Exception:
+                pass
+        logger.error("[import_from_approval] 失敗: doc_id=%s - %s", document_id, e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
