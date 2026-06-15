@@ -12,17 +12,22 @@ if not SECRET_KEY:
     raise RuntimeError("環境変数 SECRET_KEY が未設定です。.env を確認してください。")
 SESSION_MAX_AGE = 60 * 60 * 8  # 8時間
 
-# passlib 1.7.4 + bcrypt 4.x の互換性バグを回避するため bcrypt を直接使用する。
-# sha256_crypt ハッシュ（旧アルゴリズム）の検証のみ passlib を使用。
+# パスワードアルゴリズム優先順位（新→旧）:
+#   argon2id  ($argon2id$) … 新規ハッシュ（現行）
+#   bcrypt    ($2b$/$2a$)  … 旧ハッシュ、ログイン時に argon2 へ自動移行
+#   sha256_crypt ($5$)     … 最旧ハッシュ、ログイン時に argon2 へ自動移行
+from argon2 import PasswordHasher as _ArgonHasher
+from argon2.exceptions import VerifyMismatchError as _ArgonMismatch, VerificationError as _ArgonVerifyErr
 from passlib.context import CryptContext
-_sha256_ctx = CryptContext(schemes=["sha256_crypt"])  # bcrypt バックエンドを使わない
+_argon = _ArgonHasher()  # デフォルト: argon2id, m=65536, t=3, p=4
+_sha256_ctx = CryptContext(schemes=["sha256_crypt"])
 
 serializer = URLSafeTimedSerializer(SECRET_KEY)
 
 
 def hash_password(password: str) -> str:
-    """bcrypt で新規ハッシュを生成する。"""
-    return _bcrypt_lib.hashpw(password.encode("utf-8"), _bcrypt_lib.gensalt()).decode("utf-8")
+    """argon2id で新規ハッシュを生成する。"""
+    return _argon.hash(password)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -31,27 +36,40 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def verify_and_update_password(plain: str, hashed: str) -> tuple[bool, str | None]:
-    """パスワード検証。
-    - bcrypt ハッシュ ($2b$/$2a$) → bcrypt 直接検証
-    - sha256_crypt ハッシュ ($5$) → passlib で検証後 bcrypt に再ハッシュ
-    戻り値: (valid, new_hash_or_None)
+    """パスワード検証。アルゴリズムを自動判定し、旧形式は argon2 へ自動移行する。
+    - argon2id ($argon2id$) → argon2 検証（現行）
+    - bcrypt   ($2b$/$2a$)  → bcrypt 検証 → argon2 に再ハッシュ
+    - sha256_crypt ($5$)    → passlib 検証 → argon2 に再ハッシュ
+    戻り値: (valid, new_hash_or_None)  new_hash は移行時のみ返す
     """
-    if hashed.startswith("$2"):
-        # bcrypt ハッシュ
+    if hashed.startswith("$argon2"):
+        # argon2 ハッシュ（現行）
+        try:
+            _argon.verify(hashed, plain)
+            # パラメータが古い場合は再ハッシュ（argon2-cffi の needs_rehash 機能）
+            new_hash = hash_password(plain) if _argon.check_needs_rehash(hashed) else None
+            return True, new_hash
+        except (_ArgonMismatch, _ArgonVerifyErr):
+            return False, None
+        except Exception:
+            return False, None
+    elif hashed.startswith("$2"):
+        # bcrypt ハッシュ → 検証後 argon2 へ移行
         try:
             valid = _bcrypt_lib.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
         except Exception:
             valid = False
-        return valid, None
+        if valid:
+            return True, hash_password(plain)
+        return False, None
     elif hashed.startswith("$5$"):
-        # 旧 sha256_crypt ハッシュ → 検証後 bcrypt に移行
+        # 旧 sha256_crypt ハッシュ → 検証後 argon2 へ移行
         try:
             valid = _sha256_ctx.verify(plain, hashed)
         except Exception:
             valid = False
         if valid:
-            new_hash = hash_password(plain)
-            return True, new_hash
+            return True, hash_password(plain)
         return False, None
     else:
         return False, None
