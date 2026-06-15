@@ -238,9 +238,11 @@ app = FastAPI(title="営業・在庫管理システム", lifespan=lifespan)
 # ── 静的ファイル（ルーター登録より前にまとめてマウント）──
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# uploads/ ディレクトリは存在確保のみ。
+# ファイル配信は approval_router / material_router の FileResponse エンドポイント経由。
+# StaticFiles マウントは廃止（パス直指定による任意ファイルアクセスを防ぐため）。
 uploads_dir = pathlib.Path(__file__).parent / "uploads"
 uploads_dir.mkdir(exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
 from starlette.middleware.sessions import SessionMiddleware
 # [C1] secret_key を環境変数から取得（.env の SESSION_SECRET_KEY を使用）
