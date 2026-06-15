@@ -52,6 +52,16 @@ def _require_manager(staff: dict):
     if staff.get("role") not in ("admin", "manager"):
         raise HTTPException(status_code=403, detail="この操作には管理者権限が必要です")
 
+def _parse_date(v: str, field: str = "日付"):
+    """文字列をdateに変換。空はNone、不正値はHTTP400。"""
+    if not v:
+        return None
+    try:
+        return date.fromisoformat(v)
+    except ValueError:
+        raise HTTPException(400, f"{field}の形式が不正です（YYYY-MM-DD）: {v}")
+
+
 def _gen_repair_number(db: Session):
     prefix = f"REP-{now_jst().strftime('%Y%m')}-"
     row = db.query(Repair).filter(Repair.repair_number.like(f"{prefix}%")).order_by(Repair.id.desc()).first()
@@ -152,14 +162,18 @@ async def create_repair(
         serial_number=serial_number or None,
         lot_number=lot_number or None,
         fault_description=fault_description,
-        received_date=date.fromisoformat(received_date),
+        received_date=_parse_date(received_date, "受付日"),
         replacement_shipment_id=int(replacement_shipment_id) if replacement_shipment_id else None,
         notes=notes or None,
         staff_name=staff["name"],
     )
-    db.add(repair)
-    db.commit()
-    db.refresh(repair)
+    try:
+        db.add(repair)
+        db.commit()
+        db.refresh(repair)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, f"修理受付の登録に失敗しました: {e}")
     return RedirectResponse(f"/repairs/{repair.id}", status_code=303)
 
 
@@ -227,7 +241,13 @@ async def advance_status(
     if next_st == "closed":
         _require_manager(staff)
 
-    def _d(v): return date.fromisoformat(v) if v else None
+    def _d(v):
+        if not v:
+            return None
+        try:
+            return date.fromisoformat(v)
+        except ValueError:
+            raise HTTPException(400, f"日付の形式が不正です: {v}")
     def _f(v): return float(v) if v else None
 
     r.status = next_st
@@ -260,7 +280,11 @@ async def advance_status(
     if notes:
         r.notes = notes
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, f"ステータス更新に失敗しました: {e}")
     return RedirectResponse(f"/repairs/{repair_id}", status_code=303)
 
 
@@ -276,8 +300,12 @@ async def set_deadline(
     r = db.query(Repair).filter(Repair.id == repair_id).first()
     if not r:
         raise HTTPException(404)
-    r.step_deadline = date.fromisoformat(step_deadline) if step_deadline else None
-    db.commit()
+    r.step_deadline = _parse_date(step_deadline, "期限日")
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, f"期限変更に失敗しました: {e}")
     return RedirectResponse(f"/repairs/{repair_id}", status_code=303)
 
 
