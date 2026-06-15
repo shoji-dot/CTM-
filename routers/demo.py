@@ -248,11 +248,15 @@ def demo_detail(unit_id: int, request: Request, db: Session = Depends(get_db)):
     active_repair = next(
         (r for r in unit.repairs if r.status in ("pending", "in_repair")), None
     )
+    internal_bases = db.query(Customer).filter(
+        Customer.category == "internal_base"
+    ).order_by(Customer.name).all()
     return templates.TemplateResponse(request, "demo/detail.html", {
         "unit": unit,
         "today": today,
         "active_loan": active_loan,
         "active_repair": active_repair,
+        "internal_bases": internal_bases,
     })
 
 
@@ -332,6 +336,7 @@ def loan_return(
     condition_in: str = Form(""),
     notes: str = Form(""),
     used: str = Form(None),
+    return_destination_id: str = Form(""),
 ):
     loan = db.query(DemoLoan).filter(DemoLoan.id == loan_id).first()
     if not loan:
@@ -341,9 +346,18 @@ def loan_return(
     loan.notes = (loan.notes or "") + ("\n返却備考: " + notes if notes else "")
     loan.status = "returned"
     loan.demo_unit.status = "available"
-    # 所在地を自社に戻す
-    loan.demo_unit.location_type = "own"
-    loan.demo_unit.location_name = "CTM本社"
+
+    # 返却先の所在地を設定（内部拠点選択時はその拠点名、未選択はCTM本社）
+    dest_id = int(return_destination_id) if return_destination_id else None
+    loan.return_destination_id = dest_id
+    if dest_id:
+        dest = db.query(Customer).filter(Customer.id == dest_id).first()
+        loan.demo_unit.location_type = "own"
+        loan.demo_unit.location_name = dest.name if dest else "CTM本社"
+    else:
+        loan.demo_unit.location_type = "own"
+        loan.demo_unit.location_name = "CTM本社"
+
     # 使用回数カウント（チェックON=使用あり → +1、OFFは変化なし）
     if used == "on":
         loan.demo_unit.usage_count = (loan.demo_unit.usage_count or 0) + 1

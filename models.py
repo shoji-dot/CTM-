@@ -328,11 +328,13 @@ class DemoLoan(Base):
     condition_in = Column(String(200), nullable=True)
     staff_name = Column(String(100), nullable=True)
     notes = Column(Text, nullable=True)
+    return_destination_id = Column(Integer, ForeignKey("customers.id"), nullable=True)  # 返却先拠点（NULLはCTM本社）
     created_at = Column(DateTime, default=now_jst)
 
-    demo_unit = relationship("DemoUnit", back_populates="loans")
-    customer  = relationship("Customer", foreign_keys=[customer_id])
-    end_user  = relationship("Customer", foreign_keys=[end_user_id])
+    demo_unit            = relationship("DemoUnit", back_populates="loans")
+    customer             = relationship("Customer", foreign_keys=[customer_id])
+    end_user             = relationship("Customer", foreign_keys=[end_user_id])
+    return_destination   = relationship("Customer", foreign_keys=[return_destination_id])
 
 
 class Repair(Base):
@@ -347,7 +349,7 @@ class Repair(Base):
     lot_number               = Column(String(100), nullable=True)
     fault_description        = Column(Text, nullable=False)
     received_date            = Column(Date, nullable=False)
-    replacement_shipment_id  = Column(Integer, nullable=True)
+    replacement_shipment_id  = Column(Integer, ForeignKey("shipments.id"), nullable=True)
     status                   = Column(String(30), nullable=False, default="received")
     inspection_date          = Column(Date, nullable=True)
     inspection_result        = Column(Text, nullable=True)
@@ -357,7 +359,7 @@ class Repair(Base):
     maker_response_date      = Column(Date, nullable=True)
     maker_quote_amount       = Column(Numeric(12, 2), nullable=True)
     maker_response_note      = Column(Text, nullable=True)
-    quote_id                 = Column(Integer, nullable=True)
+    quote_id                 = Column(Integer, ForeignKey("quotes.id"), nullable=True)
     quote_submitted_date     = Column(Date, nullable=True)
     repair_ordered_date      = Column(Date, nullable=True)
     repair_completed_date    = Column(Date, nullable=True)
@@ -372,9 +374,11 @@ class Repair(Base):
     created_at               = Column(DateTime, default=now_jst)
     updated_at               = Column(DateTime, default=now_jst, onupdate=now_jst)
 
-    customer  = relationship("Customer", foreign_keys=[customer_id])
-    end_user  = relationship("Customer", foreign_keys=[end_user_id])
-    product   = relationship("Product")
+    customer              = relationship("Customer", foreign_keys=[customer_id])
+    end_user              = relationship("Customer", foreign_keys=[end_user_id])
+    product               = relationship("Product")
+    replacement_shipment  = relationship("Shipment", foreign_keys=[replacement_shipment_id])
+    quote                 = relationship("Quote", foreign_keys=[quote_id])
     __table_args__ = (
         Index("ix_repairs_customer_id", "customer_id"),
         Index("ix_repairs_product_id", "product_id"),

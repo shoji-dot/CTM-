@@ -52,7 +52,8 @@ async function bulkDelete() {
       <option value="clinic"        {% if category == "clinic"        %}selected{% endif %}>クリニック</option>
       <option value="doctor"        {% if category == "doctor"        %}selected{% endif %}>医師</option>
       <option value="dealer"        {% if category == "dealer"        %}selected{% endif %}>ディーラー</option>
-      <option value="manufacturer"  {% if category == "manufacturer"  %}selected{% endif %}>メーカー</option>
+      <option value="manufacturer"   {% if category == "manufacturer"   %}selected{% endif %}>メーカー</option>
+      <option value="internal_base"  {% if category == "internal_base"  %}selected{% endif %}>内部拠点</option>
     </select>
     <button type="submit" class="btn btn-ghost">検索</button>
     <a href="/customers" class="btn btn-ghost">リセット</a>
@@ -70,7 +71,7 @@ async function bulkDelete() {
         <td><input type="checkbox" class="row-chk" value="{{ c.id }}" onchange="updateSel()"></td>
         <td class="mono text-muted">{{ c.id }}</td>
         <td><a href="/customers/{{ c.id }}" class="link">{{ c.name }}</a></td>
-        <td><span class="badge badge-{{ c.category }}">{{ {"hospital":"病院","medical":"病院","clinic":"クリニック","doctor":"医師","dealer":"ディーラー","manufacturer":"メーカー","supplier":"メーカー","technician":"メーカー"}.get(c.category, c.category) }}</span></td>
+        <td><span class="badge badge-{{ c.category }}">{{ {"hospital":"病院","medical":"病院","clinic":"クリニック","doctor":"医師","dealer":"ディーラー","manufacturer":"メーカー","supplier":"メーカー","technician":"メーカー","internal_base":"内部拠点"}.get(c.category, c.category) }}</span></td>
         <td>{{ c.phone or "―" }}</td>
         <td>{{ c.email or "―" }}</td>
         <td>{{ c.trading_terms or "―" }}</td>

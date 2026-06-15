@@ -216,6 +216,18 @@
               <label class="label">返却備考</label>
               <input type="text" name="notes" class="input">
             </div>
+            <!-- 返却先 -->
+            {% if internal_bases %}
+            <div class="form-group" style="margin-bottom:8px">
+              <label class="label">返却先</label>
+              <select name="return_destination_id" class="select">
+                <option value="">CTM本社（デフォルト）</option>
+                {% for base in internal_bases %}
+                <option value="{{ base.id }}">{{ base.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            {% endif %}
             <!-- 使用回数カウント -->
             <div class="form-group" style="margin-bottom:12px;background:var(--surface2);border-radius:8px;padding:10px 12px">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600">

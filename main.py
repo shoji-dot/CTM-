@@ -92,6 +92,26 @@ def _ensure_usage_columns():
 
 _ensure_usage_columns()
 
+# セーフネット：デモ器返却先カラムを保証する（Alembic 008）
+def _ensure_demo_loan_return_destination():
+    """return_destination_id が存在しない場合に直接追加する（冪等）。"""
+    from sqlalchemy import text as _text
+    db = SessionLocal()
+    try:
+        db.execute(_text(
+            "ALTER TABLE demo_loans ADD COLUMN IF NOT EXISTS return_destination_id INTEGER REFERENCES customers(id)"
+        ))
+        db.commit()
+        logger.info("[startup] demo_loans.return_destination_id: OK")
+    except Exception as e:
+        db.rollback()
+        logger.warning("[startup] _ensure_demo_loan_return_destination: %s", e)
+    finally:
+        db.close()
+
+_ensure_demo_loan_return_destination()
+
+
 
 # デフォルトカテゴリの初期投入（空の場合のみ）
 def _seed_material_categories():
