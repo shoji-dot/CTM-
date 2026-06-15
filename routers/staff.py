@@ -51,8 +51,15 @@ def login_form(request: Request):
 
 @router.post("/login")
 def login(request: Request, login_id: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
-    # [B2] ユーザーを先に取得してDB側でロック確認
-    staff = db.query(Staff).filter(Staff.login_id == login_id, Staff.is_active == True).first()
+    import logging
+    _login_logger = logging.getLogger("login_debug")
+    try:
+        # [B2] ユーザーを先に取得してDB側でロック確認
+        staff = db.query(Staff).filter(Staff.login_id == login_id, Staff.is_active == True).first()
+        _login_logger.info("[login] staff query OK: found=%s", staff is not None)
+    except Exception as e:
+        _login_logger.error("[login] DB query failed: %s", e, exc_info=True)
+        raise
 
     # アカウントが存在しない場合も同じメッセージを返す（ユーザー列挙防止）
     if not staff:
@@ -61,7 +68,13 @@ def login(request: Request, login_id: str = Form(...), password: str = Form(...)
         })
 
     # ロック中チェック
-    if _is_locked(staff):
+    try:
+        locked = _is_locked(staff)
+        _login_logger.info("[login] lock check OK: locked=%s", locked)
+    except Exception as e:
+        _login_logger.error("[login] lock check failed: %s", e, exc_info=True)
+        raise
+    if locked:
         remaining_sec = int((staff.locked_until - now_jst()).total_seconds())
         remaining_min = max(1, remaining_sec // 60)
         return templates.TemplateResponse(request, "auth/login.html", {
@@ -69,7 +82,12 @@ def login(request: Request, login_id: str = Form(...), password: str = Form(...)
         })
 
     # パスワード検証（bcrypt自動移行対応）
-    valid, new_hash = verify_and_update_password(password, staff.password_hash)
+    try:
+        valid, new_hash = verify_and_update_password(password, staff.password_hash)
+        _login_logger.info("[login] password verify OK: valid=%s, rehash=%s", valid, new_hash is not None)
+    except Exception as e:
+        _login_logger.error("[login] password verify failed: %s", e, exc_info=True)
+        raise
     if not valid:
         remaining = _record_fail_db(staff, db)
         msg = "IDまたはパスワードが正しくありません"
