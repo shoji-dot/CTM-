@@ -435,7 +435,11 @@ def delete_flow(flow_id: int, db: Session = Depends(get_db)):
 
 # ─── 通知一覧 ─────────────────────────────────────────
 @router.get("/notifications/{staff_id}")
-def get_notifications(staff_id: int, db: Session = Depends(get_db)):
+def get_notifications(request: Request, staff_id: int, db: Session = Depends(get_db)):
+    # [IDOR対策] 自分の通知のみ取得可能（admin/managerは全員分取得可）
+    current = request.state.staff
+    if current["id"] != staff_id and current["role"] not in ("admin", "manager"):
+        raise HTTPException(403, "他のスタッフの通知は閲覧できません")
     rows = db.execute(
         text("""
             SELECT n.*, d.title as doc_title, d.status as doc_status
