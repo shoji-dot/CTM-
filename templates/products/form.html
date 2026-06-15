@@ -61,6 +61,13 @@
         <label class="label">承認番号 / 認証番号</label>
         <input name="approval_number" value="{{ product.approval_number if product else '' }}" class="input" placeholder="例：22100BZX00123000">
       </div>
+      <div class="form-group">
+        <label class="label">推奨最大使用回数</label>
+        <input type="number" name="max_usage_count" min="1" max="999"
+               value="{{ product.max_usage_count if product and product.max_usage_count else '' }}"
+               class="input" placeholder="例：5（μSONiC-MkIIチップ等）">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px">設定するとデモ器詳細で上限アラートが表示されます。空欄でアラート無効。</div>
+      </div>
 
       <div class="form-group">
         <label class="label">クラス分類</label>

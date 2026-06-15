@@ -27,9 +27,7 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════
-       修理進行中ウィザード
-  ══════════════════════════════════════════════ -->
+  <!-- 修理進行中ウィザード -->
   {% if active_repair %}
   {% set r = active_repair %}
   <div style="background:#fff;border:2px solid rgba(194,121,10,.35);border-radius:12px;padding:24px;margin-bottom:24px">
@@ -137,9 +135,7 @@
   </div>
   {% endif %}
 
-  <!-- ══════════════════════════════════════════════
-       メインコンテンツ（2カラム）
-  ══════════════════════════════════════════════ -->
+  <!-- メインコンテンツ（2カラム） -->
   <div style="display:grid;grid-template-columns:320px 1fr;gap:20px;align-items:start">
 
     <!-- 左カラム -->
@@ -149,10 +145,23 @@
         <dl class="dl" style="grid-template-columns:80px 1fr">
           <dt>管理番号</dt><dd><strong>{{ unit.unit_code }}</strong></dd>
           <dt>製品名</dt><dd>{{ unit.product.name }}</dd>
-          <dt>型番</dt><dd>{{ unit.product.sku or "—" }}</dd>
           <dt>シリアル</dt><dd><span class="mono">{{ unit.serial_number or "—" }}</span></dd>
           <dt>ロット</dt><dd><span class="mono">{{ unit.lot_number or "—" }}</span></dd>
           <dt>購入日</dt><dd>{{ unit.purchase_date.strftime('%Y/%m/%d') if unit.purchase_date else "—" }}</dd>
+          <dt>使用回数</dt>
+          <dd>
+            {% set max_u = unit.product.max_usage_count %}
+            {% set cur_u = unit.usage_count or 0 %}
+            <strong>{{ cur_u }}回</strong>
+            {% if max_u %}
+              <span style="color:var(--text-muted);font-size:12px"> / 推奨{{ max_u }}回</span>
+              {% if cur_u >= max_u %}
+                <span class="badge badge-rejected" style="margin-left:6px;font-size:11px">⚠ 上限到達</span>
+              {% elif cur_u >= max_u - 1 %}
+                <span class="badge" style="margin-left:6px;font-size:11px;background:rgba(194,121,10,.15);color:var(--warning)">あと1回</span>
+              {% endif %}
+            {% endif %}
+          </dd>
           <dt>現在地</dt>
           <dd>
             {% set loc_icon = {"own":"🏢","customer":"🏥","maker":"🏭","end_user":"👤"}.get(unit.location_type, "📍") %}
@@ -195,4 +204,148 @@
           <div style="font-size:12px;font-weight:700;margin-bottom:10px">📥 返却登録</div>
           <form method="post" action="/demo/{{ unit.id }}/loan/{{ active_loan.id }}/return">
             <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
-            <div class="for
+            <div class="form-group" style="margin-bottom:8px">
+              <label class="label">返却日</label>
+              <input type="date" name="returned_date" class="input" value="{{ today.isoformat() }}" required>
+            </div>
+            <div class="form-group" style="margin-bottom:8px">
+              <label class="label">返却時の状態</label>
+              <input type="text" name="condition_in" class="input" placeholder="例: 正常・外装キズあり">
+            </div>
+            <div class="form-group" style="margin-bottom:8px">
+              <label class="label">返却備考</label>
+              <input type="text" name="notes" class="input">
+            </div>
+            <!-- 使用回数カウント -->
+            <div class="form-group" style="margin-bottom:12px;background:var(--surface2);border-radius:8px;padding:10px 12px">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600">
+                <input type="checkbox" name="used" value="on" checked style="width:16px;height:16px;accent-color:var(--accent)">
+                今回の貸出で使用あり（使用回数 +1）
+              </label>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;margin-left:24px">
+                未使用で返却された場合はチェックを外してください
+              </div>
+              {% set max_u = unit.product.max_usage_count %}
+              {% set cur_u = unit.usage_count or 0 %}
+              {% if max_u and cur_u >= max_u - 1 %}
+              <div style="font-size:11px;color:var(--warning);margin-top:4px;margin-left:24px;font-weight:600">
+                ⚠ 使用回数が推奨上限（{{ max_u }}回）に達します
+              </div>
+              {% endif %}
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%">📥 返却完了</button>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- 右カラム -->
+    <div>
+      <div class="detail-card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="card-title" style="margin-bottom:0">📋 貸出履歴</div>
+          <span class="badge badge-draft">{{ unit.loans|length }}件</span>
+        </div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr>
+              <th>貸出先</th><th>貸出日</th><th>返却期限</th><th>返却日</th><th>担当者</th><th>状態</th>
+            </tr></thead>
+            <tbody>
+              {% for loan in unit.loans | sort(attribute='loan_date', reverse=True) %}
+              <tr>
+                <td>{{ loan.customer.name }}<br><span class="text-muted text-sm">{{ loan.contact_name or "" }}</span></td>
+                <td>{{ loan.loan_date.strftime('%Y/%m/%d') }}</td>
+                <td>{{ loan.due_date.strftime('%Y/%m/%d') }}</td>
+                <td>{{ loan.returned_date.strftime('%Y/%m/%d') if loan.returned_date else "—" }}</td>
+                <td>{{ loan.staff_name or "—" }}</td>
+                <td>
+                  {% if loan.status == "returned" %}<span class="badge badge-accepted">返却済</span>
+                  {% elif loan.status == "overdue" %}<span class="badge badge-rejected">期限超過</span>
+                  {% else %}<span class="badge badge-sent">貸出中</span>{% endif %}
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="6" class="empty">貸出履歴なし</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="detail-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="card-title" style="margin-bottom:0">🔧 故障・修理履歴</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="badge badge-draft">{{ unit.repairs|length }}件</span>
+            {% if not active_repair and unit.status != "retired" %}
+            <a href="/demo/{{ unit.id }}/repair/new" class="btn btn-ghost btn-sm">＋ 故障登録</a>
+            {% endif %}
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr>
+              <th>報告日</th><th>症状</th><th>修理業者</th><th>費用</th><th>完了日</th><th>状態</th><th></th>
+            </tr></thead>
+            <tbody>
+              {% for repair in unit.repairs | sort(attribute='reported_date', reverse=True) %}
+              <tr {% if repair.status in ('pending','in_repair') %}style="background:rgba(194,121,10,.04)"{% endif %}>
+                <td>{{ repair.reported_date.strftime('%Y/%m/%d') }}</td>
+                <td><span title="{{ repair.symptom }}">{{ repair.symptom[:25] }}{% if repair.symptom|length > 25 %}…{% endif %}</span></td>
+                <td>{{ repair.repair_vendor or "—" }}</td>
+                <td>{{ "¥{:,.0f}".format(repair.repair_cost) if repair.repair_cost else "—" }}</td>
+                <td>{{ repair.repaired_date.strftime('%Y/%m/%d') if repair.repaired_date else "—" }}</td>
+                <td>
+                  {% if repair.status == "pending" %}<span class="badge badge-rejected">未対応</span>
+                  {% elif repair.status == "in_repair" %}<span class="badge" style="background:rgba(194,121,10,.15);color:var(--warning)">修理中</span>
+                  {% elif repair.status == "completed" %}<span class="badge badge-accepted">修理完了</span>
+                  {% elif repair.status == "scrapped" %}<span class="badge badge-draft">廃棄</span>{% endif %}
+                </td>
+                <td><a href="/demo/{{ unit.id }}/repair/{{ repair.id }}/edit" class="btn btn-ghost btn-sm">編集</a></td>
+              </tr>
+              {% else %}
+              <tr><td colspan="7" class="empty">修理履歴なし</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 廃棄登録モーダル -->
+<div id="retireModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;width:100%;max-width:420px;margin:16px">
+    <div style="font-size:16px;font-weight:700;color:var(--danger);margin-bottom:16px">🗑️ 廃棄登録</div>
+    <div style="background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.2);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px">
+      <strong>{{ unit.unit_code }}</strong>（{{ unit.product.name }}）を廃棄登録します。
+    </div>
+    <form method="post" action="/demo/{{ unit.id }}/retire">
+      <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="label">廃棄理由 <span class="required">*</span></label>
+        <select name="retire_reason" class="select" required>
+          <option value="">-- 選択してください --</option>
+          <option value="修理不能">修理不能</option>
+          <option value="経年劣化">経年劣化</option>
+          <option value="破損">破損</option>
+          <option value="紛失">紛失</option>
+          <option value="その他">その他</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:20px">
+        <label class="label">備考</label>
+        <textarea name="retire_notes" class="textarea" rows="2" placeholder="詳細・経緯など"></textarea>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('retireModal').style.display='none'">キャンセル</button>
+        <button type="submit" class="btn btn-danger">廃棄登録する</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

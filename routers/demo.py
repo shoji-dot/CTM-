@@ -331,6 +331,7 @@ def loan_return(
     returned_date: str = Form(...),
     condition_in: str = Form(""),
     notes: str = Form(""),
+    used: str = Form(None),
 ):
     loan = db.query(DemoLoan).filter(DemoLoan.id == loan_id).first()
     if not loan:
@@ -343,6 +344,9 @@ def loan_return(
     # 所在地を自社に戻す
     loan.demo_unit.location_type = "own"
     loan.demo_unit.location_name = "CTM本社"
+    # 使用回数カウント（チェックON=使用あり → +1、OFFは変化なし）
+    if used == "on":
+        loan.demo_unit.usage_count = (loan.demo_unit.usage_count or 0) + 1
     db.commit()
     return RedirectResponse(f"/demo/{unit_id}", status_code=303)
 

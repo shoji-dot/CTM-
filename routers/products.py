@@ -238,6 +238,7 @@ def edit_product(
     jan_code: str = Form(""), approval_number: str = Form(""),
     device_class: str = Form(""), sales_role: str = Form(""),
     model_spec: str = Form(""), sterility: str = Form(""), notes: str = Form(""),
+    max_usage_count: str = Form(""),
 ):
     from fastapi import HTTPException
     product = crud.get_product(db, product_id)
@@ -254,6 +255,7 @@ def edit_product(
         "device_class": device_class or None, "sales_role": sales_role or None,
         "model_spec": model_spec or None, "sterility": sterility or None,
         "notes": notes or None,
+        "max_usage_count": int(max_usage_count) if max_usage_count.strip().isdigit() else None,
     })
     return RedirectResponse("/products", status_code=303)
 

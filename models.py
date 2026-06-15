@@ -67,6 +67,7 @@ class Product(Base):
     model_spec = Column(Text, nullable=True)              # 型式・仕様
     sterility = Column(String(20), nullable=True)         # 滅菌状態: sterile / non_sterile
     notes = Column(Text, nullable=True)
+    max_usage_count = Column(Integer, nullable=True)      # 推奨最大使用回数（例: μSONiC-MkIIチップ=5）
     created_at = Column(DateTime, default=now_jst)
     inventory = relationship("Inventory", back_populates="product", uselist=False)
     inventory_histories = relationship("InventoryHistory", back_populates="product")
@@ -298,6 +299,7 @@ class DemoUnit(Base):
     location_name = Column(String(200), default="CTM本社")       # 拠点名・取引先名など
     purchase_date = Column(Date, nullable=True)                   # 自社購入日
     notes = Column(Text, nullable=True)
+    usage_count = Column(Integer, default=0, nullable=False)      # 累積使用回数
     created_at = Column(DateTime, default=now_jst)
 
     product = relationship("Product")

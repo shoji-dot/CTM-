@@ -246,6 +246,15 @@ async function uploadCsv(input) {
               {% if unit.product.sku %}
               <br><small class="text-muted">{{ unit.product.sku }}</small>
               {% endif %}
+              {% set max_u = unit.product.max_usage_count %}
+              {% set cur_u = unit.usage_count or 0 %}
+              {% if max_u and cur_u >= max_u %}
+              <br><span class="badge bg-danger" style="font-size:10px">⚠ 使用上限 {{ cur_u }}/{{ max_u }}回</span>
+              {% elif max_u and cur_u >= max_u - 1 %}
+              <br><span class="badge bg-warning text-dark" style="font-size:10px">あと1回 {{ cur_u }}/{{ max_u }}回</span>
+              {% elif max_u %}
+              <br><span class="badge bg-secondary" style="font-size:10px">{{ cur_u }}/{{ max_u }}回</span>
+              {% endif %}
             </td>
             <td>
               {% if unit.serial_number %}<code>{{ unit.serial_number }}</code>{% endif %}
