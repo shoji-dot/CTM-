@@ -70,6 +70,29 @@ def _ensure_staff_security_columns():
 
 _ensure_staff_security_columns()
 
+# セーフネット：デモ器使用回数カラムを保証する（Alembic 006）
+def _ensure_usage_columns():
+    """usage_count / max_usage_count が存在しない場合に直接追加する（冪等）。"""
+    from sqlalchemy import text as _text
+    db = SessionLocal()
+    try:
+        db.execute(_text(
+            "ALTER TABLE demo_units ADD COLUMN IF NOT EXISTS usage_count INTEGER NOT NULL DEFAULT 0"
+        ))
+        db.execute(_text(
+            "ALTER TABLE products ADD COLUMN IF NOT EXISTS max_usage_count INTEGER"
+        ))
+        db.commit()
+        logger.info("[startup] usage columns: OK")
+    except Exception as e:
+        db.rollback()
+        logger.warning("[startup] _ensure_usage_columns: %s", e)
+    finally:
+        db.close()
+
+_ensure_usage_columns()
+
+
 # デフォルトカテゴリの初期投入（空の場合のみ）
 def _seed_material_categories():
     from models import MaterialCategory
