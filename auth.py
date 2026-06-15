@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timedelta
 from utils import now_jst
-from passlib.context import CryptContext
+import bcrypt as _bcrypt_lib
 from itsdangerous import URLSafeTimedSerializer
 from sqlalchemy.orm import Session
 from models import Staff
@@ -12,21 +12,49 @@ if not SECRET_KEY:
     raise RuntimeError("環境変数 SECRET_KEY が未設定です。.env を確認してください。")
 SESSION_MAX_AGE = 60 * 60 * 8  # 8時間
 
-pwd_context = CryptContext(schemes=["bcrypt", "sha256_crypt"], deprecated="auto")
+# passlib 1.7.4 + bcrypt 4.x の互換性バグを回避するため bcrypt を直接使用する。
+# sha256_crypt ハッシュ（旧アルゴリズム）の検証のみ passlib を使用。
+from passlib.context import CryptContext
+_sha256_ctx = CryptContext(schemes=["sha256_crypt"])  # bcrypt バックエンドを使わない
+
 serializer = URLSafeTimedSerializer(SECRET_KEY)
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    """bcrypt で新規ハッシュを生成する。"""
+    return _bcrypt_lib.hashpw(password.encode("utf-8"), _bcrypt_lib.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    valid, _ = verify_and_update_password(plain, hashed)
+    return valid
 
 
 def verify_and_update_password(plain: str, hashed: str) -> tuple[bool, str | None]:
-    """パスワード検証。旧アルゴリズム(sha256_crypt)の場合はbcryptで再ハッシュしたハッシュを返す。"""
-    return pwd_context.verify_and_update(plain, hashed)
+    """パスワード検証。
+    - bcrypt ハッシュ ($2b$/$2a$) → bcrypt 直接検証
+    - sha256_crypt ハッシュ ($5$) → passlib で検証後 bcrypt に再ハッシュ
+    戻り値: (valid, new_hash_or_None)
+    """
+    if hashed.startswith("$2"):
+        # bcrypt ハッシュ
+        try:
+            valid = _bcrypt_lib.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+        except Exception:
+            valid = False
+        return valid, None
+    elif hashed.startswith("$5$"):
+        # 旧 sha256_crypt ハッシュ → 検証後 bcrypt に移行
+        try:
+            valid = _sha256_ctx.verify(plain, hashed)
+        except Exception:
+            valid = False
+        if valid:
+            new_hash = hash_password(plain)
+            return True, new_hash
+        return False, None
+    else:
+        return False, None
 
 
 def create_session_token(staff_id: int) -> str:
@@ -57,7 +85,7 @@ def update_last_active(staff: Staff, page: str, db: Session):
     db.commit()
 
 
-# ── [I1] CSRF保護 ──────────────────────────────────────────────────────────────
+# ── [I1] CSRF保護 ─────────────────────────────────────────────────────────────────────────────
 import hashlib, hmac, time
 
 def generate_csrf_token(session_token: str) -> str:
