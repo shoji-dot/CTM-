@@ -22,6 +22,19 @@
       <div class="import-stat-label">エラー</div>
     </div>
   </div>
+  {% if sci_warnings %}
+  <div class="import-errors" style="background:var(--warning-bg,#fffbeb);border-color:var(--warning,#d97706);">
+    <div class="import-errors-title" style="color:var(--warning,#d97706);">⚠ JANコード 科学表記変換の警告</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">
+      ExcelがJANコードを科学表記に変換したため、末尾の桁が0になっている可能性があります。<br>
+      対象商品の詳細画面でJANコードを手動で正しい値に修正してください。<br>
+      <strong>今後の予防策：</strong> ExcelでJANコード列を「文字列」に設定してから入力してください（先頭に <code>'</code> を付けると確実）。
+    </div>
+    {% for w in sci_warnings %}
+    <div class="import-error-row" style="color:var(--warning,#92400e)">{{ w }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
   {% if errors %}
   <div class="import-errors">
     <div class="import-errors-title">⚠ エラー詳細</div>
@@ -39,23 +52,4 @@
 {% endif %}
 
 <div class="form-card" style="margin-top:20px">
-  <h2 class="card-title">CSVファイルをアップロード</h2>
-  <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">
-    ※ SKUが既に登録済みの商品は上書き更新されます。
-  </div>
-  <form method="post" action="/products/csv-import" enctype="multipart/form-data">
-    <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
-    <div class="form-group">
-      <label class="label">CSVファイル <span class="required">*</span></label>
-      <input type="file" name="file" accept=".csv" required class="input" style="padding:6px">
-      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
-        UTF-8またはShift-JIS形式のCSVに対応しています
-      </div>
-    </div>
-    <div class="form-actions">
-      <a href="/products" class="btn btn-ghost">キャンセル</a>
-      <button type="submit" class="btn btn-primary">インポート実行</button>
-    </div>
-  </form>
-</div>
-{% endblock %}
+  <h2 class="card-title">CSVファイルをアッ

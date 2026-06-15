@@ -1,5 +1,6 @@
 import csv
 import io
+import re
 from fastapi import APIRouter, Depends, Request, Form, File, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response
 from sqlalchemy.orm import Session
@@ -8,6 +9,25 @@ import crud
 
 router = APIRouter()
 from templates_config import templates
+
+# ── JAN/SKU等の数値コード正規化 ─────────────────────────────────────────
+_SCI_PATTERN = re.compile(r'^\-?\d+\.?\d*[eE][+-]?\d+$')
+
+def _normalize_code_str(val: str) -> str:
+    """
+    Excelが科学表記（例: 4.59556E+12）に変換した数値文字列を整数文字列に戻す。
+    注意: Excelで既に有効桁が丸められている場合、末尾が0埋めになる可能性がある。
+          根本対策はCSVテンプレートの注意書きとExcel側の「文字列」書式設定。
+    """
+    if not val:
+        return val
+    stripped = val.strip()
+    if _SCI_PATTERN.match(stripped):
+        try:
+            return str(int(float(stripped)))
+        except (ValueError, OverflowError):
+            return stripped
+    return stripped
 
 
 @router.get("/products", response_class=HTMLResponse)
@@ -46,7 +66,7 @@ def csv_template_dl():
         "医療機器 または 生ハム",
         "","","",
         "なし / シリアル番号 / ロット番号","","有効 または 無効",
-        "","","",
+        "","※Excelでは列を「文字列」に設定してから入力（先頭に ' を付けると確実）","",
         "未設定 / 雑品 / クラスⅠ / クラスⅡ / クラスⅢ / クラスⅣ",
         "未設定 / メーカー / 代理店",
         "","未設定 / 滅菌済み / 未滅菌",""
@@ -126,6 +146,7 @@ async def csv_import(request: Request, file: UploadFile = File(...), db: Session
         success_count = 0
         updated_count = 0
         errors = []
+        sci_warnings = []   # 科学表記変換があった行の記録
         for i, raw_row in enumerate(reader, start=2):
             # 注釈行スキップ（1列目が「※」で始まる）
             first_val = list(raw_row.values())[0] if raw_row else ""
@@ -141,6 +162,14 @@ async def csv_import(request: Request, file: UploadFile = File(...), db: Session
                 alert_raw = g(row, "alert_enabled", "有効").lower()
                 alert_enabled = alert_raw not in ("無効", "false", "0", "off")
                 sku = g(row, "sku") or None
+                # JANコード: 科学表記（Excelの自動変換）を整数文字列に戻す
+                raw_jan = g(row, "jan_code")
+                jan_code = _normalize_code_str(raw_jan) or None
+                if raw_jan and _SCI_PATTERN.match(raw_jan.strip()):
+                    sci_warnings.append(
+                        f"{i}行目 ({name}): JANコード「{raw_jan}」を「{jan_code}」に変換しました。"
+                        f"Excelで精度が失われた可能性があります。手動で確認してください。"
+                    )
                 data = {
                     "name": name,
                     "category": CATEGORY_MAP.get(g(row, "category", "医療機器"), "medical"),
@@ -151,7 +180,7 @@ async def csv_import(request: Request, file: UploadFile = File(...), db: Session
                     "stock_alert_threshold": int(g(row, "stock_alert_threshold", "10") or 10),
                     "alert_enabled": alert_enabled,
                     "maker": g(row, "maker") or None,
-                    "jan_code": g(row, "jan_code") or None,
+                    "jan_code": jan_code,
                     "approval_number": g(row, "approval_number") or None,
                     "device_class": CLASS_MAP.get(g(row, "device_class", ""), "") or None,
                     "sales_role": ROLE_MAP.get(g(row, "sales_role", ""), "") or None,
@@ -173,6 +202,7 @@ async def csv_import(request: Request, file: UploadFile = File(...), db: Session
 
         return templates.TemplateResponse(request, "products/bulk_import.html", {
             "errors": errors,
+            "sci_warnings": sci_warnings,
             "success_count": success_count,
             "updated_count": updated_count,
         })
