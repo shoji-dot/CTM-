@@ -12,6 +12,7 @@ import os
 import logging
 import gzip
 import shutil
+import tarfile
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -139,6 +140,29 @@ def _upload_to_dropbox(local_path: Path) -> bool:
         return False
 
 
+
+# ── uploads/ バックアップ ────────────────────────────────────────────────────────
+
+UPLOADS_DIR = Path(__file__).parent / "uploads"
+
+def _backup_uploads() -> "Path | None":
+    """uploads/ ディレクトリを tar.gz にまとめて返す。"""
+    if not UPLOADS_DIR.exists():
+        logger.warning("[backup] uploads/ ディレクトリが見つかりません: %s", UPLOADS_DIR)
+        return None
+    ts = _now_jst().strftime("%Y%m%d_%H%M%S")
+    dest = BACKUP_DIR / f"uploads_{ts}.tar.gz"
+    try:
+        with tarfile.open(dest, "w:gz") as tar:
+            tar.add(UPLOADS_DIR, arcname="uploads")
+        size_kb = dest.stat().st_size // 1024
+        logger.info("[backup] uploads backup OK: %s (%d KB)", dest.name, size_kb)
+        return dest
+    except Exception as e:
+        logger.error("[backup] uploads backup exception: %s", e, exc_info=True)
+        return None
+
+
 # ── 古いローカルバックアップを削除 ───────────────────────────────────────────────
 
 def _purge_old_backups():
@@ -169,8 +193,19 @@ def run_backup() -> dict:
         return {"success": False, "file": None, "dropbox": False}
 
     uploaded = _upload_to_dropbox(backup_file)
+
+    # uploads/ のバックアップ（失敗してもメインの成否に影響しない）
+    uploads_file = _backup_uploads()
+    uploads_uploaded = False
+    if uploads_file:
+        uploads_uploaded = _upload_to_dropbox(uploads_file)
+    else:
+        logger.warning("[backup] uploads バックアップをスキップ")
+
     return {
         "success": True,
         "file": backup_file.name,
         "dropbox": uploaded,
+        "uploads_file": uploads_file.name if uploads_file else None,
+        "uploads_dropbox": uploads_uploaded,
     }
