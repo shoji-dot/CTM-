@@ -142,6 +142,7 @@ def _get_dropbox_client():
 
 
 def _upload_to_dropbox(local_path: Path) -> bool:
+    import dropbox
     dbx = _get_dropbox_client()
     if not dbx:
         logger.warning("[backup] Dropbox 認証情報が未設定のためアップロードをスキップ")
