@@ -36,34 +36,35 @@
     <!-- 明細テーブル -->
     <h3 style="font-size:0.9rem;font-weight:700;color:#374151;margin-bottom:8px">出荷明細</h3>
     {% set type_colors = {"sale":"#e3f2fd;color:#1565c0","sample":"#e0f2f1;color:#00695c","demo":"#ede9fe;color:#5b21b6","repair_sub":"#fef3c7;color:#92400e"} %}
-    <table style="width:100%;border-collapse:collapse;font-size:0.85rem;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #e5e7eb;border-radius:8px">
+    <table style="width:100%;min-width:640px;border-collapse:collapse;font-size:0.85rem">
       <thead>
         <tr style="background:#f8fafc">
-          <th style="padding:8px 12px;text-align:left;font-size:0.75rem;color:#5f6b7a">#</th>
-          <th style="padding:8px 12px;text-align:left;font-size:0.75rem;color:#5f6b7a">種別</th>
-          <th style="padding:8px 12px;text-align:left;font-size:0.75rem;color:#5f6b7a">商品</th>
-          <th style="padding:8px 12px;text-align:center;font-size:0.75rem;color:#5f6b7a">数量</th>
-          <th style="padding:8px 12px;text-align:left;font-size:0.75rem;color:#5f6b7a">S.N / ロット</th>
-          <th style="padding:8px 12px;text-align:left;font-size:0.75rem;color:#5f6b7a">使用期限</th>
-          <th style="padding:8px 12px;width:90px"></th>
+          <th style="padding:8px 12px;text-align:left;font-size:0.75rem;color:#5f6b7a;white-space:nowrap">#</th>
+          <th style="padding:8px 12px;text-align:left;font-size:0.75rem;color:#5f6b7a;white-space:nowrap">種別</th>
+          <th style="padding:8px 12px;text-align:left;font-size:0.75rem;color:#5f6b7a;white-space:nowrap">商品</th>
+          <th style="padding:8px 12px;text-align:center;font-size:0.75rem;color:#5f6b7a;white-space:nowrap">数量</th>
+          <th style="padding:8px 12px;text-align:left;font-size:0.75rem;color:#5f6b7a;white-space:nowrap">S.N / ロット</th>
+          <th style="padding:8px 12px;text-align:left;font-size:0.75rem;color:#5f6b7a;white-space:nowrap">使用期限</th>
+          <th style="padding:8px 12px;width:90px;white-space:nowrap"></th>
         </tr>
       </thead>
       <tbody>
         {% for item in shipment.items %}
         <tr style="border-top:1px solid #f0f4f8">
-          <td style="padding:10px 12px;color:#9ca3af">{{ item.line_no }}</td>
-          <td style="padding:10px 12px">
-            <span style="background:{{ type_colors.get(item.shipment_type,'#f3f4f6;color:#374151') }};padding:2px 9px;border-radius:999px;font-size:0.75rem;font-weight:700">{{ shipment_types.get(item.shipment_type, item.shipment_type) }}</span>
+          <td style="padding:10px 12px;color:#9ca3af;white-space:nowrap">{{ item.line_no }}</td>
+          <td style="padding:10px 12px;white-space:nowrap">
+            <span style="display:inline-block;white-space:nowrap;background:{{ type_colors.get(item.shipment_type,'#f3f4f6;color:#374151') }};padding:2px 9px;border-radius:999px;font-size:0.75rem;font-weight:700">{{ shipment_types.get(item.shipment_type, item.shipment_type) }}</span>
           </td>
-          <td style="padding:10px 12px;font-weight:600">{{ item.product.name }}</td>
-          <td style="padding:10px 12px;text-align:center">{{ item.quantity }}{{ item.product.unit or "" }}</td>
-          <td style="padding:10px 12px;font-family:monospace;font-size:0.82rem">
+          <td style="padding:10px 12px;font-weight:600;white-space:nowrap">{{ item.product.name }}</td>
+          <td style="padding:10px 12px;text-align:center;white-space:nowrap">{{ item.quantity }}{{ item.product.unit or "" }}</td>
+          <td style="padding:10px 12px;font-family:monospace;font-size:0.82rem;white-space:nowrap">
             {% if item.serial_number %}S.N: {{ item.serial_number }}<br>{% endif %}
             {% if item.lot_number %}ロット: {{ item.lot_number }}{% endif %}
             {% if not item.serial_number and not item.lot_number %}―{% endif %}
           </td>
-          <td style="padding:10px 12px;font-family:monospace;font-size:0.82rem">{{ item.expiry_date or "―" }}</td>
-          <td style="padding:8px 12px">
+          <td style="padding:10px 12px;font-family:monospace;font-size:0.82rem;white-space:nowrap">{{ item.expiry_date or "―" }}</td>
+          <td style="padding:8px 12px;white-space:nowrap">
             {% if item.shipment_type == "sale" and not item.sale %}
             <a href="/sales/new?shipment_item_id={{ item.id }}" style="padding:4px 10px;background:#1a73e8;color:white;border-radius:6px;text-decoration:none;font-size:0.78rem;font-weight:600">💰 売上登録</a>
             {% elif item.sale %}
@@ -76,6 +77,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 
   <!-- アクション -->
