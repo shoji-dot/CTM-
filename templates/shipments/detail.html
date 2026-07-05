@@ -56,7 +56,10 @@
           <td style="padding:10px 12px;white-space:nowrap">
             <span style="display:inline-block;white-space:nowrap;background:{{ type_colors.get(item.shipment_type,'#f3f4f6;color:#374151') }};padding:2px 9px;border-radius:999px;font-size:0.75rem;font-weight:700">{{ shipment_types.get(item.shipment_type, item.shipment_type) }}</span>
           </td>
-          <td style="padding:10px 12px;font-weight:600;white-space:nowrap">{{ item.product.name }}</td>
+          <td style="padding:10px 12px;font-weight:600;white-space:nowrap">
+            {{ item.product.name }}
+            {% if item.product.sku %}<br><span style="font-weight:400;color:#9ca3af;font-size:0.78rem">型番: {{ item.product.sku }}</span>{% endif %}
+          </td>
           <td style="padding:10px 12px;text-align:center;white-space:nowrap">{{ item.quantity }}{{ item.product.unit or "" }}</td>
           <td style="padding:10px 12px;font-family:monospace;font-size:0.82rem;white-space:nowrap">
             {% if item.serial_number %}S.N: {{ item.serial_number }}<br>{% endif %}

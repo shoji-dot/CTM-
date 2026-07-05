@@ -53,6 +53,7 @@
           <div style="margin-bottom:3px;font-size:0.83rem">
             <span style="background:{{ type_colors.get(item.shipment_type,'#f3f4f6;color:#374151') }};padding:1px 7px;border-radius:999px;font-size:0.72rem;font-weight:700;margin-right:5px">{{ shipment_types.get(item.shipment_type, item.shipment_type) }}</span>
             {{ item.product.name }}
+            {% if item.product.sku %}<span style="color:#9ca3af;font-size:0.75rem"> 型番:{{ item.product.sku }}</span>{% endif %}
             <span style="color:#5f6b7a"> ×{{ item.quantity }}</span>
             {% if item.serial_number %}<span style="color:#9ca3af;font-size:0.75rem"> S.N:{{ item.serial_number }}</span>{% endif %}
             {% if item.lot_number %}<span style="color:#9ca3af;font-size:0.75rem"> L:{{ item.lot_number }}</span>{% endif %}

@@ -69,7 +69,7 @@
     <tr>
       <td>{{ item.line_no }}</td>
       <td>{{ shipment_types.get(item.shipment_type, item.shipment_type) }}</td>
-      <td>{{ item.product.name }}</td>
+      <td>{{ item.product.name }}{% if item.product.sku %} <span style="color:#666;">（型番: {{ item.product.sku }}）</span>{% endif %}</td>
       <td>{{ item.quantity }}{{ item.product.unit or "" }}</td>
       <td>
         {% if item.serial_number %}S.N: {{ item.serial_number }}{% endif %}
