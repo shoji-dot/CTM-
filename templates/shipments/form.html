@@ -69,7 +69,7 @@
         </div>
         <!-- 返却期限（デモ・代替品のみ表示） -->
         <div id="return_due_wrap" style="display:none">
-          <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">返却期限</label>
+          <label id="return_due_label" style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">返却期限</label>
           <input type="date" name="return_due_date" id="return_due_date" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
         </div>
         <!-- 担当者（自社） -->
@@ -147,6 +147,12 @@ function updateReturnDue() {
     return t === 'demo' || t === 'repair_sub';
   });
   document.getElementById('return_due_wrap').style.display = hasDemoOrRepair ? '' : 'none';
+  const dueInput = document.getElementById('return_due_date');
+  dueInput.required = hasDemoOrRepair;
+  const label = document.getElementById('return_due_label');
+  if (label) label.innerHTML = hasDemoOrRepair
+    ? '返却期限 <span style="color:#e53935">*</span>'
+    : '返却期限';
 }
 
 function addRow(type) {
@@ -466,6 +472,12 @@ function prepareSubmit() {
   });
   const missing = items.findIndex(it => !it.product_id);
   if (missing >= 0) { alert(`${missing+1}行目の商品が選択されていません。`); return false; }
+  const hasDemoOrRepair = items.some(it => it.shipment_type === 'demo' || it.shipment_type === 'repair_sub');
+  if (hasDemoOrRepair && !document.getElementById('return_due_date').value) {
+    alert('デモ貸出・修理代替品が含まれる場合、返却期限を入力してください。');
+    document.getElementById('return_due_date').focus();
+    return false;
+  }
   document.getElementById('items_json').value = JSON.stringify(items);
   return true;
 }

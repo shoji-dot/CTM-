@@ -135,6 +135,12 @@ async def create_shipment(request: Request, db: Session = Depends(get_db)):
     if not raw_items:
         return redirect_error("明細を1行以上追加してください。")
 
+    has_demo_or_repair = any(
+        it.get("shipment_type") in ("demo", "repair_sub") for it in raw_items
+    )
+    if has_demo_or_repair and not return_due_str:
+        return redirect_error("デモ貸出・修理代替品が含まれる場合、返却期限を入力してください。")
+
     items = []
     for idx, it in enumerate(raw_items, start=1):
         pid = it.get("product_id")
