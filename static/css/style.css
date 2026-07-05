@@ -113,6 +113,11 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); disp
 .detail-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
 .card-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); margin-bottom: 14px; }
 
+/* ── デモ器詳細ページ 専用グリッド ─────────────────────── */
+.demo-detail-grid { display: grid; grid-template-columns: 320px 1fr; gap: 20px; align-items: start; }
+.demo-repair-step-grid { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
+.demo-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
 /* ── DL ────────────────────────────────────────────────── */
 .dl { display: grid; grid-template-columns: 90px 1fr; gap: 8px 12px; font-size: 13px; }
 .dl dt { color: var(--text-muted); }
@@ -213,6 +218,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); disp
   .page-title { font-size: 17px; }
   .filter-form .input { max-width: 100%; width: 100%; }
   .table { min-width: 400px; }
+  .demo-detail-grid { grid-template-columns: 1fr; }
+  .demo-repair-step-grid { grid-template-columns: 1fr; }
+  .demo-grid-2 { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {

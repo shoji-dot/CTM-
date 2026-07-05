@@ -76,7 +76,7 @@
     <div style="border-top:1px solid var(--border);padding-top:20px">
       <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--warning)">▶ 次のステップ：メーカーへ送付する</div>
       <form method="post" action="/demo/{{ unit.id }}/repair/{{ r.id }}/step-send"
-            style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end">
+            class="demo-repair-step-grid">
         <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
         <div class="form-group">
           <label class="label">送付先・修理業者</label>
@@ -93,7 +93,7 @@
     {% elif r.status == "in_repair" %}
     <div style="border-top:1px solid var(--border);padding-top:20px">
       <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--accent)">▶ 次のステップ：修理結果を登録する</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="demo-grid-2">
 
         <div style="background:rgba(22,163,74,.06);border:1px solid rgba(22,163,74,.25);border-radius:10px;padding:16px">
           <div style="font-size:13px;font-weight:700;color:#16a34a;margin-bottom:12px">✅ 修理完了・デモ器を返却</div>
@@ -136,7 +136,7 @@
   {% endif %}
 
   <!-- メインコンテンツ（2カラム） -->
-  <div style="display:grid;grid-template-columns:320px 1fr;gap:20px;align-items:start">
+  <div class="demo-detail-grid">
 
     <!-- 左カラム -->
     <div>

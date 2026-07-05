@@ -2,103 +2,101 @@
 {% block title %}{{ "デモ器編集" if unit else "デモ器登録" }}{% endblock %}
 
 {% block content %}
-<div class="container py-4" style="max-width:600px">
-  <h2 class="mb-4">🔬 {{ "デモ器編集" if unit else "デモ器新規登録" }}</h2>
+<div class="page-header">
+  <h1 class="page-title">🔬 {{ "デモ器編集" if unit else "デモ器新規登録" }}</h1>
+  <a href="{{ '/demo/' + unit.id|string if unit else '/demo/' }}" class="btn btn-ghost">← 戻る</a>
+</div>
 
-  <div class="card">
-    <div class="card-body">
-      <form method="post">
-        <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
+<div class="form-card" style="max-width:600px">
+  <form method="post">
+    <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
 
-        <div class="mb-3">
-          <label class="form-label fw-bold">管理番号</label>
-          {% if unit %}
-          <input type="text" name="unit_code" class="form-control"
-                 value="{{ unit.unit_code }}" required>
-          <div class="form-text">変更する場合のみ編集してください</div>
-          {% else %}
-          <input type="text" class="form-control" value="自動採番（DEMO-XXX）" disabled style="background:#f3f4f6;color:#6b7280">
-          <div class="form-text">登録時に自動で番号が割り当てられます</div>
-          {% endif %}
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label fw-bold">製品 <span class="text-danger">*</span></label>
-          <select name="product_id" class="form-select" required>
-            <option value="">-- 選択してください --</option>
-            {% for p in products %}
-            <option value="{{ p.id }}"
-              {{ 'selected' if unit and unit.product_id == p.id }}>
-              {{ p.name }}{% if p.sku %} ({{ p.sku }}){% endif %}
-            </option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label fw-bold">シリアル番号</label>
-          <input type="text" name="serial_number" class="form-control"
-                 value="{{ unit.serial_number if unit else '' }}"
-                 placeholder="機器固有のシリアル番号">
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label fw-bold">ロット番号</label>
-          <input type="text" name="lot_number" class="form-control"
-                 value="{{ unit.lot_number if unit else '' }}"
-                 placeholder="ロット番号（ロット製品の場合）">
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label fw-bold">自社購入日</label>
-          <input type="date" name="purchase_date" class="form-control"
-                 value="{{ unit.purchase_date.isoformat() if unit and unit.purchase_date else '' }}">
-        </div>
-
-        {% if unit %}
-        <div class="mb-3">
-          <label class="form-label fw-bold">ステータス</label>
-          <select name="status" class="form-select">
-            <option value="available" {{ 'selected' if unit.status=='available' }}>✅ 貸出可</option>
-            <option value="on_loan"   {{ 'selected' if unit.status=='on_loan' }}>📤 貸出中</option>
-            <option value="in_repair" {{ 'selected' if unit.status=='in_repair' }}>🔧 修理中</option>
-            <option value="retired"   {{ 'selected' if unit.status=='retired' }}>🗑️ 廃棄</option>
-          </select>
-        </div>
-        {% endif %}
-
-        <div class="mb-3">
-          <label class="form-label fw-bold">現在地区分</label>
-          <select name="location_type" class="form-select">
-            <option value="own"      {% if not unit or unit.location_type == 'own' %}selected{% endif %}>🏢 自社（本社・営業所）</option>
-            <option value="customer" {% if unit and unit.location_type == 'customer' %}selected{% endif %}>🏥 取引先</option>
-            <option value="maker"    {% if unit and unit.location_type == 'maker' %}selected{% endif %}>🏭 製造元</option>
-            <option value="end_user" {% if unit and unit.location_type == 'end_user' %}selected{% endif %}>👤 エンドユーザー</option>
-          </select>
-        </div>
-        <div class="mb-3">
-          <label class="form-label fw-bold">所在地名</label>
-          <input type="text" name="location_name" class="form-control"
-                 value="{{ unit.location_name if unit else 'CTM本社' }}"
-                 placeholder="例：CTM本社 / 関東営業所 / 〇〇病院">
-        </div>
-
-        <div class="mb-4">
-          <label class="form-label fw-bold">備考</label>
-          <textarea name="notes" class="form-control" rows="3"
-                    placeholder="特記事項など">{{ unit.notes if unit else '' }}</textarea>
-        </div>
-
-        <div class="d-flex gap-2">
-          <button type="submit" class="btn btn-primary">
-            {{ "💾 更新する" if unit else "➕ 登録する" }}
-          </button>
-          <a href="{{ '/demo/' + unit.id|string if unit else '/demo/' }}"
-             class="btn btn-outline-secondary">キャンセル</a>
-        </div>
-
-      </form>
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="label">管理番号</label>
+      {% if unit %}
+      <input type="text" name="unit_code" class="input"
+             value="{{ unit.unit_code }}" required>
+      <span class="text-muted text-sm">変更する場合のみ編集してください</span>
+      {% else %}
+      <input type="text" class="input" value="自動採番（DEMO-XXX）" disabled style="background:var(--surface2);color:var(--text-muted)">
+      <span class="text-muted text-sm">登録時に自動で番号が割り当てられます</span>
+      {% endif %}
     </div>
-  </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="label">製品 <span class="required">*</span></label>
+      <select name="product_id" class="select" required>
+        <option value="">-- 選択してください --</option>
+        {% for p in products %}
+        <option value="{{ p.id }}"
+          {{ 'selected' if unit and unit.product_id == p.id }}>
+          {{ p.name }}{% if p.sku %} ({{ p.sku }}){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="label">シリアル番号</label>
+      <input type="text" name="serial_number" class="input"
+             value="{{ unit.serial_number if unit else '' }}"
+             placeholder="機器固有のシリアル番号">
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="label">ロット番号</label>
+      <input type="text" name="lot_number" class="input"
+             value="{{ unit.lot_number if unit else '' }}"
+             placeholder="ロット番号（ロット製品の場合）">
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="label">自社購入日</label>
+      <input type="date" name="purchase_date" class="input"
+             value="{{ unit.purchase_date.isoformat() if unit and unit.purchase_date else '' }}">
+    </div>
+
+    {% if unit %}
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="label">ステータス</label>
+      <select name="status" class="select">
+        <option value="available" {{ 'selected' if unit.status=='available' }}>✅ 貸出可</option>
+        <option value="on_loan"   {{ 'selected' if unit.status=='on_loan' }}>📤 貸出中</option>
+        <option value="in_repair" {{ 'selected' if unit.status=='in_repair' }}>🔧 修理中</option>
+        <option value="retired"   {{ 'selected' if unit.status=='retired' }}>🗑️ 廃棄</option>
+      </select>
+    </div>
+    {% endif %}
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="label">現在地区分</label>
+      <select name="location_type" class="select">
+        <option value="own"      {% if not unit or unit.location_type == 'own' %}selected{% endif %}>🏢 自社（本社・営業所）</option>
+        <option value="customer" {% if unit and unit.location_type == 'customer' %}selected{% endif %}>🏥 取引先</option>
+        <option value="maker"    {% if unit and unit.location_type == 'maker' %}selected{% endif %}>🏭 製造元</option>
+        <option value="end_user" {% if unit and unit.location_type == 'end_user' %}selected{% endif %}>👤 エンドユーザー</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="label">所在地名</label>
+      <input type="text" name="location_name" class="input"
+             value="{{ unit.location_name if unit else 'CTM本社' }}"
+             placeholder="例：CTM本社 / 関東営業所 / 〇〇病院">
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="label">備考</label>
+      <textarea name="notes" class="textarea" rows="3"
+                placeholder="特記事項など">{{ unit.notes if unit else '' }}</textarea>
+    </div>
+
+    <div class="form-actions">
+      <a href="{{ '/demo/' + unit.id|string if unit else '/demo/' }}" class="btn btn-ghost">キャンセル</a>
+      <button type="submit" class="btn btn-primary">
+        {{ "💾 更新する" if unit else "➕ 登録する" }}
+      </button>
+    </div>
+
+  </form>
 </div>
 {% endblock %}

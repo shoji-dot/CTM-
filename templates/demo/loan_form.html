@@ -2,115 +2,113 @@
 {% block title %}貸出登録 - {{ unit.unit_code }}{% endblock %}
 
 {% block content %}
-<div class="container py-4" style="max-width:680px">
-  <a href="/demo/{{ unit.id }}" class="text-decoration-none text-muted small">← {{ unit.unit_code }} 詳細</a>
-  <h2 class="mt-1 mb-4">📤 デモ器貸出登録</h2>
+<div class="page-header">
+  <h1 class="page-title">📤 デモ器貸出登録</h1>
+  <a href="/demo/{{ unit.id }}" class="btn btn-ghost">← {{ unit.unit_code }} 詳細</a>
+</div>
 
-  <!-- 機器情報サマリー -->
-  <div class="alert alert-info mb-4">
-    <strong>🔬 {{ unit.unit_code }}</strong>　{{ unit.product.name }}
-    {% if unit.serial_number %}<code class="ms-2">{{ unit.serial_number }}</code>{% endif %}
-  </div>
+<!-- 機器情報サマリー -->
+<div class="detail-card" style="border-color:var(--accent);margin-bottom:16px;padding:14px 20px">
+  <strong>🔬 {{ unit.unit_code }}</strong>　{{ unit.product.name }}
+  {% if unit.serial_number %}<span class="mono" style="margin-left:8px">{{ unit.serial_number }}</span>{% endif %}
+</div>
 
-  <div class="card">
-    <div class="card-body">
-      <form method="post" id="loan-form" onsubmit="return validateLoan()">
-        <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
+<div class="form-card" style="max-width:680px">
+  <form method="post" id="loan-form" onsubmit="return validateLoan()">
+    <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
 
-        <!-- 貸出先（顧客） -->
-        <div class="mb-3">
-          <label class="form-label fw-bold">貸出先（顧客） <span class="text-danger">*</span></label>
-          <div class="cac-wrap" style="position:relative">
-            <input type="text" id="customer_id_text" class="form-control"
-                   placeholder="顧客名で検索..."
-                   autocomplete="off"
-                   oninput="customerAC(this,'customer_id','customer_id_dd')"
-                   onfocus="if(this.value.trim())customerAC(this,'customer_id','customer_id_dd')">
-            <input type="hidden" name="customer_id" id="customer_id">
-            <div id="customer_id_dd" class="cac-dd"
-                 style="display:none;position:absolute;z-index:9999;background:white;
-                        border:1px solid #dde3ea;border-radius:8px;
-                        box-shadow:0 4px 12px rgba(0,0,0,.12);
-                        width:100%;max-height:240px;overflow-y:auto"></div>
-          </div>
-          <div class="form-text text-muted">顧客名を入力すると候補が表示されます</div>
-        </div>
-
-        <!-- 取引先担当者 -->
-        <div class="mb-3">
-          <label class="form-label fw-bold">取引先担当者</label>
-          <input type="text" name="contact_name" class="form-control"
-                 placeholder="先方の担当者名">
-        </div>
-
-        <!-- エンドユーザー -->
-        <div class="mb-3">
-          <label class="form-label fw-bold">
-            エンドユーザー
-            <span class="text-muted fw-normal small">（実使用者が貸出先と異なる場合）</span>
-          </label>
-          <div class="cac-wrap" style="position:relative">
-            <input type="text" id="end_user_id_text" class="form-control"
-                   placeholder="エンドユーザー名で検索（任意）"
-                   autocomplete="off"
-                   oninput="customerAC(this,'end_user_id','end_user_id_dd')"
-                   onfocus="if(this.value.trim())customerAC(this,'end_user_id','end_user_id_dd')">
-            <input type="hidden" name="end_user_id" id="end_user_id">
-            <div id="end_user_id_dd" class="cac-dd"
-                 style="display:none;position:absolute;z-index:9999;background:white;
-                        border:1px solid #dde3ea;border-radius:8px;
-                        box-shadow:0 4px 12px rgba(0,0,0,.12);
-                        width:100%;max-height:240px;overflow-y:auto"></div>
-          </div>
-          <div class="form-text text-muted">未選択の場合は貸出先と同じとして扱われます</div>
-        </div>
-
-        <hr class="my-3">
-
-        <!-- 貸出日・返却期限 -->
-        <div class="row g-3 mb-3">
-          <div class="col-6">
-            <label class="form-label fw-bold">貸出日 <span class="text-danger">*</span></label>
-            <input type="date" name="loan_date" class="form-control"
-                   value="{{ today.isoformat() }}" required>
-          </div>
-          <div class="col-6">
-            <label class="form-label fw-bold">返却期限 <span class="text-danger">*</span></label>
-            <input type="date" name="due_date" class="form-control"
-                   value="{{ default_due.isoformat() }}" required>
-          </div>
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label fw-bold">貸出目的</label>
-          <input type="text" name="purpose" class="form-control"
-                 placeholder="例: ○○科での試用評価">
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label fw-bold">貸出時の状態</label>
-          <input type="text" name="condition_out" class="form-control"
-                 placeholder="例: 正常動作確認済">
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label fw-bold">担当スタッフ</label>
-          <input type="text" name="staff_name" class="form-control">
-        </div>
-
-        <div class="mb-4">
-          <label class="form-label fw-bold">備考</label>
-          <textarea name="notes" class="form-control" rows="2"></textarea>
-        </div>
-
-        <div class="d-flex gap-2">
-          <button type="submit" class="btn btn-primary">📤 貸出登録する</button>
-          <a href="/demo/{{ unit.id }}" class="btn btn-outline-secondary">キャンセル</a>
-        </div>
-
-      </form>
+    <!-- 貸出先（顧客） -->
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="label">貸出先（顧客） <span class="required">*</span></label>
+      <div class="cac-wrap" style="position:relative">
+        <input type="text" id="customer_id_text" class="input"
+               placeholder="顧客名で検索..."
+               autocomplete="off"
+               oninput="customerAC(this,'customer_id','customer_id_dd')"
+               onfocus="if(this.value.trim())customerAC(this,'customer_id','customer_id_dd')">
+        <input type="hidden" name="customer_id" id="customer_id">
+        <div id="customer_id_dd" class="cac-dd"
+             style="display:none;position:absolute;z-index:9999;background:white;
+                    border:1px solid #dde3ea;border-radius:8px;
+                    box-shadow:0 4px 12px rgba(0,0,0,.12);
+                    width:100%;max-height:240px;overflow-y:auto"></div>
+      </div>
+      <span class="text-muted text-sm">顧客名を入力すると候補が表示されます</span>
     </div>
-  </div>
+
+    <!-- 取引先担当者 -->
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="label">取引先担当者</label>
+      <input type="text" name="contact_name" class="input"
+             placeholder="先方の担当者名">
+    </div>
+
+    <!-- エンドユーザー -->
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="label">
+        エンドユーザー
+        <span class="text-muted" style="font-weight:400">（実使用者が貸出先と異なる場合）</span>
+      </label>
+      <div class="cac-wrap" style="position:relative">
+        <input type="text" id="end_user_id_text" class="input"
+               placeholder="エンドユーザー名で検索（任意）"
+               autocomplete="off"
+               oninput="customerAC(this,'end_user_id','end_user_id_dd')"
+               onfocus="if(this.value.trim())customerAC(this,'end_user_id','end_user_id_dd')">
+        <input type="hidden" name="end_user_id" id="end_user_id">
+        <div id="end_user_id_dd" class="cac-dd"
+             style="display:none;position:absolute;z-index:9999;background:white;
+                    border:1px solid #dde3ea;border-radius:8px;
+                    box-shadow:0 4px 12px rgba(0,0,0,.12);
+                    width:100%;max-height:240px;overflow-y:auto"></div>
+      </div>
+      <span class="text-muted text-sm">未選択の場合は貸出先と同じとして扱われます</span>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:20px 0">
+
+    <!-- 貸出日・返却期限 -->
+    <div class="demo-grid-2" style="margin-bottom:16px">
+      <div class="form-group">
+        <label class="label">貸出日 <span class="required">*</span></label>
+        <input type="date" name="loan_date" class="input"
+               value="{{ today.isoformat() }}" required>
+      </div>
+      <div class="form-group">
+        <label class="label">返却期限 <span class="required">*</span></label>
+        <input type="date" name="due_date" class="input"
+               value="{{ default_due.isoformat() }}" required>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="label">貸出目的</label>
+      <input type="text" name="purpose" class="input"
+             placeholder="例: ○○科での試用評価">
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="label">貸出時の状態</label>
+      <input type="text" name="condition_out" class="input"
+             placeholder="例: 正常動作確認済">
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="label">担当スタッフ</label>
+      <input type="text" name="staff_name" class="input">
+    </div>
+
+    <div class="form-group" style="margin-bottom:8px">
+      <label class="label">備考</label>
+      <textarea name="notes" class="textarea" rows="2"></textarea>
+    </div>
+
+    <div class="form-actions">
+      <a href="/demo/{{ unit.id }}" class="btn btn-ghost">キャンセル</a>
+      <button type="submit" class="btn btn-primary">📤 貸出登録する</button>
+    </div>
+
+  </form>
 </div>
 {% endblock %}
 
