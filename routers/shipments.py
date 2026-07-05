@@ -180,6 +180,18 @@ def detail_shipment(shipment_id: int, request: Request, db: Session = Depends(ge
     })
 
 
+# ── 出荷伝票 印刷ビュー ─────────────────────────────────────
+@router.get("/shipments/{shipment_id}/print", response_class=HTMLResponse)
+def print_shipment(shipment_id: int, request: Request, db: Session = Depends(get_db)):
+    shipment = crud.get_shipment(db, shipment_id)
+    return templates.TemplateResponse(request, "shipments/detail_print.html", {
+        "shipment":       shipment,
+        "shipment_types": SHIPMENT_TYPES,
+        "today":          date.today().isoformat(),
+        "company":        company_info,
+    })
+
+
 # ── 返却登録 ──────────────────────────────────────────────
 @router.post("/shipments/{shipment_id}/return")
 async def return_shipment(shipment_id: int, request: Request, db: Session = Depends(get_db)):
