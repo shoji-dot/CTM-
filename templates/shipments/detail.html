@@ -89,6 +89,10 @@
        style="padding:9px 16px;background:#1a73e8;color:white;border-radius:8px;font-weight:600;text-decoration:none">
       🖨 出荷伝票を印刷/PDF保存
     </a>
+    <a href="/shipments/{{ shipment.id }}/edit"
+       style="padding:9px 16px;background:white;color:#374151;border:1.5px solid #dde3ea;border-radius:8px;font-weight:600;text-decoration:none">
+      ✏️ 編集
+    </a>
     {% set has_demo = shipment.items | selectattr("shipment_type","in",["demo","repair_sub"]) | list %}
     {% if shipment.status == "shipped" and has_demo %}
     <form method="post" action="/shipments/{{ shipment.id }}/return" style="display:flex;gap:8px;align-items:center">

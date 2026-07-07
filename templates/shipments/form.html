@@ -67,8 +67,8 @@
           <label style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">出荷日 <span style="color:#e53935">*</span></label>
           <input type="date" name="shipped_date" id="shipped_date" value="{{ today }}" required style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
         </div>
-        <!-- 返却期限（デモ・代替品のみ表示） -->
-        <div id="return_due_wrap" style="display:none">
+        <!-- 返却期限（デモ・代替品を含む場合は必須） -->
+        <div id="return_due_wrap">
           <label id="return_due_label" style="font-size:0.78rem;font-weight:600;color:#5f6b7a;display:block;margin-bottom:4px">返却期限</label>
           <input type="date" name="return_due_date" id="return_due_date" style="width:100%;padding:8px 10px;border:1.5px solid #dde3ea;border-radius:8px;font-size:0.88rem">
         </div>
@@ -146,14 +146,14 @@ function updateReturnDue() {
     const t = r.dataset.type;
     return t === 'demo' || t === 'repair_sub';
   });
-  document.getElementById('return_due_wrap').style.display = hasDemoOrRepair ? '' : 'none';
   const dueInput = document.getElementById('return_due_date');
   dueInput.required = hasDemoOrRepair;
   const label = document.getElementById('return_due_label');
   if (label) label.innerHTML = hasDemoOrRepair
     ? '返却期限 <span style="color:#e53935">*</span>'
-    : '返却期限';
+    : '返却期限（デモ貸出・修理代替品がある場合は必須）';
 }
+document.addEventListener('DOMContentLoaded', updateReturnDue);
 
 function addRow(type) {
   document.getElementById('empty_row').style.display = 'none';

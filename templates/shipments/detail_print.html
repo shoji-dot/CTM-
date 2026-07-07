@@ -15,6 +15,8 @@
   .items-table th { width: auto; }
   .footer { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
   .sign-box { border: 1px solid #ccc; height: 60px; display: flex; align-items: flex-end; padding: 4px 8px; font-size: 11px; color: #666; }
+  .attach-page { page-break-before: always; padding-top: 8px; }
+  .attach-embed { width: 100%; height: 1100px; border: none; }
   @media print { body { padding: 12px; } .no-print { display: none; } }
 </style>
 </head>
@@ -23,6 +25,12 @@
 <div class="no-print" style="margin-bottom:16px;">
   <button onclick="window.print()" style="padding:8px 20px;background:#3b82f6;color:#fff;border:none;border-radius:4px;cursor:pointer;">🖨 印刷 / PDF保存</button>
   <button onclick="window.close()" style="padding:8px 20px;background:#6b7280;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-left:8px;">閉じる</button>
+  {% if has_demo %}
+  <label style="margin-left:16px;font-size:13px;color:#333;">
+    <input type="checkbox" id="attach-toggle" checked onchange="toggleAttach()">
+    医療機器の貸出に関する確認書も一緒に印刷する
+  </label>
+  {% endif %}
 </div>
 
 <div class="doc-title">出 荷 伝 票</div>
@@ -96,6 +104,20 @@
   <div><div class="sign-box">承認</div></div>
   <div><div class="sign-box">受領</div></div>
 </div>
+
+{% if has_demo %}
+<div id="attach-block" class="attach-page">
+  <p class="section-title">添付：医療機器の貸出に関する確認書（様式3）</p>
+  <embed class="attach-embed" src="/static/docs/demo_loan_confirmation.pdf" type="application/pdf">
+</div>
+<script>
+function toggleAttach() {
+  const block = document.getElementById('attach-block');
+  const checked = document.getElementById('attach-toggle').checked;
+  block.style.display = checked ? '' : 'none';
+}
+</script>
+{% endif %}
 
 </body>
 </html>

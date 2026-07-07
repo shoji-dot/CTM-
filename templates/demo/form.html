@@ -7,6 +7,12 @@
   <a href="{{ '/demo/' + unit.id|string if unit else '/demo/' }}" class="btn btn-ghost">← 戻る</a>
 </div>
 
+{% if created %}
+<div style="background:rgba(22,163,74,.1);color:var(--success);border:1px solid rgba(22,163,74,.3);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px">
+  ✅ {{ created }} を登録しました。続けて次のデモ器を登録できます。
+</div>
+{% endif %}
+
 <div class="form-card" style="max-width:600px">
   <form method="post">
     <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
@@ -39,14 +45,14 @@
     <div class="form-group" style="margin-bottom:16px">
       <label class="label">シリアル番号</label>
       <input type="text" name="serial_number" class="input"
-             value="{{ unit.serial_number if unit else '' }}"
+             value="{{ unit.serial_number or '' }}"
              placeholder="機器固有のシリアル番号">
     </div>
 
     <div class="form-group" style="margin-bottom:16px">
       <label class="label">ロット番号</label>
       <input type="text" name="lot_number" class="input"
-             value="{{ unit.lot_number if unit else '' }}"
+             value="{{ unit.lot_number or '' }}"
              placeholder="ロット番号（ロット製品の場合）">
     </div>
 
@@ -80,21 +86,24 @@
     <div class="form-group" style="margin-bottom:16px">
       <label class="label">所在地名</label>
       <input type="text" name="location_name" class="input"
-             value="{{ unit.location_name if unit else 'CTM本社' }}"
+             value="{{ unit.location_name or 'CTM本社' }}"
              placeholder="例：CTM本社 / 関東営業所 / 〇〇病院">
     </div>
 
     <div class="form-group" style="margin-bottom:16px">
       <label class="label">備考</label>
       <textarea name="notes" class="textarea" rows="3"
-                placeholder="特記事項など">{{ unit.notes if unit else '' }}</textarea>
+                placeholder="特記事項など">{{ unit.notes or '' }}</textarea>
     </div>
 
     <div class="form-actions">
       <a href="{{ '/demo/' + unit.id|string if unit else '/demo/' }}" class="btn btn-ghost">キャンセル</a>
-      <button type="submit" class="btn btn-primary">
-        {{ "💾 更新する" if unit else "➕ 登録する" }}
-      </button>
+      {% if unit %}
+      <button type="submit" class="btn btn-primary">💾 更新する</button>
+      {% else %}
+      <button type="submit" name="next_action" value="continue" class="btn btn-ghost">➕ 登録して続けて登録</button>
+      <button type="submit" name="next_action" value="detail" class="btn btn-primary">➕ 登録する</button>
+      {% endif %}
     </div>
 
   </form>

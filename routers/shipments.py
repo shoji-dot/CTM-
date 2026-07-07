@@ -1,6 +1,6 @@
 import json
 from datetime import date
-from fastapi import APIRouter, Depends, Request, Form
+from fastapi import APIRouter, Depends, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 from database import get_db
@@ -184,12 +184,71 @@ def detail_shipment(shipment_id: int, request: Request, db: Session = Depends(ge
 @router.get("/shipments/{shipment_id}/print", response_class=HTMLResponse)
 def print_shipment(shipment_id: int, request: Request, db: Session = Depends(get_db)):
     shipment = crud.get_shipment(db, shipment_id)
+    if not shipment:
+        raise HTTPException(404)
+    has_demo = any(it.shipment_type in ("demo", "repair_sub") for it in shipment.items)
     return templates.TemplateResponse(request, "shipments/detail_print.html", {
         "shipment":       shipment,
         "shipment_types": SHIPMENT_TYPES,
         "today":          date.today().isoformat(),
         "company":        company_info,
+        "has_demo":       has_demo,
     })
+
+
+# ── 編集 ───────────────────────────────────────────────────
+@router.get("/shipments/{shipment_id}/edit", response_class=HTMLResponse)
+def edit_shipment_form(shipment_id: int, request: Request, error: str = "", db: Session = Depends(get_db)):
+    shipment = crud.get_shipment(db, shipment_id)
+    if not shipment:
+        raise HTTPException(404)
+    has_demo = any(it.shipment_type in ("demo", "repair_sub") for it in shipment.items)
+    return templates.TemplateResponse(request, "shipments/edit.html", {
+        "shipment": shipment,
+        "has_demo": has_demo,
+        "error": error,
+    })
+
+
+@router.post("/shipments/{shipment_id}/edit")
+async def edit_shipment(shipment_id: int, request: Request, db: Session = Depends(get_db)):
+    shipment = crud.get_shipment(db, shipment_id)
+    if not shipment:
+        raise HTTPException(404)
+    form_data = await request.form()
+
+    def redirect_error(msg: str):
+        from urllib.parse import quote
+        return RedirectResponse(f"/shipments/{shipment_id}/edit?error={quote(msg)}", status_code=303)
+
+    customer_id_str = form_data.get("customer_id", "")
+    if not customer_id_str:
+        return redirect_error("取引先を選択してください。")
+    shipped_date_str = form_data.get("shipped_date", "")
+    if not shipped_date_str:
+        return redirect_error("出荷日を入力してください。")
+    return_due_str = form_data.get("return_due_date", "")
+    end_user_id_str = form_data.get("end_user_id", "")
+
+    has_demo = any(it.shipment_type in ("demo", "repair_sub") for it in shipment.items)
+    if has_demo and not return_due_str:
+        return redirect_error("デモ貸出・修理代替品を含む出荷は返却期限を入力してください。")
+
+    data = {
+        "customer_id":      int(customer_id_str),
+        "end_user_id":      int(end_user_id_str) if end_user_id_str else None,
+        "shipped_date":     date.fromisoformat(shipped_date_str),
+        "return_due_date":  date.fromisoformat(return_due_str) if return_due_str else None,
+        "contact_name":     form_data.get("contact_name") or None,
+        "end_user_contact": form_data.get("end_user_contact") or None,
+        "notes":            form_data.get("notes") or None,
+        "staff_name":       form_data.get("staff_name") or None,
+    }
+    try:
+        crud.update_shipment(db, shipment_id, data)
+    except Exception as e:
+        return redirect_error(f"更新エラー: {type(e).__name__}: {str(e)[:200]}")
+    return RedirectResponse(f"/shipments/{shipment_id}", status_code=303)
 
 
 # ── 返却登録 ──────────────────────────────────────────────

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}出荷編集 {{ shipment.shipment_number }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">✏️ 出荷編集 {{ shipment.shipment_number }}</h1>
+  <a href="/shipments/{{ shipment.id }}" class="btn btn-ghost">← 詳細に戻る</a>
+</div>
+
+{% if error %}
+<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;margin-bottom:16px;color:#991b1b">⚠ {{ error }}</div>
+{% endif %}
+
+<div style="background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.25);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:var(--text-muted)">
+  ℹ️ ここで編集できるのは出荷ヘッダー情報のみです。明細（商品・数量・S.N）を変更する場合は、出荷を削除して再登録してください。
+</div>
+
+<div class="form-card">
+  <form method="post" action="/shipments/{{ shipment.id }}/edit">
+    <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <!-- 取引先 -->
+      <div class="form-group">
+        <label class="label">取引先 <span class="required">*</span></label>
+        <div class="cac-wrap" style="position:relative">
+          <input type="text" id="customer_id_text" class="input" placeholder="顧客名で検索..."
+                 value="{{ shipment.customer.name }}" autocomplete="off"
+                 oninput="customerAC(this,'customer_id','customer_id_dd')"
+                 onfocus="if(this.value.trim())customerAC(this,'customer_id','customer_id_dd')">
+          <input type="hidden" name="customer_id" id="customer_id" value="{{ shipment.customer_id }}">
+          <div id="customer_id_dd" class="cac-dd" style="display:none;position:absolute;z-index:9999;background:white;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);width:100%;max-height:240px;overflow-y:auto"></div>
+        </div>
+      </div>
+      <!-- 取引先担当者 -->
+      <div class="form-group">
+        <label class="label">取引先担当者</label>
+        <input type="text" name="contact_name" class="input" value="{{ shipment.contact_name or '' }}" placeholder="取引先の担当者名">
+      </div>
+      <!-- エンドユーザー -->
+      <div class="form-group">
+        <label class="label">エンドユーザー</label>
+        <div class="cac-wrap" style="position:relative">
+          <input type="text" id="end_user_id_text" class="input" placeholder="エンドユーザー名で検索（任意）"
+                 value="{{ shipment.end_user.name if shipment.end_user else '' }}" autocomplete="off"
+                 oninput="customerAC(this,'end_user_id','end_user_id_dd')"
+                 onfocus="if(this.value.trim())customerAC(this,'end_user_id','end_user_id_dd')">
+          <input type="hidden" name="end_user_id" id="end_user_id" value="{{ shipment.end_user_id or '' }}">
+          <div id="end_user_id_dd" class="cac-dd" style="display:none;position:absolute;z-index:9999;background:white;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);width:100%;max-height:240px;overflow-y:auto"></div>
+        </div>
+      </div>
+      <!-- エンドユーザー担当者 -->
+      <div class="form-group">
+        <label class="label">エンドユーザー担当者</label>
+        <input type="text" name="end_user_contact" class="input" value="{{ shipment.end_user_contact or '' }}" placeholder="エンドユーザーの担当者名">
+      </div>
+      <!-- 出荷日 -->
+      <div class="form-group">
+        <label class="label">出荷日 <span class="required">*</span></label>
+        <input type="date" name="shipped_date" class="input" value="{{ shipment.shipped_date.isoformat() }}" required>
+      </div>
+      <!-- 返却期限 -->
+      <div class="form-group">
+        <label class="label">返却期限{% if has_demo %} <span class="required">*</span>{% endif %}</label>
+        <input type="date" name="return_due_date" class="input"
+               value="{{ shipment.return_due_date.isoformat() if shipment.return_due_date else '' }}"
+               {% if has_demo %}required{% endif %}>
+      </div>
+      <!-- 担当者（自社） -->
+      <div class="form-group">
+        <label class="label">担当者（自社）</label>
+        <input type="text" name="staff_name" class="input" value="{{ shipment.staff_name or '' }}" placeholder="担当者名">
+      </div>
+      <!-- 備考 -->
+      <div class="form-group">
+        <label class="label">備考</label>
+        <input type="text" name="notes" class="input" value="{{ shipment.notes or '' }}" placeholder="備考">
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <a href="/shipments/{{ shipment.id }}" class="btn btn-ghost">キャンセル</a>
+      <button type="submit" class="btn btn-primary" onclick="return prepareEditSubmit()">💾 更新する</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  addAcKeyboard('customer_id_text', 'customer_id_dd', 'customer_id');
+  addAcKeyboard('end_user_id_text', 'end_user_id_dd', 'end_user_id');
+});
+function addAcKeyboard(inputId, ddId, hiddenId) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  input.addEventListener('keydown', function(e) {
+    const dd = document.getElementById(ddId);
+    if (!dd || dd.style.display === 'none') return;
+    const items = [...dd.querySelectorAll('div[style*="cursor:pointer"], div[style*="cursor: pointer"]')].filter(d => d.textContent.trim());
+    if (!items.length) return;
+    const current = dd.querySelector('.ac-kb-active');
+    let idx = current ? items.indexOf(current) : -1;
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (current) current.classList.remove('ac-kb-active'); idx = Math.min(idx + 1, items.length - 1); items[idx].classList.add('ac-kb-active'); items[idx].scrollIntoView({block:'nearest'}); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); if (current) current.classList.remove('ac-kb-active'); idx = Math.max(idx - 1, 0); items[idx].classList.add('ac-kb-active'); items[idx].scrollIntoView({block:'nearest'}); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (current) current.dispatchEvent(new MouseEvent('mousedown', {bubbles:true})); else if (items.length === 1) items[0].dispatchEvent(new MouseEvent('mousedown', {bubbles:true})); }
+  });
+}
+function prepareEditSubmit() {
+  if (!document.getElementById('customer_id').value) {
+    alert('取引先を選択してください。');
+    return false;
+  }
+  return true;
+}
+</script>
+{% endblock %}

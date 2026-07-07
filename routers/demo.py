@@ -134,10 +134,10 @@ def demo_list(request: Request, db: Session = Depends(get_db),
 # ──────────────────────────────────────────────
 
 @router.get("/new", response_class=HTMLResponse)
-def demo_new(request: Request, db: Session = Depends(get_db)):
+def demo_new(request: Request, created: str = "", db: Session = Depends(get_db)):
     products = db.query(Product).order_by(Product.name).all()
     return templates.TemplateResponse(request, "demo/form.html", {
-        "unit": None, "products": products
+        "unit": None, "products": products, "created": created
     })
 
 
@@ -173,6 +173,7 @@ def demo_create(
     location_type: str = Form("own"),
     location_name: str = Form("CTM本社"),
     notes: str = Form(""),
+    next_action: str = Form("detail"),
 ):
     unit_code = _gen_unit_code(db)
     unit = DemoUnit(
@@ -187,6 +188,9 @@ def demo_create(
     )
     db.add(unit)
     db.commit()
+    if next_action == "continue":
+        from urllib.parse import quote
+        return RedirectResponse(f"/demo/new?created={quote(unit.unit_code)}", status_code=303)
     return RedirectResponse(f"/demo/{unit.id}", status_code=303)
 
 
