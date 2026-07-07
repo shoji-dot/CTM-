@@ -55,8 +55,8 @@
   <tr><th>出荷日</th><td>{{ shipment.shipped_date }}</td></tr>
   {% if shipment.return_due_date %}<tr><th>返却期限</th><td>{{ shipment.return_due_date }}</td></tr>{% endif %}
   {% if shipment.returned_date %}<tr><th>返却日</th><td>{{ shipment.returned_date }}</td></tr>{% endif %}
-  {% if shipment.contact_name %}<tr><th>取引先担当者</th><td>{{ shipment.contact_name }}</td></tr>{% endif %}
-  {% if shipment.end_user_contact %}<tr><th>エンドユーザー担当者</th><td>{{ shipment.end_user_contact }}</td></tr>{% endif %}
+  {% if shipment.contact_name %}<tr><th>取引先担当者</th><td>{{ shipment.contact_name }} 様</td></tr>{% endif %}
+  {% if shipment.end_user_contact %}<tr><th>エンドユーザー担当者</th><td>{{ shipment.end_user_contact }} 様</td></tr>{% endif %}
   {% if shipment.staff_name %}<tr><th>担当者</th><td>{{ shipment.staff_name }}</td></tr>{% endif %}
 </table>
 

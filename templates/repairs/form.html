@@ -5,69 +5,119 @@
   <h1 class="page-title">修理受付 新規登録</h1>
   <a href="/repairs/" class="btn btn-ghost">← 一覧に戻る</a>
 </div>
+
 <div class="form-card">
   <form method="post" action="/repairs/new">
     <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
-    <div class="form-section">
-      <h2 class="form-section-title">受付情報</h2>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="label">受付日 <span class="required">*</span></label>
-          <input type="date" name="received_date" value="{{ today }}" class="input" required>
+
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:14px">受付情報</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px">
+      <div class="form-group">
+        <label class="label">受付日 <span class="required">*</span></label>
+        <input type="date" name="received_date" value="{{ today }}" class="input" required>
+      </div>
+      <div class="form-group">
+        <label class="label">顧客 <span class="required">*</span></label>
+        <div class="cac-wrap" style="position:relative">
+          <input type="text" id="customer_id_text" class="input" placeholder="顧客名で検索..."
+                 autocomplete="off"
+                 oninput="customerAC(this,'customer_id','customer_id_dd')"
+                 onfocus="if(this.value.trim())customerAC(this,'customer_id','customer_id_dd')">
+          <input type="hidden" name="customer_id" id="customer_id" value="">
+          <div id="customer_id_dd" class="cac-dd" style="display:none;position:absolute;z-index:9999;background:white;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);width:100%;max-height:240px;overflow-y:auto"></div>
         </div>
-        <div class="form-group">
-          <label class="label">顧客 <span class="required">*</span></label>
-          <div class="cac-wrap" style="position:relative">
-            <input type="text" id="customer_id_text" class="input" placeholder="顧客名で検索..."
-                   autocomplete="off"
-                   oninput="customerAC(this,'customer_id','customer_id_dd')"
-                   onfocus="if(this.value.trim())customerAC(this,'customer_id','customer_id_dd')">
-            <input type="hidden" name="customer_id" id="customer_id" value="">
-            <div id="customer_id_dd" class="cac-dd" style="display:none;position:absolute;z-index:9999;background:white;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);width:100%;max-height:240px;overflow-y:auto"></div>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="label">エンドユーザー</label>
-          <div class="cac-wrap" style="position:relative">
-            <input type="text" id="end_user_id_text" class="input" placeholder="エンドユーザー名で検索（任意）"
-                   autocomplete="off"
-                   oninput="customerAC(this,'end_user_id','end_user_id_dd')"
-                   onfocus="if(this.value.trim())customerAC(this,'end_user_id','end_user_id_dd')">
-            <input type="hidden" name="end_user_id" id="end_user_id" value="">
-            <div id="end_user_id_dd" class="cac-dd" style="display:none;position:absolute;z-index:9999;background:white;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);width:100%;max-height:240px;overflow-y:auto"></div>
-          </div>
+      </div>
+      <div class="form-group">
+        <label class="label">エンドユーザー</label>
+        <div class="cac-wrap" style="position:relative">
+          <input type="text" id="end_user_id_text" class="input" placeholder="エンドユーザー名で検索（任意）"
+                 autocomplete="off"
+                 oninput="customerAC(this,'end_user_id','end_user_id_dd')"
+                 onfocus="if(this.value.trim())customerAC(this,'end_user_id','end_user_id_dd')">
+          <input type="hidden" name="end_user_id" id="end_user_id" value="">
+          <div id="end_user_id_dd" class="cac-dd" style="display:none;position:absolute;z-index:9999;background:white;border:1px solid #dde3ea;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);width:100%;max-height:240px;overflow-y:auto"></div>
         </div>
       </div>
     </div>
 
-    <div class="form-section">
-      <h2 class="form-section-title">故障品情報</h2>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="label">商品 <span class="required">*</span></label>
-          <select name="product_id" class="select" required>
-            <option value="">選択してください</option>
-            {% for p in products %}
-            <option value="{{ p.id }}">{{ p.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="label">シリアル番号</label>
-          <input type="text" name="serial_number" class="input" placeholder="例: SN-12345">
-        </div>
-        <div class="form-group">
-          <label class="label">ロット番号</label>
-          <input type="text" name="lot_number" class="input" placeholder="例: LOT-2024">
-        </div>
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:14px">故障品情報</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px">
+      <div class="form-group">
+        <label class="label">商品 <span class="required">*</span></label>
+        <select name="product_id" class="select" required>
+          <option value="">選択してください</option>
+          {% for p in products %}
+          <option value="{{ p.id }}">{{ p.name }}</option>
+          {% endfor %}
+        </select>
       </div>
       <div class="form-group">
-        <label class="label">故障内容 <span class="required">*</span></label>
-        <textarea name="fault_description" class="textarea" rows="3" placeholder="故障・不具合の詳細を入力してください" required></textarea>
+        <label class="label">シリアル番号</label>
+        <input type="text" name="serial_number" class="input" placeholder="例: SN-12345">
+      </div>
+      <div class="form-group">
+        <label class="label">ロット番号</label>
+        <input type="text" name="lot_number" class="input" placeholder="例: LOT-2024">
       </div>
     </div>
+    <div class="form-group" style="margin-bottom:20px">
+      <label class="label">故障内容 <span class="required">*</span></label>
+      <textarea name="fault_description" class="textarea" rows="3" placeholder="故障・不具合の詳細を入力してください" required></textarea>
+    </div>
 
-    <div class="form-section">
-      <h2 class="form-section-title">修理代替品（出荷済みの修理代替品と紐づける場合）</h2>
-      <div class="form-group">
-        <label class="labe
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:14px">修理代替品（出荷済みの修理代替品と紐づける場合）</h2>
+    <div class="form-group" style="margin-bottom:20px">
+      <label class="label">代替品出荷</label>
+      <select name="replacement_shipment_id" class="select">
+        <option value="">紐づけない</option>
+        {% for s in rep_shipments %}
+        <option value="{{ s.id }}">{{ s.shipment_number }}　{{ s.customer_name }}　{{ s.product_name }}{% if s.serial_number %} (S.N: {{ s.serial_number }}){% endif %}</option>
+        {% endfor %}
+      </select>
+      <span class="text-muted text-sm">修理代替品として既に出荷済みのものがあれば選択してください</span>
+    </div>
+
+    <div class="form-group" style="margin-bottom:8px">
+      <label class="label">備考</label>
+      <textarea name="notes" class="textarea" rows="2" placeholder="特記事項など"></textarea>
+    </div>
+
+    <div class="form-actions">
+      <a href="/repairs/" class="btn btn-ghost">キャンセル</a>
+      <button type="submit" class="btn btn-primary" onclick="return validateRepairForm()">🔧 登録する</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function addAcKeyboard(inputId, ddId, hiddenId) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  input.addEventListener('keydown', function(e) {
+    const dd = document.getElementById(ddId);
+    if (!dd || dd.style.display === 'none') return;
+    const items = [...dd.querySelectorAll('div[style*="cursor:pointer"], div[style*="cursor: pointer"]')].filter(d => d.textContent.trim());
+    if (!items.length) return;
+    const current = dd.querySelector('.ac-kb-active');
+    let idx = current ? items.indexOf(current) : -1;
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (current) current.classList.remove('ac-kb-active'); idx = Math.min(idx + 1, items.length - 1); items[idx].classList.add('ac-kb-active'); items[idx].scrollIntoView({block:'nearest'}); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); if (current) current.classList.remove('ac-kb-active'); idx = Math.max(idx - 1, 0); items[idx].classList.add('ac-kb-active'); items[idx].scrollIntoView({block:'nearest'}); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (current) current.dispatchEvent(new MouseEvent('mousedown', {bubbles:true})); else if (items.length === 1) items[0].dispatchEvent(new MouseEvent('mousedown', {bubbles:true})); }
+  });
+}
+document.addEventListener('DOMContentLoaded', () => {
+  addAcKeyboard('customer_id_text', 'customer_id_dd', 'customer_id');
+  addAcKeyboard('end_user_id_text', 'end_user_id_dd', 'end_user_id');
+});
+function validateRepairForm() {
+  if (!document.getElementById('customer_id').value) {
+    alert('顧客を選択してください。');
+    document.getElementById('customer_id_text').focus();
+    return false;
+  }
+  return true;
+}
+</script>
+{% endblock %}
