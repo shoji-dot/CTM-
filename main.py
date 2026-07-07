@@ -340,7 +340,10 @@ async def auth_middleware(request: Request, call_next):
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next):
     response = await call_next(request)
-    response.headers["X-Frame-Options"] = "DENY"
+    # /static/docs/ 配下は出荷伝票印刷ページに<embed>で埋め込むため、
+    # X-Frame-Options DENYの対象から除外する（同一オリジンのみ・他ページは引き続き保護）
+    if not request.url.path.startswith("/static/docs/"):
+        response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "same-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
