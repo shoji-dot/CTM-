@@ -5,7 +5,7 @@ from fastapi import APIRouter, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session, joinedload
 from database import get_db
-from models import Repair, Customer, Product, Shipment
+from models import Repair, Customer, Product, Shipment, RepairStatusLog
 import company_config
 
 from templates_config import templates as TEMPLATES
@@ -40,6 +40,17 @@ NEXT_STATUS = {
     "repair_ordered":  "repair_completed",
     "repair_completed":"closed",
 }
+
+PREV_STATUS = {v: k for k, v in NEXT_STATUS.items()}
+
+
+def _add_log(db: Session, repair_id: int, action: str, from_st, to_st, staff: dict, note: str = ""):
+    db.add(RepairStatusLog(
+        repair_id=repair_id, action=action,
+        from_status=from_st, to_status=to_st,
+        staff_name=(staff or {}).get("name"), note=note or None,
+    ))
+
 
 def _staff(request: Request):
     staff = getattr(request.state, "staff", None)
@@ -197,13 +208,123 @@ async def repair_detail(repair_id: int, request: Request, db: Session = Depends(
     repair["rep_shipment_number"]  = rep_ship.shipment_number if rep_ship else None
     repair["rep_product_name"]     = rep_ship.items[0].product.name if rep_ship and rep_ship.items else None
     next_status = NEXT_STATUS.get(repair["status"])
+    prev_status = PREV_STATUS.get(repair["status"])
+    logs = db.query(RepairStatusLog).filter(RepairStatusLog.repair_id == repair_id)\
+        .order_by(RepairStatusLog.id.desc()).all()
     return TEMPLATES.TemplateResponse(request, "repairs/detail.html", {
         "repair": repair,
         "status_labels": STATUS_LABELS,
         "next_status": next_status,
         "next_label": STATUS_LABELS.get(next_status, ""),
+        "prev_status": prev_status,
+        "prev_label": STATUS_LABELS.get(prev_status, ""),
+        "logs": logs,
         "today": today
     })
+
+
+# ── 1つ前の工程へ戻す ───────────────────────────────────────
+@router.post("/{repair_id}/back")
+async def back_status(
+    repair_id: int,
+    request: Request,
+    reason: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    staff = _staff(request)
+    r = db.query(Repair).filter(Repair.id == repair_id).first()
+    if not r:
+        raise HTTPException(404)
+    prev_st = PREV_STATUS.get(r.status)
+    if not prev_st:
+        return RedirectResponse(f"/repairs/{repair_id}", status_code=303)
+    # クローズ済からの差し戻しはmanager以上のみ
+    if r.status == "closed":
+        _require_manager(staff)
+    _add_log(db, r.id, "back", r.status, prev_st, staff, reason)
+    if r.status == "closed":
+        r.closed_date = None
+    r.status = prev_st
+    r.step_deadline = date.today() + timedelta(days=14)
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, f"工程の差し戻しに失敗しました: {e}")
+    return RedirectResponse(f"/repairs/{repair_id}", status_code=303)
+
+
+# ── 記録の編集（点検結果の追記・修正など） ──────────────────────
+_EDIT_DATE_FIELDS = {
+    "inspection_date": "点検日", "sent_to_maker_date": "メーカー送付日",
+    "maker_response_date": "メーカー回答日", "quote_submitted_date": "見積提出日",
+    "repair_ordered_date": "修理発注日", "repair_completed_date": "修理完了日",
+    "replacement_returned_date": "代替品返却日", "closed_date": "クローズ日",
+}
+_EDIT_TEXT_FIELDS = {
+    "serial_number": "シリアル番号", "lot_number": "ロット番号",
+    "fault_description": "故障内容", "inspection_result": "点検結果",
+    "inspector": "点検者", "maker_response": "メーカー回答",
+    "maker_response_note": "メーカー回答内容", "delivery_type": "発送方法",
+    "delivery_address": "発送先", "returned_serial_number": "返却品シリアル番号",
+    "notes": "備考",
+}
+
+
+@router.get("/{repair_id}/edit", response_class=HTMLResponse)
+async def edit_record_form(repair_id: int, request: Request, db: Session = Depends(get_db)):
+    staff = _staff(request)
+    r = db.query(Repair).filter(Repair.id == repair_id).first()
+    if not r:
+        raise HTTPException(404)
+    if r.status == "closed":
+        _require_manager(staff)
+    return TEMPLATES.TemplateResponse(request, "repairs/edit.html", {
+        "r": r, "status_labels": STATUS_LABELS,
+    })
+
+
+@router.post("/{repair_id}/edit")
+async def edit_record(repair_id: int, request: Request, db: Session = Depends(get_db)):
+    staff = _staff(request)
+    r = db.query(Repair).filter(Repair.id == repair_id).first()
+    if not r:
+        raise HTTPException(404)
+    if r.status == "closed":
+        _require_manager(staff)
+    form = await request.form()
+    changed = []
+
+    for f, label in _EDIT_TEXT_FIELDS.items():
+        new = (form.get(f) or "").strip() or None
+        if f == "fault_description" and not new:
+            raise HTTPException(400, "故障内容は必須です")
+        if new != getattr(r, f):
+            changed.append(label)
+            setattr(r, f, new)
+    for f, label in _EDIT_DATE_FIELDS.items():
+        new = _parse_date(form.get(f, ""), label)
+        if new != getattr(r, f):
+            changed.append(label)
+            setattr(r, f, new)
+    amt = (form.get("maker_quote_amount") or "").strip()
+    try:
+        new_amt = float(amt) if amt else None
+    except ValueError:
+        raise HTTPException(400, "メーカー見積金額の形式が不正です")
+    old_amt = float(r.maker_quote_amount) if r.maker_quote_amount is not None else None
+    if new_amt != old_amt:
+        changed.append("メーカー見積金額")
+        r.maker_quote_amount = new_amt
+
+    if changed:
+        _add_log(db, r.id, "edit", r.status, r.status, staff, "変更: " + "、".join(changed))
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, f"記録の更新に失敗しました: {e}")
+    return RedirectResponse(f"/repairs/{repair_id}", status_code=303)
 
 
 # ── ステータス更新 ─────────────────────────────────────────
@@ -250,6 +371,7 @@ async def advance_status(
             raise HTTPException(400, f"日付の形式が不正です: {v}")
     def _f(v): return float(v) if v else None
 
+    _add_log(db, r.id, "advance", r.status, next_st, staff)
     r.status = next_st
     r.step_deadline = date.today() + timedelta(days=14)
 

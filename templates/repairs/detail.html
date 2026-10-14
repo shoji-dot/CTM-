@@ -10,6 +10,7 @@
     {% if repair.status in ["repair_completed", "closed"] %}
     <a href="/repairs/{{ repair.id }}/detail-print" target="_blank" class="btn btn-ghost">🖨 修理明細書</a>
     {% endif %}
+    <a href="/repairs/{{ repair.id }}/edit" class="btn btn-ghost">✏️ 記録を編集</a>
     <a href="/repairs/" class="btn btn-ghost">← 一覧に戻る</a>
   </div>
 </div>
@@ -194,6 +195,56 @@
   ✅ この修理はクロージング済みです
 </div>
 {% endif %}
+
+<!-- 1つ前の工程へ戻す -->
+{% if prev_status %}
+<div class="detail-card" style="margin-top:16px;">
+  <h2 class="detail-card-title">工程を戻す</h2>
+  <form method="post" action="/repairs/{{ repair.id }}/back"
+        onsubmit="return confirm('「{{ prev_label }}」に戻します。入力済みの記録は保持されます。よろしいですか？')"
+        style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+    <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
+    <div class="form-group" style="margin:0;flex:1;min-width:220px;">
+      <label class="label">戻す理由（任意）</label>
+      <input type="text" name="reason" class="input" placeholder="例: 点検内容の追記漏れ">
+    </div>
+    <button type="submit" class="btn btn-ghost">← 「{{ prev_label }}」に戻す</button>
+  </form>
+  {% if repair.status == "closed" %}
+  <div class="text-muted text-sm" style="margin-top:8px">※クローズ済みからの差し戻しは管理者・マネージャーのみ可能です</div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- 変更履歴 -->
+<div class="detail-card" style="margin-top:16px;">
+  <h2 class="detail-card-title">変更履歴</h2>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>日時</th><th>操作</th><th>工程</th><th>担当</th><th>内容</th></tr></thead>
+      <tbody>
+        {% for l in logs %}
+        <tr>
+          <td class="mono text-sm">{{ l.created_at.strftime('%Y/%m/%d %H:%M') if l.created_at else '―' }}</td>
+          <td>
+            {% if l.action == "advance" %}<span class="badge badge-sent">進める</span>
+            {% elif l.action == "back" %}<span class="badge badge-rejected">戻す</span>
+            {% else %}<span class="badge badge-draft">編集</span>{% endif %}
+          </td>
+          <td class="text-sm">
+            {% if l.action == "edit" %}{{ status_labels.get(l.from_status, l.from_status) }}
+            {% else %}{{ status_labels.get(l.from_status, l.from_status) }} → {{ status_labels.get(l.to_status, l.to_status) }}{% endif %}
+          </td>
+          <td class="text-sm">{{ l.staff_name or '―' }}</td>
+          <td class="text-sm">{{ l.note or '' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="empty">履歴なし</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}

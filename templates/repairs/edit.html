@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}修理記録の編集 {{ r.repair_number }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">✏️ 修理記録の編集 <span class="mono" style="font-size:14px">{{ r.repair_number }}</span></h1>
+  <a href="/repairs/{{ r.id }}" class="btn btn-ghost">← 詳細に戻る</a>
+</div>
+
+<div style="background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.25);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:var(--text-muted)">
+  ℹ️ 現在の工程：<strong>{{ status_labels[r.status] }}</strong>。ここでは工程を変えずに記録のみ修正できます（変更内容は履歴に残ります）。故障品のシリアル番号が届いてから判明した場合もここで入力してください。
+</div>
+
+<div class="form-card">
+  <form method="post" action="/repairs/{{ r.id }}/edit">
+    <input type="hidden" name="_csrf" value="{{ csrf_token(request) }}">
+
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:14px">故障品情報</h2>
+    <div class="demo-grid-2" style="margin-bottom:14px">
+      <div class="form-group">
+        <label class="label">シリアル番号</label>
+        <input type="text" name="serial_number" class="input" value="{{ r.serial_number or '' }}">
+      </div>
+      <div class="form-group">
+        <label class="label">ロット番号</label>
+        <input type="text" name="lot_number" class="input" value="{{ r.lot_number or '' }}">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:20px">
+      <label class="label">故障内容 <span class="required">*</span></label>
+      <textarea name="fault_description" class="textarea" rows="3" required>{{ r.fault_description or '' }}</textarea>
+    </div>
+
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:14px">自社点検</h2>
+    <div class="demo-grid-2" style="margin-bottom:14px">
+      <div class="form-group">
+        <label class="label">点検日</label>
+        <input type="date" name="inspection_date" class="input" value="{{ r.inspection_date.isoformat() if r.inspection_date else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="label">点検者</label>
+        <input type="text" name="inspector" class="input" value="{{ r.inspector or '' }}">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:20px">
+      <label class="label">点検結果（追記・修正可）</label>
+      <textarea name="inspection_result" class="textarea" rows="5">{{ r.inspection_result or '' }}</textarea>
+    </div>
+
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:14px">メーカー対応</h2>
+    <div class="demo-grid-2" style="margin-bottom:14px">
+      <div class="form-group">
+        <label class="label">メーカー送付日</label>
+        <input type="date" name="sent_to_maker_date" class="input" value="{{ r.sent_to_maker_date.isoformat() if r.sent_to_maker_date else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="label">メーカー回答日</label>
+        <input type="date" name="maker_response_date" class="input" value="{{ r.maker_response_date.isoformat() if r.maker_response_date else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="label">メーカー回答</label>
+        <select name="maker_response" class="select">
+          <option value="">未回答</option>
+          <option value="free" {% if r.maker_response == 'free' %}selected{% endif %}>無償修理</option>
+          <option value="paid" {% if r.maker_response == 'paid' %}selected{% endif %}>有償修理</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="label">メーカー見積金額（円）</label>
+        <input type="number" name="maker_quote_amount" class="input" step="1" value="{{ r.maker_quote_amount|int if r.maker_quote_amount is not none else '' }}">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:20px">
+      <label class="label">メーカー回答内容</label>
+      <textarea name="maker_response_note" class="textarea" rows="2">{{ r.maker_response_note or '' }}</textarea>
+    </div>
+
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:14px">見積・発注・完了</h2>
+    <div class="demo-grid-2" style="margin-bottom:14px">
+      <div class="form-group">
+        <label class="label">見積提出日</label>
+        <input type="date" name="quote_submitted_date" class="input" value="{{ r.quote_submitted_date.isoformat() if r.quote_submitted_date else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="label">修理発注日</label>
+        <input type="date" name="repair_ordered_date" class="input" value="{{ r.repair_ordered_date.isoformat() if r.repair_ordered_date else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="label">修理完了日</label>
+        <input type="date" name="repair_completed_date" class="input" value="{{ r.repair_completed_date.isoformat() if r.repair_completed_date else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="label">発送方法</label>
+        <select name="delivery_type" class="select">
+          <option value="">未設定</option>
+          <option value="direct" {% if r.delivery_type == 'direct' %}selected{% endif %}>顧客直送</option>
+          <option value="company" {% if r.delivery_type == 'company' %}selected{% endif %}>弊社経由</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:20px">
+      <label class="label">発送先住所</label>
+      <input type="text" name="delivery_address" class="input" value="{{ r.delivery_address or '' }}">
+    </div>
+
+    <h2 style="font-size:14px;font-weight:700;margin-bottom:14px">クローズ</h2>
+    <div class="demo-grid-2" style="margin-bottom:14px">
+      <div class="form-group">
+        <label class="label">代替品返却日</label>
+        <input type="date" name="replacement_returned_date" class="input" value="{{ r.replacement_returned_date.isoformat() if r.replacement_returned_date else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="label">クローズ日</label>
+        <input type="date" name="closed_date" class="input" value="{{ r.closed_date.isoformat() if r.closed_date else '' }}">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:20px">
+      <label class="label">返却品シリアル番号</label>
+      <input type="text" name="returned_serial_number" class="input" value="{{ r.returned_serial_number or '' }}">
+    </div>
+
+    <div class="form-group" style="margin-bottom:8px">
+      <label class="label">備考</label>
+      <textarea name="notes" class="textarea" rows="3">{{ r.notes or '' }}</textarea>
+    </div>
+
+    <div class="form-actions">
+      <a href="/repairs/{{ r.id }}" class="btn btn-ghost">キャンセル</a>
+      <button type="submit" class="btn btn-primary">💾 更新する</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

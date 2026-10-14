@@ -387,6 +387,22 @@ class Repair(Base):
     )
 
 
+class RepairStatusLog(Base):
+    """修理工程の変更履歴（進める／戻す／記録編集）"""
+    __tablename__ = "repair_status_logs"
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    repair_id   = Column(Integer, ForeignKey("repairs.id"), nullable=False)
+    action      = Column(String(20), nullable=False)   # advance / back / edit
+    from_status = Column(String(30), nullable=True)
+    to_status   = Column(String(30), nullable=True)
+    staff_name  = Column(String(100), nullable=True)
+    note        = Column(Text, nullable=True)
+    created_at  = Column(DateTime, default=now_jst)
+    __table_args__ = (
+        Index("ix_repair_status_logs_repair_id", "repair_id"),
+    )
+
+
 class RepairRecord(Base):
     """故障・修理記録 - 故障の内容と修理経緯を追跡"""
     __tablename__ = "repair_records"
